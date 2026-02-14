@@ -48,12 +48,7 @@ class CharacterViewModel(
         name = prefs.getString("player_name", "") ?: "",
         deviceId = persistentDeviceId,
         theme = AppTheme.valueOf(prefs.getString("app_theme", AppTheme.MOONSTONE.name) ?: AppTheme.DEFAULT.name),
-        hasSeenHomeTutorial = prefs.getBoolean("has_seen_home_tutorial", false),
-        hasSeenTroupesTutorial = prefs.getBoolean("has_seen_troupes_tutorial", false),
-        hasSeenCharactersTutorial = prefs.getBoolean("has_seen_characters_tutorial", false),
-        hasSeenRulesTutorial = prefs.getBoolean("has_seen_rules_tutorial", false),
-        hasSeenSettingsTutorial = prefs.getBoolean("has_seen_settings_tutorial", false),
-        hasSeenGameSetupTutorial = prefs.getBoolean("has_seen_game_setup_tutorial", false),
+        hasSeenGlobalTutorial = prefs.getBoolean("has_seen_global_tutorial", false),
         newsItems = loadCachedNews()
     ))
     
@@ -314,17 +309,11 @@ class CharacterViewModel(
                 prefs.edit().putString("app_theme", event.theme.name).apply()
             }
             is CharacterEvent.SetHasSeenTutorial -> {
-                val prefKey = "has_seen_${event.tutorialKey}_tutorial"
+                val prefKey = if (event.tutorialKey == "global") "has_seen_global_tutorial" else "has_seen_${event.tutorialKey}_tutorial"
                 _state.update { 
-                    when(event.tutorialKey) {
-                        "home" -> it.copy(hasSeenHomeTutorial = event.seen)
-                        "troupes" -> it.copy(hasSeenTroupesTutorial = event.seen)
-                        "characters" -> it.copy(hasSeenCharactersTutorial = event.seen)
-                        "rules" -> it.copy(hasSeenRulesTutorial = event.seen)
-                        "settings" -> it.copy(hasSeenSettingsTutorial = event.seen)
-                        "game_setup" -> it.copy(hasSeenGameSetupTutorial = event.seen)
-                        else -> it
-                    }
+                    if (event.tutorialKey == "global") {
+                        it.copy(hasSeenGlobalTutorial = event.seen)
+                    } else it
                 }
                 prefs.edit().putBoolean(prefKey, event.seen).apply()
             }
