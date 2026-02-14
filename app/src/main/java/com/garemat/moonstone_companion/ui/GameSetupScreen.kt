@@ -63,7 +63,7 @@ fun GameSetupScreen(
     var showDiscoveryDialog by remember { mutableStateOf(false) }
 
     // Navigation state within Setup
-    val setupMode = remember { mutableStateOf<SetupMode?>(null) }
+    val setupMode = remember { mutableStateOf<SetupMode?>(if (state.useLocalModeByDefault) SetupMode.LOCAL else null) }
 
     // Tutorial interaction logic
     LaunchedEffect(currentTutorialStep) {

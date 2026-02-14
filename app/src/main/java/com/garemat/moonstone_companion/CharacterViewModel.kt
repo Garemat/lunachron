@@ -48,6 +48,7 @@ class CharacterViewModel(
         name = prefs.getString("player_name", "") ?: "",
         deviceId = persistentDeviceId,
         theme = AppTheme.valueOf(prefs.getString("app_theme", AppTheme.MOONSTONE.name) ?: AppTheme.DEFAULT.name),
+        useLocalModeByDefault = prefs.getBoolean("use_local_mode_by_default", false),
         hasSeenGlobalTutorial = prefs.getBoolean("has_seen_global_tutorial", false),
         newsItems = loadCachedNews()
     ))
@@ -307,6 +308,10 @@ class CharacterViewModel(
             is CharacterEvent.ChangeTheme -> {
                 _state.update { it.copy(theme = event.theme) }
                 prefs.edit().putString("app_theme", event.theme.name).apply()
+            }
+            is CharacterEvent.SetLocalModeDefault -> {
+                _state.update { it.copy(useLocalModeByDefault = event.useLocal) }
+                prefs.edit().putBoolean("use_local_mode_by_default", event.useLocal).apply()
             }
             is CharacterEvent.SetHasSeenTutorial -> {
                 val prefKey = if (event.tutorialKey == "global") "has_seen_global_tutorial" else "has_seen_${event.tutorialKey}_tutorial"

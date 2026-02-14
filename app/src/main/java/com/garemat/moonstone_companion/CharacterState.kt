@@ -21,6 +21,7 @@ data class CharacterState(
     val name: String = "",
     val deviceId: String = "",
     val theme: AppTheme = AppTheme.MOONSTONE,
+    val useLocalModeByDefault: Boolean = false,
     val isAddingCharacter: Boolean = false,
     val isAddingTroupe: Boolean = false,
     val sortType: SortType = SortType.NAME,

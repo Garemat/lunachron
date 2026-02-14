@@ -89,45 +89,62 @@ class MainActivity : ComponentActivity() {
                     gesturesEnabled = showNavBars,
                     drawerContent = {
                         ModalDrawerSheet(
-                            drawerShape = if (isMoonstone) RoundedCornerShape(0.dp) else DrawerDefaults.shape
+                            drawerShape = if (isMoonstone) RoundedCornerShape(0.dp) else DrawerDefaults.shape,
+                            drawerContainerColor = MaterialTheme.colorScheme.surface,
+                            drawerContentColor = MaterialTheme.colorScheme.primary
                         ) {
                             Spacer(Modifier.height(12.dp))
                             Text(
                                 "Moonstone Companion",
                                 modifier = Modifier.padding(16.dp),
                                 style = if (isMoonstone) MaterialTheme.typography.displayLarge.copy(fontSize = 24.sp) else MaterialTheme.typography.titleLarge,
-                                color = if (isMoonstone) MaterialTheme.colorScheme.primary else Color.Unspecified
+                                color = MaterialTheme.colorScheme.primary
                             )
-                            HorizontalDivider()
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                             NavigationDrawerItem(
                                 icon = { Icon(Icons.Default.MenuBook, contentDescription = null) },
-                                label = { Text("Rules") },
+                                label = { Text("Rules", style = if (isMoonstone) MaterialTheme.typography.displayLarge.copy(fontSize = 18.sp) else MaterialTheme.typography.labelLarge) },
                                 selected = false,
                                 onClick = {
                                     scope.launch { drawerState.close() }
                                     navController.navigate(Screen.Rules.route)
                                 },
-                                shape = if (isMoonstone) RoundedCornerShape(0.dp) else CircleShape
+                                shape = if (isMoonstone) RoundedCornerShape(0.dp) else CircleShape,
+                                colors = NavigationDrawerItemDefaults.colors(
+                                    unselectedIconColor = MaterialTheme.colorScheme.primary,
+                                    unselectedTextColor = MaterialTheme.colorScheme.primary,
+                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
                             )
                             NavigationDrawerItem(
                                 icon = { Icon(Icons.Default.Help, contentDescription = null) },
-                                label = { Text("Tutorial Help") },
+                                label = { Text("Tutorial Help", style = if (isMoonstone) MaterialTheme.typography.displayLarge.copy(fontSize = 18.sp) else MaterialTheme.typography.labelLarge) },
                                 selected = false,
                                 onClick = {
                                     scope.launch { drawerState.close() }
                                     showTutorialForcefully = true
                                 },
-                                shape = if (isMoonstone) RoundedCornerShape(0.dp) else CircleShape
+                                shape = if (isMoonstone) RoundedCornerShape(0.dp) else CircleShape,
+                                colors = NavigationDrawerItemDefaults.colors(
+                                    unselectedIconColor = MaterialTheme.colorScheme.primary,
+                                    unselectedTextColor = MaterialTheme.colorScheme.primary
+                                )
                             )
                             NavigationDrawerItem(
                                 icon = { Icon(Icons.Default.Settings, contentDescription = null) },
-                                label = { Text("Settings") },
+                                label = { Text("Settings", style = if (isMoonstone) MaterialTheme.typography.displayLarge.copy(fontSize = 18.sp) else MaterialTheme.typography.labelLarge) },
                                 selected = false,
                                 onClick = {
                                     scope.launch { drawerState.close() }
                                     navController.navigate(Screen.Settings.route)
                                 },
-                                shape = if (isMoonstone) RoundedCornerShape(0.dp) else CircleShape
+                                shape = if (isMoonstone) RoundedCornerShape(0.dp) else CircleShape,
+                                colors = NavigationDrawerItemDefaults.colors(
+                                    unselectedIconColor = MaterialTheme.colorScheme.primary,
+                                    unselectedTextColor = MaterialTheme.colorScheme.primary
+                                )
                             )
                         }
                     }
@@ -163,11 +180,7 @@ class MainActivity : ComponentActivity() {
                                         }
                                     },
                                     actions = {
-                                        if (currentDestination?.route != Screen.AddEditTroupe.route) {
-                                            IconButton(onClick = { showTutorialForcefully = true }) {
-                                                Icon(Icons.Default.Help, contentDescription = "Tutorial")
-                                            }
-                                        }
+                                        // actions removed as tutorial button was migrated to drawer
                                     },
                                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                                         containerColor = MaterialTheme.colorScheme.surfaceVariant,
