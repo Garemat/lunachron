@@ -1006,7 +1006,7 @@ fun TroupeSelector(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = selectedTroupe?.troupeName ?: "Select a troupe",
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = if (isMoonstone) MaterialTheme.typography.displayLarge.copy(fontSize = 18.sp) else MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.weight(1f),
                         color = if (selectedTroupe == null) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.onSurface
                     )
@@ -1028,7 +1028,7 @@ fun TroupeSelector(
                         Spacer(modifier = Modifier.width(8.dp))
                     }
 
-                    Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                    Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                 }
 
                 if (selectedTroupe != null) {
@@ -1039,7 +1039,8 @@ fun TroupeSelector(
                         Text(
                             text = names.joinToString(", "),
                             style = MaterialTheme.typography.bodySmall,
-                            fontStyle = FontStyle.Italic
+                            fontStyle = FontStyle.Italic,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -1049,10 +1050,18 @@ fun TroupeSelector(
         DropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
-            modifier = Modifier.fillMaxWidth(0.8f)
+            modifier = Modifier.fillMaxWidth(0.8f),
+            shape = if (isMoonstone) RoundedCornerShape(0.dp) else MenuDefaults.shape,
+            containerColor = MaterialTheme.colorScheme.surface
         ) {
             DropdownMenuItem(
-                text = { Text("Create New Troupe", color = MaterialTheme.colorScheme.primary) },
+                text = { 
+                    Text(
+                        "Create New Troupe", 
+                        color = MaterialTheme.colorScheme.primary,
+                        style = if (isMoonstone) MaterialTheme.typography.displayLarge.copy(fontSize = 16.sp) else MaterialTheme.typography.labelLarge
+                    ) 
+                },
                 leadingIcon = { Icon(Icons.Default.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
                 onClick = {
                     onCreateNewTroupe()
@@ -1063,11 +1072,16 @@ fun TroupeSelector(
                 }
             )
             if (troupes.isNotEmpty()) {
-                HorizontalDivider()
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
             troupes.forEach { troupe ->
                 DropdownMenuItem(
-                    text = { Text(troupe.troupeName) },
+                    text = { 
+                        Text(
+                            troupe.troupeName,
+                            style = if (isMoonstone) MaterialTheme.typography.displayLarge.copy(fontSize = 16.sp) else MaterialTheme.typography.bodyLarge
+                        ) 
+                    },
                     onClick = {
                         onTroupeSelected(troupe)
                         expanded = false
