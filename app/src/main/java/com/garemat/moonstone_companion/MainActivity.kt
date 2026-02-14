@@ -17,6 +17,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -56,9 +58,14 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             val state by viewModel.state.collectAsState()
-            var triggerTutorial by remember { mutableStateOf(0) }
+            var showTutorialForcefully by remember { mutableStateOf(false) }
             val isMoonstone = state.theme == AppTheme.MOONSTONE
             
+            // Global coordinate tracking for tutorial
+            val tutorialCoords = remember { mutableStateMapOf<String, LayoutCoordinates>() }
+            val isTutorialActive = !state.hasSeenGlobalTutorial || showTutorialForcefully
+            var currentTutorialStep by remember { mutableStateOf<TutorialStep?>(null) }
+
             MoonstonecompanionTheme(appTheme = state.theme) {
                 val navController = rememberNavController()
                 val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -66,7 +73,6 @@ class MainActivity : ComponentActivity() {
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentDestination = navBackStackEntry?.destination
 
-                // Screens where we show the navigation bars
                 val showNavBars = remember(currentDestination) {
                     currentDestination?.route in listOf(
                         Screen.Home.route,
@@ -100,6 +106,16 @@ class MainActivity : ComponentActivity() {
                                 onClick = {
                                     scope.launch { drawerState.close() }
                                     navController.navigate(Screen.Rules.route)
+                                },
+                                shape = if (isMoonstone) RoundedCornerShape(0.dp) else CircleShape
+                            )
+                            NavigationDrawerItem(
+                                icon = { Icon(Icons.Default.Help, contentDescription = null) },
+                                label = { Text("Tutorial Help") },
+                                selected = false,
+                                onClick = {
+                                    scope.launch { drawerState.close() }
+                                    showTutorialForcefully = true
                                 },
                                 shape = if (isMoonstone) RoundedCornerShape(0.dp) else CircleShape
                             )
@@ -138,15 +154,19 @@ class MainActivity : ComponentActivity() {
                                                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Discard Changes")
                                             }
                                         } else {
-                                            /*IconButton(onClick = { triggerTutorial++ }) {
-                                            //    Icon(Icons.Default.Help, contentDescription = "Tutorial")
-                                            } Temporailly removing tutorials*/
-
+                                            IconButton(
+                                                onClick = { scope.launch { drawerState.open() } },
+                                                modifier = Modifier.onGloballyPositioned { tutorialCoords["MenuButton"] = it }
+                                            ) {
+                                                Icon(Icons.Default.Menu, contentDescription = "Menu")
+                                            }
                                         }
                                     },
                                     actions = {
-                                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                                            Icon(Icons.Default.Menu, contentDescription = "Menu")
+                                        if (currentDestination?.route != Screen.AddEditTroupe.route) {
+                                            IconButton(onClick = { showTutorialForcefully = true }) {
+                                                Icon(Icons.Default.Help, contentDescription = "Tutorial")
+                                            }
                                         }
                                     },
                                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
@@ -176,6 +196,14 @@ class MainActivity : ComponentActivity() {
                                         val isPlayButton = item.label == "Play"
                                         
                                         NavigationBarItem(
+                                            modifier = Modifier.onGloballyPositioned { 
+                                                when(item.label) {
+                                                    "Characters" -> tutorialCoords["CharactersNav"] = it
+                                                    "Troupes" -> tutorialCoords["TroupesNav"] = it
+                                                    "Play" -> tutorialCoords["PlayNav"] = it
+                                                    "Stats" -> tutorialCoords["StatsNav"] = it
+                                                }
+                                            },
                                             icon = { 
                                                 if (isPlayButton) {
                                                     Surface(
@@ -220,87 +248,114 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     ) { innerPadding ->
-                        NavHost(
-                            navController = navController,
-                            startDestination = Screen.Home.route,
-                            modifier = Modifier.padding(innerPadding)
-                        ) {
-                            composable(Screen.Home.route) {
-                                HomeScreen(
-                                    state = state,
-                                    onEvent = viewModel::onEvent,
-                                    triggerTutorial = triggerTutorial
-                                )
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            NavHost(
+                                navController = navController,
+                                startDestination = Screen.Home.route,
+                                modifier = Modifier.padding(innerPadding)
+                            ) {
+                                composable(Screen.Home.route) {
+                                    HomeScreen(
+                                        state = state,
+                                        onEvent = viewModel::onEvent,
+                                        onTargetPositioned = { name, coords -> tutorialCoords[name] = coords }
+                                    )
+                                }
+                                composable(Screen.Settings.route) {
+                                    SettingsScreen(
+                                        state = state,
+                                        onEvent = viewModel::onEvent,
+                                        onNavigateBack = { navController.safePopBackStack() }
+                                    )
+                                }
+                                composable(Screen.Rules.route) {
+                                    RulesScreen(
+                                        viewModel = viewModel,
+                                        onNavigateBack = { navController.safePopBackStack() }
+                                    )
+                                }
+                                composable(Screen.Characters.route) {
+                                    CharacterListScreen(
+                                        state = state,
+                                        onEvent = viewModel::onEvent,
+                                        onNavigateBack = { navController.safePopBackStack() },
+                                        onTargetPositioned = { name, coords -> tutorialCoords[name] = coords }
+                                    )
+                                }
+                                composable(Screen.Troupes.route) {
+                                    TroupeListScreen(
+                                        state = state,
+                                        viewModel = viewModel,
+                                        onNavigateBack = { navController.safePopBackStack() },
+                                        onAddTroupe = { 
+                                            viewModel.editingTroupeId = null 
+                                            navController.navigate(Screen.AddEditTroupe.route) 
+                                        },
+                                        onEditTroupe = { navController.navigate(Screen.AddEditTroupe.route) },
+                                        isTutorialActive = isTutorialActive,
+                                        onTargetPositioned = { name, coords -> tutorialCoords[name] = coords }
+                                    )
+                                }
+                                composable(Screen.AddEditTroupe.route) {
+                                    AddEditTroupeScreen(
+                                        viewModel = viewModel,
+                                        state = state,
+                                        onNavigateBack = { navController.safePopBackStack() },
+                                        currentTutorialStep = currentTutorialStep,
+                                        onTargetPositioned = { name, coords -> tutorialCoords[name] = coords }
+                                    )
+                                }
+                                composable(Screen.GameSetup.route) {
+                                    GameSetupScreen(
+                                        state = state,
+                                        viewModel = viewModel,
+                                        onNavigateBack = { navController.safePopBackStack() },
+                                        onStartGame = { 
+                                            navController.navigate(Screen.ActiveGame.route)
+                                        },
+                                        onNavigateToAddEditTroupe = {
+                                            navController.navigate(Screen.AddEditTroupe.route)
+                                        },
+                                        currentTutorialStep = currentTutorialStep,
+                                        onTargetPositioned = { name, coords -> tutorialCoords[name] = coords }
+                                    )
+                                }
+                                composable(Screen.ActiveGame.route) {
+                                    val playersWithCharacters by viewModel.playersWithCharacters.collectAsState()
+                                    ActiveGameScreen(
+                                        state = state,
+                                        viewModel = viewModel,
+                                        players = playersWithCharacters,
+                                        onQuitGame = { 
+                                            navController.popBackStack(Screen.Home.route, inclusive = false)
+                                        },
+                                        isTutorialActive = isTutorialActive,
+                                        currentTutorialStep = currentTutorialStep,
+                                        onTargetPositioned = { name, coords -> tutorialCoords[name] = coords }
+                                    )
+                                }
+                                composable(Screen.Stats.route) {
+                                    StatsScreen(viewModel = viewModel)
+                                }
                             }
-                            composable(Screen.Settings.route) {
-                                SettingsScreen(
-                                    state = state,
-                                    onEvent = viewModel::onEvent,
-                                    onNavigateBack = { navController.safePopBackStack() }
-                                )
-                            }
-                            composable(Screen.Rules.route) {
-                                RulesScreen(
-                                    viewModel = viewModel,
-                                    onNavigateBack = { navController.safePopBackStack() }
-                                )
-                            }
-                            composable(Screen.Characters.route) {
-                                CharacterListScreen(
-                                    state = state,
-                                    onEvent = viewModel::onEvent,
-                                    onNavigateBack = { navController.safePopBackStack() },
-                                    triggerTutorial = triggerTutorial
-                                )
-                            }
-                            composable(Screen.Troupes.route) {
-                                TroupeListScreen(
-                                    state = state,
-                                    viewModel = viewModel,
-                                    onNavigateBack = { navController.safePopBackStack() },
-                                    onAddTroupe = { 
-                                        viewModel.editingTroupeId = null 
-                                        navController.navigate(Screen.AddEditTroupe.route) 
+
+                            if (isTutorialActive) {
+                                TutorialOverlay(
+                                    steps = fullAppTutorialSteps,
+                                    targetCoordinates = tutorialCoords,
+                                    navController = navController,
+                                    onStepChange = { currentTutorialStep = fullAppTutorialSteps.getOrNull(it) },
+                                    onComplete = {
+                                        viewModel.onEvent(CharacterEvent.SetHasSeenTutorial("global", true))
+                                        showTutorialForcefully = false
+                                        currentTutorialStep = null
                                     },
-                                    onEditTroupe = { navController.navigate(Screen.AddEditTroupe.route) },
-                                    triggerTutorial = triggerTutorial
-                                )
-                            }
-                            composable(Screen.AddEditTroupe.route) {
-                                AddEditTroupeScreen(
-                                    viewModel = viewModel,
-                                    state = state,
-                                    onNavigateBack = { navController.safePopBackStack() },
-                                    triggerTutorial = triggerTutorial
-                                )
-                            }
-                            composable(Screen.GameSetup.route) {
-                                GameSetupScreen(
-                                    state = state,
-                                    viewModel = viewModel,
-                                    onNavigateBack = { navController.safePopBackStack() },
-                                    onStartGame = { 
-                                        navController.navigate(Screen.ActiveGame.route)
-                                    },
-                                    onNavigateToAddEditTroupe = {
-                                        navController.navigate(Screen.AddEditTroupe.route)
-                                    },
-                                    triggerTutorial = triggerTutorial
-                                )
-                            }
-                            composable(Screen.ActiveGame.route) {
-                                val playersWithCharacters by viewModel.playersWithCharacters.collectAsState()
-                                ActiveGameScreen(
-                                    state = state,
-                                    viewModel = viewModel,
-                                    players = playersWithCharacters,
-                                    onQuitGame = { 
-                                        navController.popBackStack(Screen.Home.route, inclusive = false)
+                                    onSkip = {
+                                        viewModel.onEvent(CharacterEvent.SetHasSeenTutorial("global", true))
+                                        showTutorialForcefully = false
+                                        currentTutorialStep = null
                                     }
                                 )
-                            }
-                            composable(Screen.Stats.route) {
-                                StatsScreen(viewModel = viewModel)
                             }
                         }
                     }

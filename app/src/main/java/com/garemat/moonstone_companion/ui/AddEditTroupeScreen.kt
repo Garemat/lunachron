@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.garemat.moonstone_companion.*
 import com.garemat.moonstone_companion.ui.theme.LocalAppTheme
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,24 +40,32 @@ fun AddEditTroupeScreen(
     viewModel: CharacterViewModel,
     state: CharacterState,
     onNavigateBack: () -> Unit,
-    triggerTutorial: Int = 0
+    currentTutorialStep: TutorialStep? = null,
+    onTargetPositioned: (String, LayoutCoordinates) -> Unit = { _, _ -> }
 ) {
     var expandedCharacterId by remember { mutableStateOf<Int?>(null) }
     var searchQuery by remember { mutableStateOf("") }
     var isHeaderVisible by remember { mutableStateOf(true) }
     var showSettingsDialog by remember { mutableStateOf(false) }
     var showSaveValidationDialog by remember { mutableStateOf(false) }
-    var showTutorialForcefully by remember { mutableStateOf(false) }
-    val coordsMap = remember { mutableStateMapOf<String, LayoutCoordinates>() }
+    var isNameError by remember { mutableStateOf(false) }
+    
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
     val isMoonstone = LocalAppTheme.current == AppTheme.MOONSTONE
     
-    LaunchedEffect(triggerTutorial) {
-        if (triggerTutorial > 0) {
-            showTutorialForcefully = true
+    val isTutorialActive = currentTutorialStep != null
+
+    // Auto-open settings dialog during tutorial step
+    LaunchedEffect(currentTutorialStep) {
+        if (currentTutorialStep?.targetName == "AutoSelectSwitch") {
+            showSettingsDialog = true
+        } else if (currentTutorialStep?.targetName != "SettingsCog" && showSettingsDialog) {
+            if (currentTutorialStep?.targetName != "AutoSelectSwitch") {
+                showSettingsDialog = false
+            }
         }
     }
-
-    val shouldShowTutorial = (!state.hasSeenTroupesTutorial || showTutorialForcefully)
 
     val availableTags = remember(state.characters, viewModel.selectedTroupeFaction) {
         state.characters
@@ -104,10 +113,14 @@ fun AddEditTroupeScreen(
                     
                     OutlinedTextField(
                         value = viewModel.newTroupeName,
-                        onValueChange = { viewModel.newTroupeName = it },
+                        onValueChange = { 
+                            viewModel.newTroupeName = it 
+                            if (it.isNotBlank()) isNameError = false
+                        },
                         label = { Text("Troupe Name") },
-                        modifier = Modifier.fillMaxWidth().onGloballyPositioned { coordsMap["TroupeName"] = it },
+                        modifier = Modifier.fillMaxWidth().onGloballyPositioned { onTargetPositioned("TroupeName", it) },
                         singleLine = true,
+                        isError = isNameError,
                         shape = if (isMoonstone) RoundedCornerShape(0.dp) else OutlinedTextFieldDefaults.shape
                     )
 
@@ -118,7 +131,7 @@ fun AddEditTroupeScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 8.dp)
-                            .onGloballyPositioned { coordsMap["FactionSymbols"] = it },
+                            .onGloballyPositioned { onTargetPositioned("FactionSymbols", it) },
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Faction.entries.forEach { faction ->
@@ -150,7 +163,7 @@ fun AddEditTroupeScreen(
                         value = searchQuery,
                         onValueChange = { searchQuery = it },
                         placeholder = { Text("Search by name...") },
-                        modifier = Modifier.fillMaxWidth().onGloballyPositioned { coordsMap["NameSearch"] = it },
+                        modifier = Modifier.fillMaxWidth(),
                         leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                         trailingIcon = {
                             if (searchQuery.isNotEmpty()) {
@@ -167,7 +180,7 @@ fun AddEditTroupeScreen(
 
                     if (availableTags.isNotEmpty()) {
                         LazyRow(
-                            modifier = Modifier.fillMaxWidth().onGloballyPositioned { coordsMap["CharacterTags"] = it },
+                            modifier = Modifier.fillMaxWidth().onGloballyPositioned { onTargetPositioned("CharacterTags", it) },
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             contentPadding = PaddingValues(vertical = 4.dp)
                         ) {
@@ -195,7 +208,7 @@ fun AddEditTroupeScreen(
             Text(
                 text = "Add Characters (${viewModel.selectedCharacterIds.size})",
                 style = MaterialTheme.typography.titleSmall,
-                modifier = Modifier.padding(vertical = 8.dp).onGloballyPositioned { coordsMap["AddCharacters"] = it }
+                modifier = Modifier.padding(vertical = 8.dp)
             )
             
             if (availableCharacters.isEmpty()) {
@@ -284,8 +297,7 @@ fun AddEditTroupeScreen(
                 // Toggle Visibility
                 SmallFloatingActionButton(
                     onClick = { isHeaderVisible = !isHeaderVisible },
-                    shape = if (isMoonstone) RoundedCornerShape(0.dp) else FloatingActionButtonDefaults.smallShape,
-                    modifier = Modifier.onGloballyPositioned { coordsMap["FilterButton"] = it }
+                    shape = if (isMoonstone) RoundedCornerShape(0.dp) else FloatingActionButtonDefaults.smallShape
                 ) {
                     Icon(
                         imageVector = if (isHeaderVisible) Icons.Default.FilterListOff else Icons.Default.FilterList,
@@ -297,7 +309,7 @@ fun AddEditTroupeScreen(
                 SmallFloatingActionButton(
                     onClick = { showSettingsDialog = true },
                     shape = if (isMoonstone) RoundedCornerShape(0.dp) else FloatingActionButtonDefaults.smallShape,
-                    modifier = Modifier.onGloballyPositioned { coordsMap["SettingsCog"] = it }
+                    modifier = Modifier.onGloballyPositioned { onTargetPositioned("SettingsCog", it) }
                 ) {
                     Icon(Icons.Default.Settings, contentDescription = "Troupe Settings")
                 }
@@ -305,111 +317,122 @@ fun AddEditTroupeScreen(
                 // Save
                 FloatingActionButton(
                     onClick = {
-                        if (viewModel.autoSelectMembers) {
+                        if (viewModel.newTroupeName.isBlank()) {
+                            isNameError = true
+                            scope.launch {
+                                snackbarHostState.showSnackbar("Troupe name can't be empty")
+                            }
+                        } else if (viewModel.autoSelectMembers) {
+                            isNameError = false
                             showSaveValidationDialog = true
                         } else {
+                            isNameError = false
                             viewModel.onEvent(CharacterEvent.SaveTroupe)
                             onNavigateBack()
                         }
                     },
                     shape = if (isMoonstone) RoundedCornerShape(0.dp) else FloatingActionButtonDefaults.shape,
                     containerColor = if (viewModel.newTroupeName.isNotBlank() && viewModel.selectedCharacterIds.isNotEmpty())
-                        MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-                    modifier = Modifier.onGloballyPositioned { coordsMap["SaveButton"] = it }
+                        MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
                 ) {
                     Icon(Icons.Default.Check, contentDescription = "Save Troupe")
                 }
             }
         }
 
-        if (shouldShowTutorial) {
-            Box(modifier = Modifier.fillMaxSize().zIndex(100f)) {
-                TutorialOverlay(
-                    steps = buildTroupeTutorialSteps,
-                    targetCoordinates = coordsMap,
-                    onComplete = {
-                        viewModel.onEvent(CharacterEvent.SetHasSeenTutorial("troupes", true))
-                        showTutorialForcefully = false
-                    },
-                    onSkip = {
-                        viewModel.onEvent(CharacterEvent.SetHasSeenTutorial("troupes", true))
-                        showTutorialForcefully = false
-                    }
-                )
-            }
-        }
-    }
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 80.dp)
+        )
 
-    if (showSettingsDialog) {
-        AlertDialog(
-            onDismissRequest = { showSettingsDialog = false },
-            shape = if (isMoonstone) RoundedCornerShape(0.dp) else RoundedCornerShape(28.dp),
-            title = { Text("Troupe Settings") },
-            text = {
-                Column {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Auto Select Members", style = MaterialTheme.typography.bodyLarge)
-                            Text(
-                                "Skips the team selection prompt before games.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+        // Use custom overlay for settings instead of AlertDialog to keep it behind Tutorial Dialog
+        if (showSettingsDialog) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clickable(enabled = !isTutorialActive) { showSettingsDialog = false },
+                contentAlignment = Alignment.Center
+            ) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth(0.9f)
+                        .padding(16.dp)
+                        .clickable(enabled = false) { /* Prevent dismissing when clicking content */ },
+                    shape = if (isMoonstone) RoundedCornerShape(0.dp) else RoundedCornerShape(28.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 6.dp,
+                    shadowElevation = 8.dp
+                ) {
+                    Column(modifier = Modifier.padding(24.dp)) {
+                        Text(text = "Troupe Settings", style = MaterialTheme.typography.headlineSmall)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Auto Select Members", style = MaterialTheme.typography.bodyLarge)
+                                Text(
+                                    "Skips the team selection prompt before games.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = viewModel.autoSelectMembers,
+                                onCheckedChange = { if (!isTutorialActive) viewModel.autoSelectMembers = it },
+                                enabled = !isTutorialActive,
+                                modifier = Modifier.onGloballyPositioned { onTargetPositioned("AutoSelectSwitch", it) }
                             )
                         }
-                        Switch(
-                            checked = viewModel.autoSelectMembers,
-                            onCheckedChange = { viewModel.autoSelectMembers = it }
-                        )
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                            TextButton(onClick = { if (!isTutorialActive) showSettingsDialog = false }) {
+                                Text("Close")
+                            }
+                        }
                     }
                 }
-            },
-            confirmButton = {
-                TextButton(onClick = { showSettingsDialog = false }) {
-                    Text("Close")
-                }
             }
-        )
-    }
+        }
 
-    if (showSaveValidationDialog) {
-        val count = viewModel.selectedCharacterIds.size
-        AlertDialog(
-            onDismissRequest = { showSaveValidationDialog = false },
-            shape = if (isMoonstone) RoundedCornerShape(0.dp) else RoundedCornerShape(28.dp),
-            title = { Text("Save Troupe") },
-            text = {
-                Column {
-                    Text("Auto Select is enabled. This troupe will be valid for:")
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("• 2 Players: ${if (count <= 6) "Valid" else "Invalid (Max 6)"}", color = if (count <= 6) Color(0xFF2E7D32) else Color.Red)
-                    Text("• 3 Players: ${if (count <= 4) "Valid" else "Invalid (Max 4)"}", color = if (count <= 4) Color(0xFF2E7D32) else Color.Red)
-                    Text("• 4 Players: ${if (count <= 3) "Valid" else "Invalid (Max 3)"}", color = if (count <= 3) Color(0xFF2E7D32) else Color.Red)
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("Do you want to save anyway?")
+        if (showSaveValidationDialog) {
+            val count = viewModel.selectedCharacterIds.size
+            AlertDialog(
+                onDismissRequest = { showSaveValidationDialog = false },
+                shape = if (isMoonstone) RoundedCornerShape(0.dp) else RoundedCornerShape(28.dp),
+                title = { Text("Save Troupe") },
+                text = {
+                    Column {
+                        Text("Auto Select is enabled. This troupe will be valid for:")
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("• 2 Players: ${if (count <= 6) "Valid" else "Invalid (Max 6)"}", color = if (count <= 6) Color(0xFF2E7D32) else Color.Red)
+                        Text("• 3 Players: ${if (count <= 4) "Valid" else "Invalid (Max 4)"}", color = if (count <= 4) Color(0xFF2E7D32) else Color.Red)
+                        Text("• 4 Players: ${if (count <= 3) "Valid" else "Invalid (Max 3)"}", color = if (count <= 3) Color(0xFF2E7D32) else Color.Red)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text("Do you want to save anyway?")
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            viewModel.onEvent(CharacterEvent.SaveTroupe)
+                            showSaveValidationDialog = false
+                            onNavigateBack()
+                        },
+                        shape = if (isMoonstone) RoundedCornerShape(0.dp) else ButtonDefaults.shape
+                    ) {
+                        Text("Save")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showSaveValidationDialog = false }) {
+                        Text("Back to Edit")
+                    }
                 }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.onEvent(CharacterEvent.SaveTroupe)
-                        showSaveValidationDialog = false
-                        onNavigateBack()
-                    },
-                    shape = if (isMoonstone) RoundedCornerShape(0.dp) else ButtonDefaults.shape
-                ) {
-                    Text("Save")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showSaveValidationDialog = false }) {
-                    Text("Back to Edit")
-                }
-            }
-        )
+            )
+        }
     }
 }
 

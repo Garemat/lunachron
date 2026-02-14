@@ -12,8 +12,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
@@ -28,31 +26,19 @@ import com.garemat.moonstone_companion.CharacterState
 import com.garemat.moonstone_companion.NewsItem
 import com.garemat.moonstone_companion.ui.theme.LocalAppTheme
 import com.garemat.moonstone_companion.AppTheme
+import androidx.compose.ui.layout.ContentScale
 
 @Composable
 fun HomeScreen(
     state: CharacterState,
     onEvent: (CharacterEvent) -> Unit,
-    triggerTutorial: Int = 0
+    onTargetPositioned: (String, LayoutCoordinates) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
     var backPressedTime by remember { mutableLongStateOf(0L) }
     val isMoonstone = LocalAppTheme.current == AppTheme.MOONSTONE
     
-    // Tutorial coordinates tracking
-    val coordsMap = remember { mutableStateMapOf<String, LayoutCoordinates>() }
-    var showTutorialForcefully by remember { mutableStateOf(false) }
-
-    // Listen for global tutorial trigger
-    LaunchedEffect(triggerTutorial) {
-        if (triggerTutorial > 0) {
-            showTutorialForcefully = true
-        }
-    }
-
-    val shouldShowTutorial = (!state.hasSeenHomeTutorial || showTutorialForcefully)
-
     // Intercept back button to prevent accidental app exit from Home
     BackHandler {
         val currentTime = System.currentTimeMillis()
@@ -74,7 +60,9 @@ fun HomeScreen(
                 text = "Latest News",
                 style = if (isMoonstone) MaterialTheme.typography.displayLarge.copy(fontSize = 28.sp) else MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(vertical = 16.dp)
+                modifier = Modifier
+                    .padding(vertical = 16.dp)
+                    .onGloballyPositioned { onTargetPositioned("Latest News", it) }
             )
 
             if (state.isFetchingNews && state.newsItems.isEmpty()) {
@@ -95,21 +83,6 @@ fun HomeScreen(
                     }
                 }
             }
-        }
-
-        if (shouldShowTutorial) {
-            TutorialOverlay(
-                steps = homeScreenTutorialSteps,
-                targetCoordinates = coordsMap,
-                onComplete = {
-                    onEvent(CharacterEvent.SetHasSeenTutorial("home", true))
-                    showTutorialForcefully = false
-                },
-                onSkip = {
-                    onEvent(CharacterEvent.SetHasSeenTutorial("home", true))
-                    showTutorialForcefully = false
-                }
-            )
         }
     }
 }

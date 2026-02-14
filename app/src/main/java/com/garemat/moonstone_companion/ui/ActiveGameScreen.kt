@@ -55,11 +55,32 @@ fun ActiveGameScreen(
     state: CharacterState,
     viewModel: CharacterViewModel,
     players: List<Pair<Troupe, List<Character>>>,
-    onQuitGame: () -> Unit
+    onQuitGame: () -> Unit,
+    isTutorialActive: Boolean = false,
+    currentTutorialStep: TutorialStep? = null,
+    onTargetPositioned: (String, LayoutCoordinates) -> Unit = { _, _ -> }
 ) {
-    val pagerState = rememberPagerState(pageCount = { players.size })
+    val pagerState = rememberPagerState(pageCount = { if (isTutorialActive) 1 else players.size })
     val scope = rememberCoroutineScope()
     val isMoonstone = LocalAppTheme.current == AppTheme.MOONSTONE
+    
+    // Tutorial Helper: Create example characters if needed
+    val tutorialPlayers = remember(isTutorialActive, state.characters) {
+        if (isTutorialActive && state.characters.isNotEmpty()) {
+            val grub = state.characters.find { it.name.equals("Grub", ignoreCase = true) } ?: state.characters[0]
+            val gotchgut = state.characters.find { it.name.equals("Gotchgut", ignoreCase = true) } ?: state.characters.getOrNull(1) ?: state.characters[0]
+            val boulder = state.characters.find { it.name.equals("Boulder", ignoreCase = true) } ?: state.characters.getOrNull(2) ?: state.characters[0]
+            
+            val exampleTroupe = Troupe(troupeName = "Example Dominion", faction = Faction.DOMINION, characterIds = listOf(grub.id, gotchgut.id, boulder.id), shareCode = "")
+            listOf(exampleTroupe to listOf(grub, gotchgut, boulder))
+        } else if (isTutorialActive) {
+            // Placeholder while loading
+            val loadingTroupe = Troupe(troupeName = "Example Dominion", faction = Faction.DOMINION, characterIds = emptyList(), shareCode = "")
+            listOf(loadingTroupe to emptyList<Character>())
+        } else null
+    }
+
+    val activePlayers = tutorialPlayers ?: players
     
     // Drag and Drop State
     var draggingStoneSource by remember { mutableStateOf<StoneSource?>(null) }
@@ -76,12 +97,24 @@ fun ActiveGameScreen(
     var isDrawerOpen by rememberSaveable { mutableStateOf(false) }
     var showEndGameConfirm by remember { mutableStateOf(false) }
 
+    // Tutorial logic for drawer
+    LaunchedEffect(currentTutorialStep) {
+        if (currentTutorialStep?.targetName == "CharacterDrawerButton") {
+            isDrawerOpen = true
+        } else if (isTutorialActive && currentTutorialStep?.targetName != "CharacterDrawerButton") {
+            isDrawerOpen = false
+        }
+    }
+
     Scaffold(
         topBar = {
             Column(modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant)) {
                 CenterAlignedTopAppBar(
                     navigationIcon = {
-                        IconButton(onClick = { isDrawerOpen = !isDrawerOpen }) {
+                        IconButton(
+                            onClick = { if (!isTutorialActive) isDrawerOpen = !isDrawerOpen },
+                            modifier = Modifier.onGloballyPositioned { onTargetPositioned("CharacterDrawerButton", it) }
+                        ) {
                             Icon(
                                 if (isDrawerOpen) Icons.Default.MenuOpen else Icons.Default.Menu,
                                 contentDescription = "Toggle Character Drawer"
@@ -94,11 +127,12 @@ fun ActiveGameScreen(
                             val isRewindReady = state.readyForRewind.contains(state.deviceId)
                             val rewindCount = state.readyForRewind.size
                             val totalPlayers = state.gameSession?.players?.size ?: 1
-                            val canRewind = state.currentTurn > 1
+                            val canRewind = state.currentTurn > 1 || isTutorialActive
                             
                             IconButton(
-                                onClick = { viewModel.onEvent(CharacterEvent.RewindTurn) },
-                                enabled = canRewind
+                                onClick = { if (!isTutorialActive) viewModel.onEvent(CharacterEvent.RewindTurn) },
+                                enabled = canRewind,
+                                modifier = Modifier.onGloballyPositioned { onTargetPositioned("RewindButton", it) }
                             ) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Icon(
@@ -126,7 +160,8 @@ fun ActiveGameScreen(
                             val nextCount = state.readyForNextTurn.size
 
                             IconButton(
-                                onClick = { viewModel.onEvent(CharacterEvent.NextTurn) }
+                                onClick = { if (!isTutorialActive) viewModel.onEvent(CharacterEvent.NextTurn) },
+                                modifier = Modifier.onGloballyPositioned { onTargetPositioned("NextTurnButton", it) }
                             ) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Icon(
@@ -142,7 +177,8 @@ fun ActiveGameScreen(
 
                             // Quick End Game
                             IconButton(
-                                onClick = { showEndGameConfirm = true }
+                                onClick = { if (!isTutorialActive) showEndGameConfirm = true },
+                                modifier = Modifier.onGloballyPositioned { onTargetPositioned("EndGameQuickButton", it) }
                             ) {
                                 Icon(
                                     Icons.Default.Flag,
@@ -153,23 +189,27 @@ fun ActiveGameScreen(
                         }
                     },
                     actions = {
-                        IconButton(onClick = onQuitGame) {
+                        IconButton(
+                            onClick = { if (!isTutorialActive) onQuitGame() },
+                            modifier = Modifier.onGloballyPositioned { onTargetPositioned("CloseGameButton", it) }
+                        ) {
                             Icon(Icons.Default.Close, contentDescription = "End Game")
                         }
                     },
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                         containerColor = Color.Transparent
-                    )
+                    ),
+                    windowInsets = WindowInsets(top = 0.dp)
                 )
                 
-                if (players.size > 1) {
+                if (activePlayers.size > 1) {
                     ScrollableTabRow(
                         selectedTabIndex = pagerState.currentPage,
                         edgePadding = 16.dp,
                         containerColor = Color.Transparent,
                         divider = {}
                     ) {
-                        players.forEachIndexed { index, (troupe, _) ->
+                        activePlayers.forEachIndexed { index, (troupe, _) ->
                             Tab(
                                 selected = pagerState.currentPage == index,
                                 onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
@@ -186,10 +226,13 @@ fun ActiveGameScreen(
             }
         },
         bottomBar = {
-            val isLocalPlayer = remember(state.gameSession, pagerState.currentPage, state.deviceId) {
-                val session = state.gameSession
-                if (session == null) true
-                else session.players.getOrNull(pagerState.currentPage)?.deviceId == state.deviceId
+            val isLocalPlayer = remember(state.gameSession, pagerState.currentPage, state.deviceId, isTutorialActive) {
+                if (isTutorialActive) true
+                else {
+                    val session = state.gameSession
+                    if (session == null) true
+                    else session.players.getOrNull(pagerState.currentPage)?.deviceId == state.deviceId
+                }
             }
 
             Surface(
@@ -207,7 +250,10 @@ fun ActiveGameScreen(
                     Box(
                         modifier = Modifier
                             .size(60.dp)
-                            .onGloballyPositioned { potBounds.value = it.boundsInWindow() }
+                            .onGloballyPositioned { 
+                                potBounds.value = it.boundsInWindow()
+                                onTargetPositioned("MoonstonePool", it)
+                            }
                             .pointerInput(isLocalPlayer) {
                                 if (isLocalPlayer) {
                                     detectDragGestures(
@@ -220,12 +266,14 @@ fun ActiveGameScreen(
                                             dragPosition += dragAmount
                                         },
                                         onDragEnd = {
-                                            val dropTarget = characterBounds.entries.find { it.value.contains(dragPosition) }
-                                            if (dropTarget != null) {
-                                                val (pIdx, cIdx) = dropTarget.key.split("_").map { it.toInt() }
-                                                val currentState = stateRef.value.characterPlayStates[dropTarget.key]?.moonstones ?: 0
-                                                if (currentState < 7) {
-                                                    viewModel.onEvent(CharacterEvent.UpdateCharacterMoonstones(pIdx, cIdx, currentState + 1))
+                                            if (!isTutorialActive) {
+                                                val dropTarget = characterBounds.entries.find { it.value.contains(dragPosition) }
+                                                if (dropTarget != null) {
+                                                    val (pIdx, cIdx) = dropTarget.key.split("_").map { it.toInt() }
+                                                    val currentState = stateRef.value.characterPlayStates[dropTarget.key]?.moonstones ?: 0
+                                                    if (currentState < 7) {
+                                                        viewModel.onEvent(CharacterEvent.UpdateCharacterMoonstones(pIdx, cIdx, currentState + 1))
+                                                    }
                                                 }
                                             }
                                             draggingStoneSource = null
@@ -254,7 +302,7 @@ fun ActiveGameScreen(
                 state = pagerState,
                 modifier = Modifier.fillMaxSize().padding(padding)
             ) { pageIndex ->
-                val currentPair = players.getOrNull(pageIndex)
+                val currentPair = activePlayers.getOrNull(pageIndex)
                 if (currentPair != null) {
                     val characters = currentPair.second
                     val listState = rememberLazyListState()
@@ -280,8 +328,10 @@ fun ActiveGameScreen(
                                         CharacterPortraitJump(
                                             character = character,
                                             onClick = {
-                                                scope.launch {
-                                                    listState.animateScrollToItem(charIndex)
+                                                if (!isTutorialActive) {
+                                                    scope.launch {
+                                                        listState.animateScrollToItem(charIndex)
+                                                    }
                                                 }
                                             }
                                         )
@@ -297,7 +347,11 @@ fun ActiveGameScreen(
                             ) {
                                 itemsIndexed(characters) { charIndex, character ->
                                     val stateKey = "" + pageIndex + "_" + charIndex
-                                    val playState = state.characterPlayStates[stateKey] ?: CharacterPlayState(currentHealth = character.health)
+                                    val playState = if (isTutorialActive) {
+                                        CharacterPlayState(currentHealth = character.health, moonstones = if (charIndex == 0) 2 else 0)
+                                    } else {
+                                        state.characterPlayStates[stateKey] ?: CharacterPlayState(currentHealth = character.health)
+                                    }
 
                                     DisposableEffect(stateKey) {
                                         onDispose { characterBounds.remove(stateKey) }
@@ -316,7 +370,7 @@ fun ActiveGameScreen(
                                             isExpanded = playState.isExpanded,
                                             isFlipped = playState.isFlipped,
                                             usedAbilities = playState.usedAbilities,
-                                            isEditable = true,
+                                            isEditable = !isTutorialActive,
                                             draggingStoneIndex = if (draggingStoneSource is StoneSource.Character && 
                                                 (draggingStoneSource as StoneSource.Character).playerIndex == pageIndex && 
                                                 (draggingStoneSource as StoneSource.Character).charIndex == charIndex) draggingStoneIndex else -1,
@@ -335,7 +389,7 @@ fun ActiveGameScreen(
                                             onStoneDrag = { amount -> dragPosition += amount },
                                             onStoneDragEnd = {
                                                 val source = draggingStoneSource as? StoneSource.Character
-                                                if (source != null) {
+                                                if (source != null && !isTutorialActive) {
                                                     val currentState = stateRef.value
                                                     
                                                     if (potBounds.value?.contains(dragPosition) == true) {
@@ -414,7 +468,7 @@ fun ActiveGameScreen(
 
     // --- Victory/Tie Dialogs ---
 
-    if (state.winnerName != null) {
+    if (state.winnerName != null && !isTutorialActive) {
         AlertDialog(
             onDismissRequest = { viewModel.onEvent(CharacterEvent.ResetGamePlayState) },
             title = { Text("Victory!", style = if (isMoonstone) MaterialTheme.typography.displayLarge else MaterialTheme.typography.headlineMedium) },
@@ -433,7 +487,7 @@ fun ActiveGameScreen(
         )
     }
 
-    if (state.isTie) {
+    if (state.isTie && !isTutorialActive) {
         AlertDialog(
             onDismissRequest = { viewModel.onEvent(CharacterEvent.ResetGamePlayState) },
             title = { Text("It's a Tie!", style = if (isMoonstone) MaterialTheme.typography.displayLarge else MaterialTheme.typography.headlineMedium) },

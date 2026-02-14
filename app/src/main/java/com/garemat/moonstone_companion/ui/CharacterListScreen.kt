@@ -24,7 +24,7 @@ fun CharacterListScreen(
     state: CharacterState,
     onEvent: (CharacterEvent) -> Unit,
     onNavigateBack: () -> Unit,
-    triggerTutorial: Int = 0
+    onTargetPositioned: (String, LayoutCoordinates) -> Unit = { _, _ -> }
 ) {
     var expandedCharacterIds by remember { mutableStateOf(setOf<Int>()) }
     var searchQuery by remember { mutableStateOf("") }
@@ -58,19 +58,7 @@ fun CharacterListScreen(
         }
     }
 
-    val coordsMap = remember { mutableStateMapOf<String, LayoutCoordinates>() }
-    var showTutorialForcefully by remember { mutableStateOf(false) }
-
-    LaunchedEffect(triggerTutorial) {
-        if (triggerTutorial > 0) {
-            showTutorialForcefully = true
-        }
-    }
-
-    val shouldShowTutorial = (!state.hasSeenCharactersTutorial || showTutorialForcefully)
-    var tutorialStepIndex by remember { mutableIntStateOf(0) }
     val listState = rememberLazyListState()
-    val scope = rememberCoroutineScope()
 
     LaunchedEffect(availableTags) {
         selectedTags = selectedTags.filter { it in availableTags }.toSet()
@@ -114,7 +102,7 @@ fun CharacterListScreen(
                             selectedTags = emptySet()
                             expandedCharacterIds = emptySet()
                         },
-                        coordsMap = coordsMap
+                        onTargetPositioned = onTargetPositioned
                     )
                 }
             }
@@ -147,9 +135,8 @@ fun CharacterListScreen(
                         },
                         cardTargetName = if (isFirst) "FirstCharacterCard" else "CharacterCard",
                         onPositioned = { name, coords -> 
-                            if (isFirst || name == "FlipButton") coordsMap[name] = coords
-                        },
-                        forceFlipped = if (shouldShowTutorial && isFirst && expandedCharacterIds.contains(character.id) && tutorialStepIndex >= 8) true else null
+                            if (isFirst || name == "FlipButton") onTargetPositioned(name, coords)
+                        }
                     )
                 }
             }
@@ -160,54 +147,14 @@ fun CharacterListScreen(
             onClick = { showFilterBar = !showFilterBar },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(16.dp),
+                .padding(16.dp)
+                .onGloballyPositioned { onTargetPositioned("FilterButtonOpen", it) },
             containerColor = if (selectedFactions.isNotEmpty() || selectedTags.isNotEmpty() || searchQuery.isNotEmpty()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer
         ) {
             Icon(
                 imageVector = if (showFilterBar) Icons.Default.FilterListOff else Icons.Default.FilterList,
                 contentDescription = "Toggle Filters"
             )
-        }
-
-        if (shouldShowTutorial) {
-            Box(modifier = Modifier.fillMaxSize().zIndex(100f)) {
-                TutorialOverlay(
-                    steps = charactersScreenTutorialSteps,
-                    targetCoordinates = coordsMap,
-                    onComplete = {
-                        onEvent(CharacterEvent.SetHasSeenTutorial("characters", true))
-                        showTutorialForcefully = false
-                        expandedCharacterIds = emptySet()
-                        tutorialStepIndex = 0
-                    },
-                    onSkip = {
-                        onEvent(CharacterEvent.SetHasSeenTutorial("characters", true))
-                        showTutorialForcefully = false
-                        expandedCharacterIds = emptySet()
-                        tutorialStepIndex = 0
-                    },
-                    onStepChange = { step ->
-                        tutorialStepIndex = step
-                        when(step) {
-                            0 -> showFilterBar = false
-                            1, 2, 3, 4 -> showFilterBar = true
-                            5 -> {
-                                showFilterBar = false
-                                expandedCharacterIds = emptySet()
-                            }
-                            6 -> {
-                                val firstId = filteredCharacters.firstOrNull()?.id
-                                if (firstId != null) expandedCharacterIds = setOf(firstId)
-                                scope.launch { listState.animateScrollToItem(0) }
-                            }
-                            7 -> {
-                                val firstId = filteredCharacters.firstOrNull()?.id
-                                if (firstId != null) expandedCharacterIds = setOf(firstId)
-                            }
-                        }
-                    }
-                )
-            }
         }
     }
 }

@@ -31,12 +31,7 @@ data class CharacterState(
     val isFetchingNews: Boolean = false,
 
     // Tutorial State
-    val hasSeenHomeTutorial: Boolean = false,
-    val hasSeenTroupesTutorial: Boolean = false,
-    val hasSeenCharactersTutorial: Boolean = false,
-    val hasSeenRulesTutorial: Boolean = false,
-    val hasSeenSettingsTutorial: Boolean = false,
-    val hasSeenGameSetupTutorial: Boolean = false,
+    val hasSeenGlobalTutorial: Boolean = false,
     
     // Game Session State (Nearby)
     val gameSession: GameSession? = null,

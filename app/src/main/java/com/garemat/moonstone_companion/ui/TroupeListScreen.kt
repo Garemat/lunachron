@@ -22,8 +22,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.zIndex
-import com.garemat.moonstone_companion.Character
 import com.garemat.moonstone_companion.CharacterEvent
 import com.garemat.moonstone_companion.CharacterState
 import com.garemat.moonstone_companion.CharacterViewModel
@@ -38,38 +36,28 @@ fun TroupeListScreen(
     onNavigateBack: () -> Unit,
     onAddTroupe: () -> Unit,
     onEditTroupe: () -> Unit,
-    triggerTutorial: Int = 0
+    isTutorialActive: Boolean = false,
+    onTargetPositioned: (String, LayoutCoordinates) -> Unit = { _, _ -> }
 ) {
     var troupeToDelete by remember { mutableStateOf<Troupe?>(null) }
     var showImportDialog by remember { mutableStateOf(false) }
     var importCode by remember { mutableStateOf("") }
     val context = LocalContext.current
     
-    // Tutorial state
-    val coordsMap = remember { mutableStateMapOf<String, LayoutCoordinates>() }
-    var showTutorialForcefully by remember { mutableStateOf(false) }
-
-    LaunchedEffect(triggerTutorial) {
-        if (triggerTutorial > 0) {
-            showTutorialForcefully = true
-        }
-    }
-
-    val shouldShowTutorial = (!state.hasSeenTroupesTutorial || showTutorialForcefully)
-
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             floatingActionButton = {
                 FloatingActionButton(
                     onClick = onAddTroupe,
-                    modifier = Modifier.onGloballyPositioned { coordsMap["AddTroupe"] = it }
+                    modifier = Modifier.onGloballyPositioned { onTargetPositioned("AddTroupe", it) }
                 ) {
                     Icon(Icons.Default.Add, contentDescription = "Create Troupe")
                 }
             }
         ) { padding ->
-            val troupesToShow = if (shouldShowTutorial && state.troupes.isEmpty()) {
-                listOf(Troupe(id = -1, troupeName = "Example Troupe name", faction = Faction.COMMONWEALTH, characterIds = List(6) { 0 }, shareCode = ""))
+            // If no troupes exist AND tutorial is active, show a dummy one for the tutorial
+            val troupesToShow = if (state.troupes.isEmpty() && isTutorialActive) {
+                listOf(Troupe(id = -1, troupeName = "Example Troupe", faction = Faction.COMMONWEALTH, characterIds = emptyList(), shareCode = "DUMMY"))
             } else {
                 state.troupes
             }
@@ -83,7 +71,7 @@ fun TroupeListScreen(
                     contentPadding = padding,
                     modifier = Modifier
                         .fillMaxSize()
-                        .onGloballyPositioned { coordsMap["TroupeList"] = it },
+                        .onGloballyPositioned { onTargetPositioned("TroupeList", it) },
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(troupesToShow) { troupe ->
@@ -100,9 +88,11 @@ fun TroupeListScreen(
                                 if (troupe.id != -1) {
                                     val fullCode = viewModel.generateFullShareCode(troupe, state.characters)
                                     shareTroupe(context, troupe.troupeName, fullCode)
+                                } else {
+                                    shareTroupe(context, troupe.troupeName, "DUMMY_CODE")
                                 }
                             },
-                            onPositioned = { name, coords -> coordsMap[name] = coords }
+                            onPositioned = onTargetPositioned
                         )
                     }
                 }
@@ -183,23 +173,6 @@ fun TroupeListScreen(
                         TextButton(onClick = { viewModel.onEvent(CharacterEvent.DismissError) }) {
                             Text("OK")
                         }
-                    }
-                )
-            }
-        }
-
-        if (shouldShowTutorial) {
-            Box(modifier = Modifier.fillMaxSize().zIndex(100f)) {
-                TutorialOverlay(
-                    steps = troupesScreenTutorialSteps,
-                    targetCoordinates = coordsMap,
-                    onComplete = {
-                        viewModel.onEvent(CharacterEvent.SetHasSeenTutorial("troupes", true))
-                        showTutorialForcefully = false
-                    },
-                    onSkip = {
-                        viewModel.onEvent(CharacterEvent.SetHasSeenTutorial("troupes", true))
-                        showTutorialForcefully = false
                     }
                 )
             }

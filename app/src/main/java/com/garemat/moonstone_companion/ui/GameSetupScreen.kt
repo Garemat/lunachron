@@ -44,6 +44,10 @@ import androidx.core.content.ContextCompat
 import com.garemat.moonstone_companion.*
 import com.garemat.moonstone_companion.ui.theme.LocalAppTheme
 
+enum class SetupMode {
+    LOCAL, MULTIPLAYER
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GameSetupScreen(
@@ -52,49 +56,30 @@ fun GameSetupScreen(
     onNavigateBack: () -> Unit,
     onStartGame: () -> Unit,
     onNavigateToAddEditTroupe: () -> Unit,
-    triggerTutorial: Int = 0
+    currentTutorialStep: TutorialStep? = null,
+    onTargetPositioned: (String, LayoutCoordinates) -> Unit = { _, _ -> }
 ) {
-    var showScannerDialogForPlayer by remember { mutableStateOf<Int?>(null) }
+    val showScannerDialogForPlayer = remember { mutableStateOf<Int?>(null) }
     var showDiscoveryDialog by remember { mutableStateOf(false) }
-    var showTutorialForcefully by remember { mutableStateOf(false) }
-    var tutorialStepIndex by remember { mutableIntStateOf(0) }
-    val coordsMap = remember { mutableStateMapOf<String, LayoutCoordinates>() }
 
     // Navigation state within Setup
-    var setupMode by remember { mutableStateOf<SetupMode?>(null) }
+    val setupMode = remember { mutableStateOf<SetupMode?>(null) }
+
+    // Tutorial interaction logic
+    LaunchedEffect(currentTutorialStep) {
+        val target = currentTutorialStep?.targetName
+        if (target in listOf("PlayerCount", "TroupeSelector", "StartBattleButton")) {
+            setupMode.value = SetupMode.LOCAL
+        } else if (target == "LocalGameOption") {
+            setupMode.value = null
+        }
+    }
 
     // Logic for existing games confirmation
     var showAbandonConfirmation by remember { mutableStateOf(false) }
 
-    LaunchedEffect(triggerTutorial) {
-        if (triggerTutorial > 0) {
-            showTutorialForcefully = true
-        }
-    }
-
-    val shouldShowTutorial = (!state.hasSeenGameSetupTutorial || showTutorialForcefully)
     val session = state.gameSession
-    
-    val tutorialSession = remember(shouldShowTutorial, tutorialStepIndex, state.characters) {
-        if (shouldShowTutorial && tutorialStepIndex >= 12) {
-            val commonWealthChars = state.characters.filter { it.factions.contains(Faction.COMMONWEALTH) }.shuffled().take(3).map { it.id }
-            val shadesChars = state.characters.filter { it.factions.contains(Faction.SHADES) }.shuffled().take(3).map { it.id }
-            val dominionChars = state.characters.filter { it.factions.contains(Faction.DOMINION) }.shuffled().take(3).map { it.id }
-
-            GameSession(
-                sessionId = "EXAMPLE-123",
-                isHost = true,
-                players = listOf(
-                    GamePlayer(name = state.name.ifEmpty { "Host" }, deviceId = state.deviceId, isReady = true),
-                    GamePlayer(name = "Players 2", troupe = Troupe(troupeName = "Example Troupe Name", faction = Faction.COMMONWEALTH, characterIds = commonWealthChars, shareCode = "", autoSelectMembers = true), isReady = true),
-                    GamePlayer(name = "Eric", troupe = Troupe(troupeName = "Spooky Troupe", faction = Faction.SHADES, characterIds = shadesChars, shareCode = ""), isReady = true),
-                    GamePlayer(name = "Not a Goblin", troupe = Troupe(troupeName = "Not goblins", faction = Faction.DOMINION, characterIds = dominionChars, shareCode = ""), isReady = true)
-                )
-            )
-        } else null
-    }
-
-    val activeSession = tutorialSession ?: session
+    val activeSession = session
     val discoveredEndpoints by viewModel.discoveredEndpoints.collectAsState()
     val context = LocalContext.current
 
@@ -115,7 +100,7 @@ fun GameSetupScreen(
 
     var pendingNearbyAction by remember { mutableStateOf<(() -> Unit)?>(null) }
 
-    val nearbyPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
+    val nearbyPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions: Map<String, Boolean> ->
         if (permissions.values.all { it }) {
             pendingNearbyAction?.invoke()
             pendingNearbyAction = null
@@ -125,7 +110,7 @@ fun GameSetupScreen(
         }
     }
 
-    val cameraPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
         if (!isGranted) {
             Toast.makeText(context, "Camera permission is required to scan QR codes", Toast.LENGTH_SHORT).show()
         }
@@ -170,11 +155,10 @@ fun GameSetupScreen(
                         onSelectTroupe = { troupe -> viewModel.broadcastTroupeSelection(troupe) },
                         onStartGame = { viewModel.broadcastStartGame() },
                         onNavigateToAddEditTroupe = onNavigateToAddEditTroupe,
-                        onPositioned = { name, coords -> coordsMap[name] = coords },
-                        isTutorialMode = shouldShowTutorial
+                        onPositioned = onTargetPositioned
                     )
                 } else {
-                    when (setupMode) {
+                    when (setupMode.value) {
                         SetupMode.LOCAL -> {
                             OfflineSetupUI(
                                 state = state,
@@ -182,19 +166,17 @@ fun GameSetupScreen(
                                 onStartGame = onStartGame,
                                 onScanRequest = { index ->
                                     val permission = Manifest.permission.CAMERA
-                                    if (ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED) showScannerDialogForPlayer = index
+                                    if (ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED) showScannerDialogForPlayer.value = index
                                     else cameraPermissionLauncher.launch(permission)
                                 },
                                 onNavigateToAddEditTroupe = onNavigateToAddEditTroupe,
-                                onPositioned = { name, coords -> coordsMap[name] = coords },
-                                isTutorialMode = shouldShowTutorial,
-                                tutorialStep = tutorialStepIndex,
-                                onBack = { setupMode = null }
+                                onPositioned = onTargetPositioned,
+                                onBack = { setupMode.value = null }
                             )
                         }
                         else -> {
                             SetupModeSelection(
-                                onLocalSelected = { setupMode = SetupMode.LOCAL },
+                                onLocalSelected = { setupMode.value = SetupMode.LOCAL },
                                 onHostSelected = {
                                     checkAndRunNearbyAction {
                                         viewModel.startHosting(state.name.ifEmpty { "Host" })
@@ -205,7 +187,8 @@ fun GameSetupScreen(
                                         viewModel.startDiscovering()
                                         showDiscoveryDialog = true
                                     }
-                                }
+                                },
+                                onTargetPositioned = onTargetPositioned
                             )
                         }
                     }
@@ -245,18 +228,18 @@ fun GameSetupScreen(
                 )
             }
 
-            if (showScannerDialogForPlayer != null) {
-                val playerIndex = showScannerDialogForPlayer!!
-                Dialog(onDismissRequest = { showScannerDialogForPlayer = null }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+            if (showScannerDialogForPlayer.value != null) {
+                val playerIndex = showScannerDialogForPlayer.value!!
+                Dialog(onDismissRequest = { showScannerDialogForPlayer.value = null }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
                     Box(modifier = Modifier.fillMaxSize()) {
                         QrScanner(onResult = { result ->
                             val importedTroupe = viewModel.importTroupe(result, state.characters)
                             if (importedTroupe != null) {
                                 viewModel.onTroupeScanned(playerIndex, importedTroupe)
-                                showScannerDialogForPlayer = null
+                                showScannerDialogForPlayer.value = null
                             }
                         })
-                        IconButton(onClick = { showScannerDialogForPlayer = null }, modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)) {
+                        IconButton(onClick = { showScannerDialogForPlayer.value = null }, modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)) {
                             Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
                         }
                     }
@@ -283,7 +266,7 @@ fun GameSetupScreen(
                         onClick = {
                             viewModel.onEvent(CharacterEvent.AbandonGame)
                             showAbandonConfirmation = false
-                            setupMode = null // Reset setup mode on abandon
+                            setupMode.value = null // Reset setup mode on abandon
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                     ) {
@@ -297,38 +280,15 @@ fun GameSetupScreen(
                 }
             )
         }
-
-        if (shouldShowTutorial && state.activeTroupes.isEmpty() && setupMode == SetupMode.LOCAL) {
-            Box(modifier = Modifier.fillMaxSize().zIndex(100f)) {
-                TutorialOverlay(
-                    steps = gameSetupTutorialSteps,
-                    targetCoordinates = coordsMap,
-                    onStepChange = { tutorialStepIndex = it },
-                    onComplete = {
-                        viewModel.onEvent(CharacterEvent.SetHasSeenTutorial("game_setup", true))
-                        showTutorialForcefully = false
-                        tutorialStepIndex = 0
-                    },
-                    onSkip = {
-                        viewModel.onEvent(CharacterEvent.SetHasSeenTutorial("game_setup", true))
-                        showTutorialForcefully = false
-                        tutorialStepIndex = 0
-                    }
-                )
-            }
-        }
     }
-}
-
-enum class SetupMode {
-    LOCAL, MULTIPLAYER
 }
 
 @Composable
 fun SetupModeSelection(
     onLocalSelected: () -> Unit,
     onHostSelected: () -> Unit,
-    onJoinSelected: () -> Unit
+    onJoinSelected: () -> Unit,
+    onTargetPositioned: (String, LayoutCoordinates) -> Unit = { _, _ -> }
 ) {
     val isMoonstone = LocalAppTheme.current == AppTheme.MOONSTONE
     
@@ -350,7 +310,9 @@ fun SetupModeSelection(
             title = "Local Game",
             description = "Play on a single device with 2-4 players.",
             icon = Icons.Default.Smartphone,
-            onClick = onLocalSelected
+            backgroundType = "commonwealth",
+            onClick = onLocalSelected,
+            modifier = Modifier.onGloballyPositioned { onTargetPositioned("LocalGameOption", it) }
         )
         
         Spacer(modifier = Modifier.height(16.dp))
@@ -359,6 +321,7 @@ fun SetupModeSelection(
             title = "Host Game",
             description = "Start a multiplayer session for others to join.",
             icon = Icons.Default.WifiTethering,
+            backgroundType = "dominion",
             onClick = onHostSelected
         )
         
@@ -368,6 +331,7 @@ fun SetupModeSelection(
             title = "Join Game",
             description = "Connect to an existing multiplayer session nearby.",
             icon = Icons.Default.Wifi,
+            backgroundType = "leshavult",
             onClick = onJoinSelected
         )
     }
@@ -378,15 +342,17 @@ fun SetupOptionCard(
     title: String,
     description: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
-    onClick: () -> Unit
+    backgroundType: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val isMoonstone = LocalAppTheme.current == AppTheme.MOONSTONE
     val context = LocalContext.current
-    val backgroundRes = remember { context.resources.getIdentifier("shades", "drawable", context.packageName) }
+    val backgroundRes = remember(backgroundType) { context.resources.getIdentifier(backgroundType, "drawable", context.packageName) }
     
     Card(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth().height(100.dp),
+        modifier = modifier.fillMaxWidth().height(100.dp),
         shape = RoundedCornerShape(if (isMoonstone) 0.dp else 12.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isMoonstone) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface
@@ -505,8 +471,6 @@ fun OfflineSetupUI(
     onScanRequest: (Int) -> Unit,
     onNavigateToAddEditTroupe: () -> Unit,
     onPositioned: (String, LayoutCoordinates) -> Unit = { _, _ -> },
-    isTutorialMode: Boolean = false,
-    tutorialStep: Int = 0,
     onBack: () -> Unit = {}
 ) {
     var playerCount by remember { mutableIntStateOf(2) }
@@ -541,20 +505,6 @@ fun OfflineSetupUI(
                     }
                 }
             }
-        }
-    }
-
-    // Tutorial Helper: Auto-populate example troupe when reaching the Save step
-    LaunchedEffect(isTutorialMode, tutorialStep) {
-        if (isTutorialMode && tutorialStep >= 6 && selectedTroupes[0] == null) {
-            val exampleTroupe = Troupe(
-                troupeName = "Example Troupe Name",
-                faction = Faction.COMMONWEALTH,
-                characterIds = state.characters.filter { it.factions.contains(Faction.COMMONWEALTH) }.take(3).map { it.id },
-                shareCode = "EXAMPLE",
-                autoSelectMembers = true
-            )
-            selectedTroupes[0] = exampleTroupe
         }
     }
 
@@ -622,9 +572,8 @@ fun OfflineSetupUI(
                             val troupe = selectedTroupes[index]
                             
                             val showSave = troupe != null && state.troupes.none { it.shareCode == troupe.shareCode && troupe.shareCode.isNotEmpty() }
-                            val tutorialForceShowIcons = isTutorialMode && index == 0 && (tutorialStep in 6..7)
                             
-                            if (showSave || (tutorialForceShowIcons && tutorialStep == 6)) {
+                            if (showSave) {
                                 IconButton(
                                     onClick = { 
                                         troupe?.let {
@@ -638,7 +587,7 @@ fun OfflineSetupUI(
                                 }
                             }
                             
-                            if (troupe != null || (tutorialForceShowIcons && tutorialStep == 7)) {
+                            if (troupe != null) {
                                 IconButton(
                                     onClick = { showQrForTroupe = troupe },
                                     modifier = Modifier.onGloballyPositioned { if (index == 0) onPositioned("QrCodeDisplayButton", it) }
@@ -655,18 +604,7 @@ fun OfflineSetupUI(
                             }
                         }
 
-                        val displayTroupes = if (isTutorialMode && state.troupes.none { it.troupeName == "Example Troupe Name" }) {
-                            val exampleTroupe = Troupe(
-                                troupeName = "Example Troupe Name",
-                                faction = Faction.COMMONWEALTH,
-                                characterIds = state.characters.filter { it.factions.contains(Faction.COMMONWEALTH) }.take(3).map { it.id },
-                                shareCode = "EXAMPLE",
-                                autoSelectMembers = true
-                            )
-                            listOf(exampleTroupe) + state.troupes
-                        } else {
-                            state.troupes
-                        }
+                        val displayTroupes = state.troupes
 
                         TroupeSelector(
                             troupes = displayTroupes,
@@ -696,8 +634,6 @@ fun OfflineSetupUI(
                                 onNavigateToAddEditTroupe()
                             },
                             modifier = Modifier.onGloballyPositioned { if (index == 0) onPositioned("TroupeSelector", it) },
-                            isTutorialMode = isTutorialMode && index == 0,
-                            tutorialStep = tutorialStep,
                             onPositioned = onPositioned
                         )
                     }
@@ -716,7 +652,7 @@ fun OfflineSetupUI(
                 }
             },
             enabled = selectedTroupes.take(playerCount).all { it != null },
-            modifier = Modifier.fillMaxWidth().height(56.dp).onGloballyPositioned { onPositioned("BattleButton", it) },
+            modifier = Modifier.fillMaxWidth().height(56.dp).onGloballyPositioned { onPositioned("StartBattleButton", it) },
             shape = RoundedCornerShape(if (isMoonstone) 0.dp else 12.dp)
         ) {
             Text("BATTLE!", fontSize = if (isMoonstone) 20.sp else 16.sp, fontWeight = FontWeight.ExtraBold)
@@ -801,8 +737,7 @@ fun SessionSetupUI(
     onSelectTroupe: (Troupe) -> Unit,
     onStartGame: () -> Unit,
     onNavigateToAddEditTroupe: () -> Unit,
-    onPositioned: (String, LayoutCoordinates) -> Unit = { _, _ -> },
-    isTutorialMode: Boolean = false
+    onPositioned: (String, LayoutCoordinates) -> Unit = { _, _ -> }
 ) {
     var troupeToPrune by remember { mutableStateOf<Troupe?>(null) }
     val playerCount = session.players.size
@@ -829,7 +764,7 @@ fun SessionSetupUI(
 
     Column(modifier = Modifier.fillMaxSize()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { viewModel.leaveSession() }) {
+            IconButton(onClick = { viewModel.leaveSession() }, modifier = Modifier.onGloballyPositioned { onPositioned("LeaveButton", it) }) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Leave Session")
             }
             Text(
@@ -880,10 +815,8 @@ fun SessionSetupUI(
                         onNavigateToAddEditTroupe()
                     },
                     modifier = Modifier.onGloballyPositioned {
-                        if (isTutorialMode) {
-                            if (index == 0) onPositioned("FirstPlayerSlot", it)
-                            if (index == 1) onPositioned("SecondPlayerSlot", it)
-                        }
+                        if (index == 0) onPositioned("FirstPlayerSlot", it)
+                        if (index == 1) onPositioned("SecondPlayerSlot", it)
                     }
                 )
             }
@@ -891,7 +824,7 @@ fun SessionSetupUI(
 
         Button(
             onClick = onStartGame,
-            enabled = (session.isHost && session.players.size >= 2 && session.players.all { it.troupe != null }) || (isTutorialMode && session.sessionId == "EXAMPLE-123"),
+            enabled = (session.isHost && session.players.size >= 2 && session.players.all { it.troupe != null }),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 16.dp)
@@ -1026,7 +959,7 @@ fun QrCodeDialog(
                 )
                 Spacer(modifier = Modifier.height(16.dp))
 
-                val bitmap = remember(shareCode) { BarcodeUtils.generateQrCode(shareCode) }
+                val bitmap = BarcodeUtils.generateQrCode(shareCode)
                 if (bitmap != null) {
                     Image(
                         bitmap = bitmap.asImageBitmap(),
@@ -1058,20 +991,10 @@ fun TroupeSelector(
     onCreateNewTroupe: () -> Unit,
     onEditTroupe: (Troupe) -> Unit,
     modifier: Modifier = Modifier,
-    isTutorialMode: Boolean = false,
-    tutorialStep: Int = 0,
     onPositioned: (String, LayoutCoordinates) -> Unit = { _, _ -> }
 ) {
     var expanded by remember { mutableStateOf(false) }
     val isMoonstone = LocalAppTheme.current == AppTheme.MOONSTONE
-
-    LaunchedEffect(isTutorialMode, tutorialStep) {
-        if (isTutorialMode && (tutorialStep == 4 || tutorialStep == 5)) {
-            expanded = true
-        } else if (isTutorialMode) {
-            expanded = false
-        }
-    }
 
     Box(modifier = modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         OutlinedCard(
@@ -1088,11 +1011,11 @@ fun TroupeSelector(
                         color = if (selectedTroupe == null) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.onSurface
                     )
 
-                    if (selectedTroupe != null || (isTutorialMode && tutorialStep >= 9)) {
+                    if (selectedTroupe != null) {
                         IconButton(
-                            onClick = { selectedTroupe?.let { onEditTroupe(it) } },
+                            onClick = { onEditTroupe(selectedTroupe) },
                             modifier = Modifier.size(24.dp).onGloballyPositioned {
-                                if (isTutorialMode) onPositioned("EditTroupeButton", it)
+                                onPositioned("EditTroupeButton", it)
                             }
                         ) {
                             Icon(
@@ -1136,7 +1059,7 @@ fun TroupeSelector(
                     expanded = false
                 },
                 modifier = Modifier.onGloballyPositioned {
-                    if (isTutorialMode) onPositioned("CreateNewTroupe", it)
+                    onPositioned("CreateNewTroupe", it)
                 }
             )
             if (troupes.isNotEmpty()) {
@@ -1150,7 +1073,7 @@ fun TroupeSelector(
                         expanded = false
                     },
                     modifier = Modifier.onGloballyPositioned {
-                        if (isTutorialMode && troupe.troupeName == "Example Troupe Name") {
+                        if (troupe.troupeName == "Example Troupe Name") {
                             onPositioned("ExampleTroupeItem", it)
                         }
                     }
