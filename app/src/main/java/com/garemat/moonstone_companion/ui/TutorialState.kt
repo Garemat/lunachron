@@ -64,7 +64,7 @@ val fullAppTutorialSteps = listOf(
     TutorialStep("CloseGameButton", "You can close this screen to return to the rest of the app. Your game state will be saved so you can jump right back in!", requiredRoute = Screen.ActiveGame.route),
     
     // Bottom Nav - Stats
-    TutorialStep("StatsNav", "Finally, track your win/loss records and other statistics here.", requiredRoute = Screen.GameSetup.route),
+    TutorialStep("StatsNav", "Finally, track your win/loss records and other statistics here.", requiredRoute = Screen.Home.route),
     
     TutorialStep("", "That's it! You're ready to start using the Moonstone Companion. Enjoy your games!", isArrowless = true, requiredRoute = Screen.Stats.route)
 )
