@@ -2,6 +2,7 @@ package com.garemat.moonstone_companion
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -72,6 +73,7 @@ class MainActivity : ComponentActivity() {
                 val scope = rememberCoroutineScope()
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentDestination = navBackStackEntry?.destination
+                val backDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
 
                 val showNavBars = remember(currentDestination) {
                     currentDestination?.route in listOf(
@@ -98,7 +100,7 @@ class MainActivity : ComponentActivity() {
                                 "Moonstone Companion",
                                 modifier = Modifier.padding(16.dp),
                                 style = if (isMoonstone) MaterialTheme.typography.displayLarge.copy(fontSize = 24.sp) else MaterialTheme.typography.titleLarge,
-                                color = MaterialTheme.colorScheme.primary
+                                color = if (isMoonstone) MaterialTheme.colorScheme.primary else Color.Unspecified
                             )
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                             NavigationDrawerItem(
@@ -167,8 +169,8 @@ class MainActivity : ComponentActivity() {
                                     ) },
                                     navigationIcon = {
                                         if (currentDestination?.route == Screen.AddEditTroupe.route) {
-                                            IconButton(onClick = { navController.safePopBackStack() }) {
-                                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Discard Changes")
+                                            IconButton(onClick = { backDispatcher?.onBackPressed() }) {
+                                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                                             }
                                         } else {
                                             IconButton(
