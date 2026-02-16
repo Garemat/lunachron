@@ -218,7 +218,7 @@ class CharacterViewModel(
     var newTroupeName by mutableStateOf("")
     var selectedTroupeFaction by mutableStateOf(Faction.COMMONWEALTH)
     var selectedCharacterIds by mutableStateOf(setOf<Int>())
-    var autoSelectMembers by mutableStateOf(false)
+    var isTournamentList by mutableStateOf(false)
     var pendingTroupePlayerIndex by mutableStateOf<Int?>(null)
 
     // Active Game State
@@ -276,7 +276,7 @@ class CharacterViewModel(
                 newTroupeName = event.troupe.troupeName
                 selectedTroupeFaction = event.troupe.faction
                 selectedCharacterIds = event.troupe.characterIds.toSet()
-                autoSelectMembers = event.troupe.autoSelectMembers
+                isTournamentList = event.troupe.isTournamentList
             }
             CharacterEvent.SaveTroupe -> {
                 val troupe = Troupe(
@@ -285,7 +285,7 @@ class CharacterViewModel(
                     faction = selectedTroupeFaction,
                     characterIds = selectedCharacterIds.toList(),
                     shareCode = "",
-                    autoSelectMembers = autoSelectMembers
+                    isTournamentList = isTournamentList
                 )
                 viewModelScope.launch { 
                     val id = dao.upsertTroupe(troupe)
@@ -593,7 +593,7 @@ class CharacterViewModel(
         newTroupeName = ""
         selectedTroupeFaction = Faction.COMMONWEALTH
         selectedCharacterIds = emptySet()
-        autoSelectMembers = false
+        isTournamentList = false
     }
 
     fun generateFullShareCode(troupe: Troupe, characters: List<Character>): String {
@@ -606,8 +606,8 @@ class CharacterViewModel(
         val selectedCodes = troupe.characterIds.mapNotNull { id ->
             characters.find { it.id == id }?.shareCode
         }.joinToString("")
-        val autoSelectFlag = if (troupe.autoSelectMembers) "1" else "0"
-        val rawCode = "${troupe.troupeName}|$factionCode$autoSelectFlag$selectedCodes"
+        val isTournamentFlag = if (troupe.isTournamentList) "1" else "0"
+        val rawCode = "${troupe.troupeName}|$factionCode$isTournamentFlag$selectedCodes"
         return Base64.encodeToString(rawCode.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
     }
 
@@ -627,14 +627,14 @@ class CharacterViewModel(
                 'D' -> Faction.SHADES
                 else -> return null
             }
-            val autoSelect = codeBody[1] == '1'
+            val isTournament = codeBody[1] == '1'
             val characterCodes = codeBody.substring(2).chunked(3)
 
             val characterIds = characterCodes.mapNotNull { code ->
                 allCharacters.find { it.shareCode == code }?.id
             }
             
-            return Troupe(0, name, faction, characterIds, fullCode, autoSelectMembers = autoSelect)
+            return Troupe(0, name, faction, characterIds, fullCode, isTournamentList = isTournament)
         } catch (e: Exception) {
             return null
         }
@@ -708,7 +708,8 @@ class CharacterViewModel(
                     troupeName = message.troupeName,
                     faction = message.faction,
                     characterIds = message.characterIds,
-                    shareCode = ""
+                    shareCode = "",
+                    isTournamentList = false // Default for synced selections if not specified
                 )
                 
                 val updatedPlayers = currentSession.players.map { player ->

@@ -134,7 +134,7 @@ data class Troupe(
     val faction: Faction,
     val characterIds: List<Int>,
     val shareCode: String,
-    val autoSelectMembers: Boolean = false
+    val isTournamentList: Boolean = false
 )
 
 @Entity

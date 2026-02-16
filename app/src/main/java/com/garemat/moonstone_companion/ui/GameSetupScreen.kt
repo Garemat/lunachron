@@ -498,7 +498,8 @@ fun OfflineSetupUI(
                         4 -> 3
                         else -> 6
                     }
-                    if (event.troupe.autoSelectMembers && event.troupe.characterIds.size <= maxAllowed) {
+                    // If tournament mode is ON, we ALWAYS show the pruning dialog unless it's already pruned
+                    if (!event.troupe.isTournamentList && event.troupe.characterIds.size <= maxAllowed) {
                         selectedTroupes[index] = event.troupe
                     } else {
                         troupeToPrune = index to event.troupe
@@ -616,8 +617,8 @@ fun OfflineSetupUI(
                                     4 -> 3
                                     else -> 6
                                 }
-                                // Only show pruning dialog if AutoSelect is off OR troupe is over the player count limit
-                                if (!t.autoSelectMembers || t.characterIds.size > maxAllowed) {
+                                // If tournament mode is ON, we ALWAYS show the pruning dialog
+                                if (t.isTournamentList || t.characterIds.size > maxAllowed) {
                                     troupeToPrune = index to t
                                 } else {
                                     selectedTroupes[index] = t
@@ -752,7 +753,7 @@ fun SessionSetupUI(
                         4 -> 3
                         else -> 6
                     }
-                    if (event.troupe.autoSelectMembers && event.troupe.characterIds.size <= maxAllowed) {
+                    if (!event.troupe.isTournamentList && event.troupe.characterIds.size <= maxAllowed) {
                         onSelectTroupe(event.troupe)
                     } else {
                         troupeToPrune = event.troupe
@@ -797,8 +798,8 @@ fun SessionSetupUI(
                             4 -> 3
                             else -> 6
                         }
-                        // Skip pruning if AutoSelect is on AND it fits the limits
-                        if (!troupe.autoSelectMembers || troupe.characterIds.size > maxAllowed) {
+                        // If tournament mode is ON, we ALWAYS show the pruning dialog
+                        if (troupe.isTournamentList || troupe.characterIds.size > maxAllowed) {
                             troupeToPrune = troupe
                         } else {
                             onSelectTroupe(troupe)
@@ -959,7 +960,7 @@ fun QrCodeDialog(
                 )
                 Spacer(modifier = Modifier.height(16.dp))
 
-                val bitmap = BarcodeUtils.generateQrCode(shareCode)
+                val bitmap = remember(shareCode) { BarcodeUtils.generateQrCode(shareCode) }
                 if (bitmap != null) {
                     Image(
                         bitmap = bitmap.asImageBitmap(),

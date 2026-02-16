@@ -322,7 +322,7 @@ fun AddEditTroupeScreen(
                             scope.launch {
                                 snackbarHostState.showSnackbar("Troupe name can't be empty")
                             }
-                        } else if (viewModel.autoSelectMembers) {
+                        } else if (!viewModel.isTournamentList) {
                             isNameError = false
                             showSaveValidationDialog = true
                         } else {
@@ -372,16 +372,16 @@ fun AddEditTroupeScreen(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("Auto Select Members", style = MaterialTheme.typography.bodyLarge)
+                                Text("Tournament List", style = MaterialTheme.typography.bodyLarge)
                                 Text(
-                                    "Skips the team selection prompt before games.",
+                                    "This troupe will use tournament settings",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                             Switch(
-                                checked = viewModel.autoSelectMembers,
-                                onCheckedChange = { if (!isTutorialActive) viewModel.autoSelectMembers = it },
+                                checked = viewModel.isTournamentList,
+                                onCheckedChange = { if (!isTutorialActive) viewModel.isTournamentList = it },
                                 enabled = !isTutorialActive,
                                 modifier = Modifier.onGloballyPositioned { onTargetPositioned("AutoSelectSwitch", it) }
                             )
@@ -405,7 +405,7 @@ fun AddEditTroupeScreen(
                 title = { Text("Save Troupe") },
                 text = {
                     Column {
-                        Text("Auto Select is enabled. This troupe will be valid for:")
+                        Text("This troupe will automatically select all members. It will be valid for:")
                         Spacer(modifier = Modifier.height(8.dp))
                         Text("• 2 Players: ${if (count <= 6) "Valid" else "Invalid (Max 6)"}", color = if (count <= 6) Color(0xFF2E7D32) else Color.Red)
                         Text("• 3 Players: ${if (count <= 4) "Valid" else "Invalid (Max 4)"}", color = if (count <= 4) Color(0xFF2E7D32) else Color.Red)
