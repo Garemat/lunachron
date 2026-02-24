@@ -7,7 +7,11 @@ import kotlinx.serialization.json.Json
 @Serializable
 sealed class SessionMessage {
     @Serializable
-    data class JoinRequest(val playerName: String, val deviceId: String) : SessionMessage()
+    data class JoinRequest(
+        val playerName: String, 
+        val deviceId: String,
+        val tournamentPasscode: String? = null
+    ) : SessionMessage()
     
     @Serializable
     data class Welcome(val deviceId: String) : SessionMessage()
@@ -23,6 +27,25 @@ sealed class SessionMessage {
     @Serializable
     data class SessionSync(val players: List<GamePlayer>, val sessionId: String) : SessionMessage()
     
+    @Serializable
+    data class TournamentSync(
+        val settings: TournamentSettings,
+        val players: List<TournamentPlayer>,
+        val currentRound: TournamentRound? = null,
+        val history: List<TournamentRound> = emptyList()
+    ) : SessionMessage()
+
+    @Serializable
+    data class PlayerInfoUpdate(
+        val deviceId: String,
+        val newName: String
+    ) : SessionMessage()
+
+    @Serializable
+    data class LeaveMessage(
+        val deviceId: String
+    ) : SessionMessage()
+
     @Serializable
     data object StartGame : SessionMessage()
 
@@ -45,6 +68,15 @@ sealed class SessionMessage {
 
     @Serializable
     data class ReadyForAction(val action: GameAction, val deviceId: String, val isReady: Boolean) : SessionMessage()
+
+    @Serializable
+    data class TournamentPlayerReady(val deviceId: String, val isReady: Boolean) : SessionMessage()
+
+    @Serializable
+    data class TournamentDisbanded(val message: String) : SessionMessage()
+
+    @Serializable
+    data class TournamentPairingUpdate(val pairing: TournamentPairing) : SessionMessage()
 }
 
 @Serializable

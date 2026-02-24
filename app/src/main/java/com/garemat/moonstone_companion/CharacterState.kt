@@ -15,6 +15,59 @@ data class NewsItem(
     val summary: String? = null
 )
 
+@Serializable
+enum class TroupeSizeSetting {
+    V6_10, V5_8
+}
+
+@Serializable
+data class TournamentSettings(
+    val tournamentName: String = "",
+    val troupeSize: TroupeSizeSetting = TroupeSizeSetting.V6_10,
+    val roundTimerMinutes: Int = 90,
+    val hostParticipating: Boolean = true,
+    val sessionId: String = "",
+    val passcode: String = ""
+)
+
+@Serializable
+data class TournamentPlayer(
+    val name: String,
+    val deviceId: String,
+    val troupe: Troupe? = null,
+    val isReady: Boolean = false,
+    val score: Int = 0
+)
+
+@Serializable
+data class TournamentPairing(
+    val player1Id: String,
+    val player2Id: String,
+    val player1CharacterIds: List<Int> = emptyList(),
+    val player2CharacterIds: List<Int> = emptyList(),
+    val player1Confirmed: Boolean = false,
+    val player2Confirmed: Boolean = false,
+    val player1InitiativeSelection: String? = null,
+    val player2InitiativeSelection: String? = null,
+    val initiativePlayerId: String? = null, // Set only when both selections match
+    val player1DeploymentReady: Boolean = false,
+    val player2DeploymentReady: Boolean = false,
+    val winnerId: String? = null, // "draw" for a tie
+    val isScored: Boolean = false
+)
+
+@Serializable
+enum class TournamentRoundStatus {
+    SELECTION, DEPLOYMENT, ACTIVE_GAME
+}
+
+@Serializable
+data class TournamentRound(
+    val roundNumber: Int,
+    val pairings: List<TournamentPairing> = emptyList(),
+    val status: TournamentRoundStatus = TournamentRoundStatus.SELECTION
+)
+
 data class CharacterState(
     val characters: List<Character> = emptyList(),
     val troupes: List<Troupe> = emptyList(),
@@ -36,6 +89,14 @@ data class CharacterState(
     
     // Game Session State (Nearby)
     val gameSession: GameSession? = null,
+
+    // Tournament State
+    val tournamentSettings: TournamentSettings? = null,
+    val isTournamentHost: Boolean = false,
+    val tournamentPlayers: List<TournamentPlayer> = emptyList(),
+    val isLeaving: Boolean = false,
+    val currentTournamentRound: TournamentRound? = null,
+    val tournamentHistory: List<TournamentRound> = emptyList(),
 
     // Active Game Play State
     val currentTurn: Int = 1,

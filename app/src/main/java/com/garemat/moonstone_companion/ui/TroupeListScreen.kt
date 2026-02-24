@@ -14,6 +14,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.LayoutCoordinates
@@ -22,11 +23,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.garemat.moonstone_companion.CharacterEvent
-import com.garemat.moonstone_companion.CharacterState
-import com.garemat.moonstone_companion.CharacterViewModel
-import com.garemat.moonstone_companion.Troupe
-import com.garemat.moonstone_companion.Faction
+import com.garemat.moonstone_companion.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,6 +34,9 @@ fun TroupeListScreen(
     onAddTroupe: () -> Unit,
     onEditTroupe: () -> Unit,
     isTutorialActive: Boolean = false,
+    selectionMode: Boolean = false,
+    tournamentCriteria: TournamentSettings? = null,
+    onTroupeSelected: (Troupe) -> Unit = {},
     onTargetPositioned: (String, LayoutCoordinates) -> Unit = { _, _ -> }
 ) {
     var troupeToDelete by remember { mutableStateOf<Troupe?>(null) }
@@ -46,6 +46,18 @@ fun TroupeListScreen(
     
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
+            topBar = {
+                if (selectionMode) {
+                    TopAppBar(
+                        title = { Text("Select Tournament Troupe") },
+                        navigationIcon = {
+                            IconButton(onClick = onNavigateBack) {
+                                Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                            }
+                        }
+                    )
+                }
+            },
             floatingActionButton = {
                 FloatingActionButton(
                     onClick = onAddTroupe,
@@ -75,10 +87,21 @@ fun TroupeListScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(troupesToShow) { troupe ->
+                        val isValid = if (tournamentCriteria != null) {
+                            val requiredChars = if (tournamentCriteria.troupeSize == TroupeSizeSetting.V6_10) 10 else 8
+                            troupe.isTournamentList && troupe.characterIds.size == requiredChars
+                        } else true
+
                         TroupeListItem(
                             troupe = troupe,
                             onClick = { 
-                                if (troupe.id != -1) {
+                                if (selectionMode) {
+                                    if (isValid) onTroupeSelected(troupe)
+                                    else {
+                                        viewModel.onEvent(CharacterEvent.EditTroupe(troupe))
+                                        onEditTroupe()
+                                    }
+                                } else if (troupe.id != -1) {
                                     viewModel.onEvent(CharacterEvent.EditTroupe(troupe))
                                     onEditTroupe()
                                 }
@@ -92,6 +115,12 @@ fun TroupeListScreen(
                                     shareTroupe(context, troupe.troupeName, "DUMMY_CODE")
                                 }
                             },
+                            onEdit = {
+                                viewModel.onEvent(CharacterEvent.EditTroupe(troupe))
+                                onEditTroupe()
+                            },
+                            isDimmed = selectionMode && !isValid,
+                            selectionMode = selectionMode,
                             onPositioned = onTargetPositioned
                         )
                     }
@@ -186,12 +215,16 @@ fun TroupeListItem(
     onClick: () -> Unit,
     onDelete: () -> Unit,
     onShare: () -> Unit,
+    onEdit: () -> Unit,
+    isDimmed: Boolean = false,
+    selectionMode: Boolean = false,
     onPositioned: (String, LayoutCoordinates) -> Unit = { _, _ -> }
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp)
+            .alpha(if (isDimmed) 0.5f else 1.0f)
             .clickable { onClick() },
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
@@ -218,11 +251,22 @@ fun TroupeListItem(
             Spacer(modifier = Modifier.width(16.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = troupe.troupeName,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = troupe.troupeName,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    if (troupe.isTournamentList) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Icon(
+                            Icons.Default.EmojiEvents, 
+                            contentDescription = "Tournament Ready",
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
                 Text(
                     text = "${troupe.characterIds.size} Characters",
                     style = MaterialTheme.typography.bodySmall,
@@ -230,11 +274,17 @@ fun TroupeListItem(
                 )
             }
 
-            IconButton(
-                onClick = onShare,
-                modifier = Modifier.onGloballyPositioned { onPositioned("ShareTroupe", it) }
-            ) {
-                Icon(Icons.Default.Share, contentDescription = "Share Code")
+            if (selectionMode) {
+                IconButton(onClick = onEdit) {
+                    Icon(Icons.Default.Edit, contentDescription = "Edit Troupe")
+                }
+            } else {
+                IconButton(
+                    onClick = onShare,
+                    modifier = Modifier.onGloballyPositioned { onPositioned("ShareTroupe", it) }
+                ) {
+                    Icon(Icons.Default.Share, contentDescription = "Share Code")
+                }
             }
             
             IconButton(

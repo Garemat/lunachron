@@ -44,4 +44,8 @@ sealed interface CharacterEvent {
     // Game Lifecycle
     data object AbandonGame : CharacterEvent
     data object EndGame : CharacterEvent
+
+    // Tournament Events
+    data class CreateTournament(val tournamentName: String, val troupeSize: TroupeSizeSetting, val timer: Int, val hostParticipating: Boolean, val passcode: String) : CharacterEvent
+    data class JoinTournament(val sessionId: String) : CharacterEvent
 }
