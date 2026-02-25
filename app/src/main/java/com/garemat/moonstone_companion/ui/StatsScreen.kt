@@ -1,6 +1,5 @@
 package com.garemat.moonstone_companion.ui
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -8,7 +7,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,10 +20,11 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.garemat.moonstone_companion.*
-import com.garemat.moonstone_companion.ui.theme.LocalAppTheme
+import com.garemat.moonstone_companion.ui.theme.LocalAppThemeProperties
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -34,7 +33,6 @@ fun StatsScreen(
     viewModel: CharacterViewModel
 ) {
     val results by viewModel.gameResults.collectAsState()
-    val isMoonstone = LocalAppTheme.current == AppTheme.MOONSTONE
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         if (results.isEmpty()) {
@@ -56,99 +54,19 @@ fun StatsScreen(
 
 @Composable
 fun GameResultBanner(result: GameResult) {
-    val isMoonstone = LocalAppTheme.current == AppTheme.MOONSTONE
+    val theme = LocalAppThemeProperties.current
     
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = if (isMoonstone) RoundedCornerShape(0.dp) else RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        shape = theme.cardShape,
+        elevation = CardDefaults.cardElevation(defaultElevation = theme.surfaceElevation)
     ) {
         Box(modifier = Modifier.height(180.dp).fillMaxWidth()) {
             // Quadrant Backgrounds with Borders and Faction Images
             QuadrantLayout(result.playerStats, result.winnerIndex)
 
             // Center Score Circle
-            Box(
-                modifier = Modifier
-                    .size(80.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF1976D2)) // Blue Circle
-                    .border(2.dp, Color.White, CircleShape)
-                    .align(Alignment.Center),
-                contentAlignment = Alignment.Center
-            ) {
-                when (result.playerStats.size) {
-                    2 -> {
-                        Text(
-                            text = "${result.playerStats[0].totalStones}",
-                            color = Color.White,
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 22.sp,
-                            modifier = Modifier.align(Alignment.CenterStart).padding(start = 12.dp)
-                        )
-                        Text(
-                            text = "${result.playerStats[1].totalStones}",
-                            color = Color.White,
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 22.sp,
-                            modifier = Modifier.align(Alignment.CenterEnd).padding(end = 12.dp)
-                        )
-                    }
-                    3 -> {
-                        Text(
-                            text = "${result.playerStats[0].totalStones}",
-                            color = Color.White,
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 18.sp,
-                            modifier = Modifier.align(Alignment.TopStart).padding(start = 12.dp, top = 8.dp)
-                        )
-                        Text(
-                            text = "${result.playerStats[1].totalStones}",
-                            color = Color.White,
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 18.sp,
-                            modifier = Modifier.align(Alignment.TopEnd).padding(end = 12.dp, top = 8.dp)
-                        )
-                        Text(
-                            text = "${result.playerStats[2].totalStones}",
-                            color = Color.White,
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 18.sp,
-                            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp)
-                        )
-                    }
-                    4 -> {
-                        Text(
-                            text = "${result.playerStats[0].totalStones}",
-                            color = Color.White,
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 18.sp,
-                            modifier = Modifier.align(Alignment.TopStart).padding(start = 12.dp, top = 8.dp)
-                        )
-                        Text(
-                            text = "${result.playerStats[1].totalStones}",
-                            color = Color.White,
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 18.sp,
-                            modifier = Modifier.align(Alignment.TopEnd).padding(end = 12.dp, top = 8.dp)
-                        )
-                        Text(
-                            text = "${result.playerStats[2].totalStones}",
-                            color = Color.White,
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 18.sp,
-                            modifier = Modifier.align(Alignment.BottomStart).padding(start = 12.dp, bottom = 8.dp)
-                        )
-                        Text(
-                            text = "${result.playerStats[3].totalStones}",
-                            color = Color.White,
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 18.sp,
-                            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = 8.dp)
-                        )
-                    }
-                }
-            }
+            ScoreCircle(result.playerStats, Modifier.align(Alignment.Center))
 
             // Player Info Overlays
             PlayerStatsOverlay(result)
@@ -168,8 +86,49 @@ fun GameResultBanner(result: GameResult) {
 }
 
 @Composable
+private fun ScoreCircle(playerStats: List<PlayerStat>, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .size(80.dp)
+            .clip(CircleShape)
+            .background(Color(0xFF1976D2)) // Blue Circle
+            .border(2.dp, Color.White, CircleShape),
+        contentAlignment = Alignment.Center
+    ) {
+        when (playerStats.size) {
+            2 -> {
+                ScoreText(playerStats[0].totalStones, Modifier.align(Alignment.CenterStart).padding(start = 12.dp))
+                ScoreText(playerStats[1].totalStones, Modifier.align(Alignment.CenterEnd).padding(end = 12.dp))
+            }
+            3 -> {
+                ScoreText(playerStats[0].totalStones, Modifier.align(Alignment.TopStart).padding(start = 12.dp, top = 8.dp), fontSize = 18.sp)
+                ScoreText(playerStats[1].totalStones, Modifier.align(Alignment.TopEnd).padding(end = 12.dp, top = 8.dp), fontSize = 18.sp)
+                ScoreText(playerStats[2].totalStones, Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp), fontSize = 18.sp)
+            }
+            4 -> {
+                ScoreText(playerStats[0].totalStones, Modifier.align(Alignment.TopStart).padding(start = 12.dp, top = 8.dp), fontSize = 18.sp)
+                ScoreText(playerStats[1].totalStones, Modifier.align(Alignment.TopEnd).padding(end = 12.dp, top = 8.dp), fontSize = 18.sp)
+                ScoreText(playerStats[2].totalStones, Modifier.align(Alignment.BottomStart).padding(start = 12.dp, bottom = 8.dp), fontSize = 18.sp)
+                ScoreText(playerStats[3].totalStones, Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = 8.dp), fontSize = 18.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ScoreText(score: Int, modifier: Modifier, fontSize: androidx.compose.ui.unit.TextUnit = 22.sp) {
+    Text(
+        text = score.toString(),
+        color = Color.White,
+        fontWeight = FontWeight.ExtraBold,
+        fontSize = fontSize,
+        modifier = modifier
+    )
+}
+
+@Composable
 fun PlayerQuadrant(stat: PlayerStat, isWinner: Boolean, modifier: Modifier) {
-    val isMoonstone = LocalAppTheme.current == AppTheme.MOONSTONE
+    val theme = LocalAppThemeProperties.current
     val context = LocalContext.current
     val backgroundRes = remember(stat.faction) {
         val resName = when(stat.faction) {
@@ -189,7 +148,7 @@ fun PlayerQuadrant(stat: PlayerStat, isWinner: Boolean, modifier: Modifier) {
                 else Modifier.border(1.dp, Color.White)
             )
     ) {
-        if (isMoonstone && backgroundRes != 0) {
+        if (theme.showFactionBackgrounds && backgroundRes != 0) {
             Image(
                 painter = painterResource(id = backgroundRes),
                 contentDescription = null,
@@ -204,22 +163,17 @@ fun PlayerQuadrant(stat: PlayerStat, isWinner: Boolean, modifier: Modifier) {
 fun QuadrantLayout(stats: List<PlayerStat>, winnerIndex: Int?) {
     Column(modifier = Modifier.fillMaxSize()) {
         Row(modifier = Modifier.weight(1f)) {
-            // Player 0
             PlayerQuadrant(stats[0], isWinner = winnerIndex == 0, modifier = Modifier.weight(1f).fillMaxHeight())
-            // Player 1
             if (stats.size > 1) {
                 PlayerQuadrant(stats[1], isWinner = winnerIndex == 1, modifier = Modifier.weight(1f).fillMaxHeight())
             }
         }
         if (stats.size > 2) {
             if (stats.size == 3) {
-                // Player 3 occupies the whole bottom half
                 PlayerQuadrant(stats[2], isWinner = winnerIndex == 2, modifier = Modifier.weight(1f).fillMaxWidth())
             } else {
                 Row(modifier = Modifier.weight(1f)) {
-                    // Player 2
                     PlayerQuadrant(stats[2], isWinner = winnerIndex == 2, modifier = Modifier.weight(1f).fillMaxHeight())
-                    // Player 3
                     if (stats.size > 3) {
                         PlayerQuadrant(stats[3], isWinner = winnerIndex == 3, modifier = Modifier.weight(1f).fillMaxHeight())
                     }
@@ -236,60 +190,25 @@ fun PlayerStatsOverlay(result: GameResult) {
 
     Box(modifier = Modifier.fillMaxSize().padding(12.dp)) {
         if (stats.size == 2) {
-            // 2 Player Specific Refined Layout
-            PlayerInfoRefined(stats[0], isWinner = winnerIdx == 0, modifier = Modifier.align(Alignment.TopStart).fillMaxWidth(0.45f))
-            PlayerInfoRefined(stats[1], isWinner = winnerIdx == 1, modifier = Modifier.align(Alignment.TopEnd).fillMaxWidth(0.45f))
+            PlayerInfo(stats[0], modifier = Modifier.align(Alignment.TopStart).fillMaxWidth(0.45f), textAlign = TextAlign.Center)
+            PlayerInfo(stats[1], modifier = Modifier.align(Alignment.TopEnd).fillMaxWidth(0.45f), textAlign = TextAlign.Center)
         } else {
-            // Player 1
-            PlayerInfo(stats[0], isWinner = winnerIdx == 0, modifier = Modifier.align(Alignment.TopStart).fillMaxWidth(0.45f))
-            
-            // Player 2
+            PlayerInfo(stats[0], modifier = Modifier.align(Alignment.TopStart).fillMaxWidth(0.45f))
             if (stats.size > 1) {
-                PlayerInfo(stats[1], isWinner = winnerIdx == 1, modifier = Modifier.align(Alignment.TopEnd).fillMaxWidth(0.45f), textAlign = TextAlign.End)
+                PlayerInfo(stats[1], modifier = Modifier.align(Alignment.TopEnd).fillMaxWidth(0.45f), textAlign = TextAlign.End)
             }
-
-            // Player 3
             if (stats.size == 3) {
-                PlayerInfo(stats[2], isWinner = winnerIdx == 2, modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth(0.9f), textAlign = TextAlign.Center)
+                PlayerInfo(stats[2], modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth(0.9f), textAlign = TextAlign.Center)
             } else if (stats.size > 3) {
-                PlayerInfo(stats[2], isWinner = winnerIdx == 2, modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth(0.45f))
-                PlayerInfo(stats[3], isWinner = winnerIdx == 3, modifier = Modifier.align(Alignment.BottomEnd).fillMaxWidth(0.45f), textAlign = TextAlign.End)
+                PlayerInfo(stats[2], modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth(0.45f))
+                PlayerInfo(stats[3], modifier = Modifier.align(Alignment.BottomEnd).fillMaxWidth(0.45f), textAlign = TextAlign.End)
             }
         }
     }
 }
 
 @Composable
-fun PlayerInfoRefined(stat: PlayerStat, isWinner: Boolean, modifier: Modifier) {
-    Column(
-        modifier = modifier.padding(4.dp), // Padding inside the quadrant border
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        val displayName = if (!stat.playerName.isNullOrBlank()) "${stat.playerName} - ${stat.troupeName}" else stat.troupeName
-        Text(
-            text = displayName,
-            color = Color.White,
-            fontWeight = FontWeight.Bold,
-            fontSize = 14.sp,
-            textAlign = TextAlign.Center,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
-        )
-        val charNames = stat.characterStats.joinToString(", ") { it.name }
-        Text(
-            text = charNames,
-            color = Color.White.copy(alpha = 0.9f),
-            fontSize = 10.sp,
-            maxLines = 3,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center,
-            lineHeight = 12.sp
-        )
-    }
-}
-
-@Composable
-fun PlayerInfo(stat: PlayerStat, isWinner: Boolean, modifier: Modifier, textAlign: TextAlign = TextAlign.Start) {
+fun PlayerInfo(stat: PlayerStat, modifier: Modifier, textAlign: TextAlign = TextAlign.Start) {
     Column(
         modifier = modifier.padding(4.dp),
         horizontalAlignment = when(textAlign) {
@@ -313,9 +232,10 @@ fun PlayerInfo(stat: PlayerStat, isWinner: Boolean, modifier: Modifier, textAlig
             text = charNames,
             color = Color.White.copy(alpha = 0.9f),
             fontSize = 10.sp,
-            maxLines = 2,
+            maxLines = if (textAlign == TextAlign.Center) 3 else 2,
             overflow = TextOverflow.Ellipsis,
-            textAlign = textAlign
+            textAlign = textAlign,
+            lineHeight = if (textAlign == TextAlign.Center) 12.sp else TextUnit.Unspecified
         )
     }
 }

@@ -4,7 +4,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Login
@@ -17,8 +16,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.garemat.moonstone_companion.AppTheme
-import com.garemat.moonstone_companion.ui.theme.LocalAppTheme
+import com.garemat.moonstone_companion.ui.theme.LocalAppThemeProperties
 
 @Composable
 fun ActiveTournamentCard(
@@ -26,7 +24,7 @@ fun ActiveTournamentCard(
     onJoin: () -> Unit,
     onLeave: () -> Unit
 ) {
-    val isMoonstone = LocalAppTheme.current == AppTheme.MOONSTONE
+    val theme = LocalAppThemeProperties.current
     
     Column(
         modifier = Modifier.fillMaxSize().padding(16.dp),
@@ -44,19 +42,20 @@ fun ActiveTournamentCard(
         
         Text(
             text = "Active Tournament",
-            style = if (isMoonstone) MaterialTheme.typography.displayLarge.copy(fontSize = 32.sp) else MaterialTheme.typography.headlineMedium,
+            style = theme.titleStyle.copy(fontSize = 32.sp),
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,
-            color = if (isMoonstone) MaterialTheme.colorScheme.primary else Color.Unspecified
+            color = MaterialTheme.colorScheme.primary
         )
         
         Spacer(modifier = Modifier.height(8.dp))
         
         Text(
             text = tournamentName,
-            style = MaterialTheme.typography.titleLarge,
+            style = theme.titleStyle.copy(fontSize = 20.sp),
             color = MaterialTheme.colorScheme.secondary,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
         )
         
         Spacer(modifier = Modifier.height(12.dp))
@@ -73,11 +72,11 @@ fun ActiveTournamentCard(
         Button(
             onClick = onJoin,
             modifier = Modifier.fillMaxWidth().height(64.dp),
-            shape = RoundedCornerShape(if (isMoonstone) 0.dp else 12.dp)
+            shape = theme.cardShape
         ) {
             Icon(Icons.Default.Login, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
-            Text("JOIN WAITING ROOM", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Text("JOIN WAITING ROOM", style = theme.buttonTextStyle)
         }
         
         Spacer(modifier = Modifier.height(16.dp))
@@ -85,10 +84,10 @@ fun ActiveTournamentCard(
         OutlinedButton(
             onClick = onLeave,
             modifier = Modifier.fillMaxWidth().height(56.dp),
-            shape = RoundedCornerShape(if (isMoonstone) 0.dp else 12.dp),
+            shape = theme.cardShape,
             colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
         ) {
-            Text("LEAVE TOURNAMENT", fontWeight = FontWeight.SemiBold)
+            Text("LEAVE TOURNAMENT", style = theme.buttonTextStyle.copy(color = MaterialTheme.colorScheme.error))
         }
     }
 }
@@ -101,6 +100,7 @@ fun TournamentDiscoveryDialog(
     onDismiss: () -> Unit,
     onLeaveSession: () -> Unit
 ) {
+    val theme = LocalAppThemeProperties.current
     var tournamentPasscode by remember { mutableStateOf("") }
     var selectedTournamentEndpoint by remember { mutableStateOf<Pair<String, String>?>(null) }
 
@@ -137,7 +137,8 @@ fun TournamentDiscoveryDialog(
                         onValueChange = { tournamentPasscode = it.uppercase() },
                         label = { Text("Enter Event Pin") },
                         modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
+                        singleLine = true,
+                        shape = theme.cardShape
                     )
                 }
             }
@@ -150,9 +151,10 @@ fun TournamentDiscoveryDialog(
                             onJoinRequest(it.first, tournamentPasscode)
                         }
                     },
-                    enabled = tournamentPasscode.isNotBlank()
+                    enabled = tournamentPasscode.isNotBlank(),
+                    shape = theme.cardShape
                 ) {
-                    Text("Join")
+                    Text("Join", style = theme.buttonTextStyle)
                 }
             }
         },
@@ -168,6 +170,7 @@ fun TournamentDiscoveryDialog(
             ) { 
                 Text(if (selectedTournamentEndpoint != null) "Back" else "Cancel")
             }
-        }
+        },
+        shape = theme.cardShape
     )
 }

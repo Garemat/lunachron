@@ -32,7 +32,8 @@ data class AppThemeProperties(
     val surfaceElevation: Dp,
     val navigationBarElevation: Dp,
     val cardContentPadding: Dp,
-    val verticalSpacing: Dp
+    val verticalSpacing: Dp,
+    val showFactionBackgrounds: Boolean = false
 )
 
 val LocalAppThemeProperties = staticCompositionLocalOf {
@@ -81,7 +82,8 @@ fun getThemeProperties(appTheme: AppTheme, density: LayoutDensity): AppThemeProp
             surfaceElevation = 0.dp,
             navigationBarElevation = 0.dp,
             cardContentPadding = padding,
-            verticalSpacing = spacing
+            verticalSpacing = spacing,
+            showFactionBackgrounds = true
         )
         AppTheme.DEFAULT -> AppThemeProperties(
             cardShape = RoundedCornerShape(12.dp),
@@ -96,7 +98,8 @@ fun getThemeProperties(appTheme: AppTheme, density: LayoutDensity): AppThemeProp
             surfaceElevation = 4.dp,
             navigationBarElevation = 3.dp,
             cardContentPadding = padding,
-            verticalSpacing = spacing
+            verticalSpacing = spacing,
+            showFactionBackgrounds = false
         )
     }
 }

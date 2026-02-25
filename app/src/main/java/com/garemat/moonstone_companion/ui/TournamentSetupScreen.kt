@@ -3,7 +3,6 @@ package com.garemat.moonstone_companion.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -14,9 +13,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.garemat.moonstone_companion.AppTheme
 import com.garemat.moonstone_companion.CharacterState
 import com.garemat.moonstone_companion.TroupeSizeSetting
+import com.garemat.moonstone_companion.ui.theme.LocalAppThemeProperties
 import kotlin.random.Random
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -39,7 +38,7 @@ fun TournamentSetupScreen(
     
     var showDisbandConfirmation by remember { mutableStateOf(false) }
 
-    val isMoonstone = state.theme == AppTheme.MOONSTONE
+    val theme = LocalAppThemeProperties.current
     val scrollState = rememberScrollState()
 
     BackHandler(enabled = isEditMode) {
@@ -52,7 +51,7 @@ fun TournamentSetupScreen(
                 title = { 
                     Text(
                         if (isEditMode) "Edit Tournament" else "Setup Local Tournament",
-                        style = if (isMoonstone) MaterialTheme.typography.displayLarge.copy(fontSize = 24.sp) else MaterialTheme.typography.titleLarge
+                        style = theme.titleStyle
                     ) 
                 },
                 navigationIcon = {
@@ -87,7 +86,7 @@ fun TournamentSetupScreen(
                 label = { Text("Tournament Name") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                shape = if (isMoonstone) RoundedCornerShape(0.dp) else OutlinedTextFieldDefaults.shape,
+                shape = theme.cardShape,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = MaterialTheme.colorScheme.primary,
                     unfocusedBorderColor = MaterialTheme.colorScheme.outline
@@ -104,7 +103,7 @@ fun TournamentSetupScreen(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 enabled = !isEditMode,
-                shape = if (isMoonstone) RoundedCornerShape(0.dp) else OutlinedTextFieldDefaults.shape,
+                shape = theme.cardShape,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = MaterialTheme.colorScheme.primary,
                     unfocusedBorderColor = MaterialTheme.colorScheme.outline,
@@ -118,7 +117,7 @@ fun TournamentSetupScreen(
 
             Text(
                 "Tournament Rules",
-                style = if (isMoonstone) MaterialTheme.typography.displayLarge.copy(fontSize = 20.sp) else MaterialTheme.typography.headlineSmall,
+                style = theme.headerStyle.copy(fontSize = 20.sp),
                 color = MaterialTheme.colorScheme.primary
             )
             
@@ -134,7 +133,7 @@ fun TournamentSetupScreen(
                     description = "Choose 6 characters from a pool of 10",
                     selected = selectedTroupeSize == TroupeSizeSetting.V6_10,
                     onSelect = { selectedTroupeSize = TroupeSizeSetting.V6_10 },
-                    isMoonstone = isMoonstone
+                    theme = theme
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 TroupeSizeOption(
@@ -142,7 +141,7 @@ fun TournamentSetupScreen(
                     description = "Choose 5 characters from a pool of 8",
                     selected = selectedTroupeSize == TroupeSizeSetting.V5_8,
                     onSelect = { selectedTroupeSize = TroupeSizeSetting.V5_8 },
-                    isMoonstone = isMoonstone
+                    theme = theme
                 )
             }
 
@@ -156,7 +155,7 @@ fun TournamentSetupScreen(
                 onValueChange = { if (it.all { char -> char.isDigit() }) roundTimer = it },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                shape = if (isMoonstone) RoundedCornerShape(0.dp) else OutlinedTextFieldDefaults.shape,
+                shape = theme.cardShape,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = MaterialTheme.colorScheme.primary,
                     unfocusedBorderColor = MaterialTheme.colorScheme.outline
@@ -174,7 +173,7 @@ fun TournamentSetupScreen(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         "Will host be participating?",
-                        style = if (isMoonstone) MaterialTheme.typography.displayLarge.copy(fontSize = 18.sp) else MaterialTheme.typography.bodyLarge
+                        style = theme.headerStyle.copy(fontSize = 18.sp)
                     )
                     Text(
                         "If off, this device only tracks scores.",
@@ -200,12 +199,12 @@ fun TournamentSetupScreen(
                     }
                 },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
-                shape = if (isMoonstone) RoundedCornerShape(0.dp) else ButtonDefaults.shape,
+                shape = theme.cardShape,
                 enabled = tournamentName.isNotBlank() && passcode.length == 4
             ) {
                 Text(
                     if (isEditMode) "Update Tournament" else "Create Tournament",
-                    style = if (isMoonstone) MaterialTheme.typography.displayLarge.copy(fontSize = 18.sp) else LocalTextStyle.current
+                    style = theme.buttonTextStyle
                 )
             }
         }
@@ -221,16 +220,18 @@ fun TournamentSetupScreen(
                             showDisbandConfirmation = false
                             onDisband()
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                        shape = theme.cardShape
                     ) {
-                        Text("Confirm Disband")
+                        Text("Confirm Disband", style = theme.buttonTextStyle)
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = { showDisbandConfirmation = false }) {
                         Text("Cancel")
                     }
-                }
+                },
+                shape = theme.cardShape
             )
         }
     }
@@ -242,12 +243,12 @@ fun TroupeSizeOption(
     description: String,
     selected: Boolean,
     onSelect: () -> Unit,
-    isMoonstone: Boolean
+    theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties
 ) {
     Card(
         onClick = onSelect,
         modifier = Modifier.fillMaxWidth(),
-        shape = if (isMoonstone) RoundedCornerShape(0.dp) else RoundedCornerShape(12.dp),
+        shape = theme.cardShape,
         colors = CardDefaults.cardColors(
             containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
         ),
@@ -262,7 +263,7 @@ fun TroupeSizeOption(
             Column {
                 Text(
                     text = title,
-                    style = if (isMoonstone) MaterialTheme.typography.displayLarge.copy(fontSize = 16.sp) else MaterialTheme.typography.titleMedium,
+                    style = theme.headerStyle.copy(fontSize = 16.sp),
                     fontWeight = FontWeight.Bold
                 )
                 Text(

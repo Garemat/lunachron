@@ -22,7 +22,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.garemat.moonstone_companion.*
-import com.garemat.moonstone_companion.ui.theme.LocalAppTheme
+import com.garemat.moonstone_companion.ui.theme.LocalAppThemeProperties
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,7 +35,7 @@ fun TournamentWaitingRoomScreen(
     onBeginTournament: () -> Unit,
     onRoundStarted: () -> Unit
 ) {
-    val isMoonstone = LocalAppTheme.current == AppTheme.MOONSTONE
+    val theme = LocalAppThemeProperties.current
     val settings = state.tournamentSettings ?: return
     var validationError by remember { mutableStateOf<String?>(null) }
     
@@ -57,7 +57,7 @@ fun TournamentWaitingRoomScreen(
                 title = { 
                     Text(
                         settings.tournamentName.ifEmpty { "Tournament Waiting Room" },
-                        style = if (isMoonstone) MaterialTheme.typography.displayLarge.copy(fontSize = 24.sp) else MaterialTheme.typography.titleLarge
+                        style = theme.titleStyle
                     ) 
                 },
                 navigationIcon = {
@@ -82,7 +82,7 @@ fun TournamentWaitingRoomScreen(
             // Tournament Info Header
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = if (isMoonstone) RoundedCornerShape(0.dp) else RoundedCornerShape(16.dp),
+                shape = theme.cardShape,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -92,12 +92,12 @@ fun TournamentWaitingRoomScreen(
                         verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = "EVENT PIN",
-                            style = MaterialTheme.typography.labelMedium,
+                            style = theme.labelStyle,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
                             text = settings.passcode,
-                            style = MaterialTheme.typography.headlineMedium,
+                            style = theme.headerStyle.copy(fontSize = 24.sp),
                             fontWeight = FontWeight.ExtraBold,
                             letterSpacing = 4.sp,
                             color = MaterialTheme.colorScheme.primary
@@ -128,7 +128,7 @@ fun TournamentWaitingRoomScreen(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     "Joined Players (${state.tournamentPlayers.size})",
-                    style = MaterialTheme.typography.titleMedium,
+                    style = theme.titleStyle.copy(fontSize = 18.sp),
                     fontWeight = FontWeight.Bold
                 )
                 if (state.isTournamentHost) {
@@ -151,7 +151,7 @@ fun TournamentWaitingRoomScreen(
                     TournamentPlayerItem(
                         player = player, 
                         isLocal = player.deviceId == state.deviceId, 
-                        isMoonstone = isMoonstone,
+                        theme = theme,
                         isHost = state.isTournamentHost,
                         onEditName = { id, name -> 
                             playerToEditName = id to name
@@ -185,10 +185,10 @@ fun TournamentWaitingRoomScreen(
                     OutlinedButton(
                         onClick = onSelectTroupe,
                         modifier = Modifier.weight(1f).height(56.dp),
-                        shape = if (isMoonstone) RoundedCornerShape(0.dp) else ButtonDefaults.shape,
+                        shape = theme.cardShape,
                         enabled = !isReady
                     ) {
-                        Text(if (hasSelectedTroupe) "Change Troupe" else "Select Troupe")
+                        Text(if (hasSelectedTroupe) "Change Troupe" else "Select Troupe", style = theme.buttonTextStyle)
                     }
 
                     if (hasSelectedTroupe) {
@@ -207,12 +207,12 @@ fun TournamentWaitingRoomScreen(
                                 }
                             },
                             modifier = Modifier.weight(1f).height(56.dp),
-                            shape = if (isMoonstone) RoundedCornerShape(0.dp) else ButtonDefaults.shape,
+                            shape = theme.cardShape,
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = if (isReady) Color(0xFF2E7D32) else MaterialTheme.colorScheme.primary
                             )
                         ) {
-                            Text(if (isReady) "READY" else "CONFIRM READY")
+                            Text(if (isReady) "READY" else "CONFIRM READY", style = theme.buttonTextStyle)
                         }
                     }
                 }
@@ -232,11 +232,11 @@ fun TournamentWaitingRoomScreen(
                 Button(
                     onClick = onBeginTournament,
                     modifier = Modifier.fillMaxWidth().height(56.dp),
-                    shape = if (isMoonstone) RoundedCornerShape(0.dp) else ButtonDefaults.shape,
+                    shape = theme.cardShape,
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary),
                     enabled = state.tournamentPlayers.isNotEmpty() && state.tournamentPlayers.all { it.isReady && it.troupe != null }
                 ) {
-                    Text("Begin Tournament")
+                    Text("Begin Tournament", style = theme.buttonTextStyle)
                 }
             }
         }
@@ -253,7 +253,8 @@ fun TournamentWaitingRoomScreen(
                         onValueChange = { manualPlayerName = it },
                         label = { Text("Player Name") },
                         modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
+                        singleLine = true,
+                        shape = theme.cardShape
                     )
                 },
                 confirmButton = {
@@ -263,16 +264,18 @@ fun TournamentWaitingRoomScreen(
                             manualPlayerName = ""
                             showAddManualPlayerDialog = false
                         },
-                        enabled = manualPlayerName.isNotBlank()
+                        enabled = manualPlayerName.isNotBlank(),
+                        shape = theme.cardShape
                     ) {
-                        Text("Add Player")
+                        Text("Add Player", style = theme.buttonTextStyle)
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = { showAddManualPlayerDialog = false }) {
                         Text("Cancel")
                     }
-                }
+                },
+                shape = theme.cardShape
             )
         }
 
@@ -286,7 +289,8 @@ fun TournamentWaitingRoomScreen(
                         onValueChange = { newManualName = it },
                         label = { Text("New Name") },
                         modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
+                        singleLine = true,
+                        shape = theme.cardShape
                     )
                 },
                 confirmButton = {
@@ -295,16 +299,18 @@ fun TournamentWaitingRoomScreen(
                             viewModel.updateManualPlayerName(playerToEditName!!.first, newManualName)
                             playerToEditName = null
                         },
-                        enabled = newManualName.isNotBlank()
+                        enabled = newManualName.isNotBlank(),
+                        shape = theme.cardShape
                     ) {
-                        Text("Update")
+                        Text("Update", style = theme.buttonTextStyle)
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = { playerToEditName = null }) {
                         Text("Cancel")
                     }
-                }
+                },
+                shape = theme.cardShape
             )
         }
 
@@ -317,7 +323,8 @@ fun TournamentWaitingRoomScreen(
                     TextButton(onClick = { validationError = null }) {
                         Text("OK")
                     }
-                }
+                },
+                shape = theme.cardShape
             )
         }
     }
@@ -327,7 +334,7 @@ fun TournamentWaitingRoomScreen(
 fun TournamentPlayerItem(
     player: TournamentPlayer, 
     isLocal: Boolean, 
-    isMoonstone: Boolean,
+    theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties,
     isHost: Boolean = false,
     onEditName: (String, String) -> Unit = { _, _ -> },
     onChangeTroupe: () -> Unit = {},
@@ -337,7 +344,7 @@ fun TournamentPlayerItem(
     
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = if (isMoonstone) RoundedCornerShape(0.dp) else RoundedCornerShape(12.dp),
+        shape = theme.cardShape,
         colors = CardDefaults.cardColors(
             containerColor = if (isLocal) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant
         )

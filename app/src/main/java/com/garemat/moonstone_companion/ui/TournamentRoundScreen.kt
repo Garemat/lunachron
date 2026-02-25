@@ -22,7 +22,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.garemat.moonstone_companion.*
-import com.garemat.moonstone_companion.ui.theme.LocalAppTheme
+import com.garemat.moonstone_companion.ui.theme.LocalAppThemeProperties
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -31,7 +31,7 @@ fun TournamentRoundScreen(
     viewModel: CharacterViewModel,
     onNavigateBack: () -> Unit
 ) {
-    val isMoonstone = LocalAppTheme.current == AppTheme.MOONSTONE
+    val theme = LocalAppThemeProperties.current
     val round = state.currentTournamentRound ?: return
     val settings = state.tournamentSettings ?: return
     
@@ -44,14 +44,16 @@ fun TournamentRoundScreen(
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Tournament Round ${round.roundNumber}") },
+                title = { Text("Tournament Round ${round.roundNumber}", style = theme.titleStyle) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    titleContentColor = MaterialTheme.colorScheme.primary,
+                    navigationIconContentColor = MaterialTheme.colorScheme.primary
                 )
             )
         }
@@ -65,7 +67,7 @@ fun TournamentRoundScreen(
                 item {
                     Text(
                         text = "Your Pairing",
-                        style = MaterialTheme.typography.titleLarge,
+                        style = theme.titleStyle.copy(fontSize = 20.sp),
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -77,7 +79,7 @@ fun TournamentRoundScreen(
                         players = players,
                         settings = settings,
                         allCharacters = state.characters,
-                        isMoonstone = isMoonstone,
+                        theme = theme,
                         isHost = state.isTournamentHost,
                         deviceId = state.deviceId,
                         onConfirmSelection = { selectedIds, targetId ->
@@ -96,7 +98,7 @@ fun TournamentRoundScreen(
             item {
                 Text(
                     text = "All Round Pairings",
-                    style = MaterialTheme.typography.titleMedium,
+                    style = theme.headerStyle.copy(fontSize = 18.sp),
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.secondary
                 )
@@ -106,7 +108,7 @@ fun TournamentRoundScreen(
                 PairingListItem(
                     pairing = pairing,
                     players = players,
-                    isMoonstone = isMoonstone,
+                    theme = theme,
                     isMyPairing = pairing == myPairing
                 )
             }
@@ -117,10 +119,10 @@ fun TournamentRoundScreen(
                     Button(
                         onClick = { viewModel.startTournamentActiveGames() },
                         modifier = Modifier.fillMaxWidth().height(56.dp),
-                        shape = if (isMoonstone) RoundedCornerShape(0.dp) else ButtonDefaults.shape,
+                        shape = theme.cardShape,
                         enabled = round.pairings.all { it.player1DeploymentReady && it.player2DeploymentReady }
                     ) {
-                        Text("BEGIN ALL BATTLES")
+                        Text("BEGIN ALL BATTLES", style = theme.buttonTextStyle)
                     }
                 }
             }
@@ -135,7 +137,7 @@ fun MyPairingCard(
     players: List<TournamentPlayer>,
     settings: TournamentSettings,
     allCharacters: List<Character>,
-    isMoonstone: Boolean,
+    theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties,
     isHost: Boolean,
     deviceId: String,
     onConfirmSelection: (List<Int>, String?) -> Unit,
@@ -161,7 +163,7 @@ fun MyPairingCard(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = if (isMoonstone) RoundedCornerShape(0.dp) else RoundedCornerShape(16.dp),
+        shape = theme.cardShape,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -213,7 +215,7 @@ fun MyPairingCard(
                     allCharacters = allCharacters,
                     selectedIds = selectedIds,
                     expandedCharacterId = expandedCharacterId,
-                    isMoonstone = isMoonstone,
+                    theme = theme,
                     isHost = isHost,
                     onSelectionChange = { selectedIds = it },
                     onExpandChange = { expandedCharacterId = it },
@@ -228,7 +230,7 @@ fun MyPairingCard(
                     allCharacters = allCharacters,
                     isHost = isHost,
                     deviceId = deviceId,
-                    isMoonstone = isMoonstone,
+                    theme = theme,
                     myDeploymentReady = myDeploymentReady,
                     opponentDeploymentReady = opponentDeploymentReady,
                     onConfirmInitiative = onConfirmInitiative,
@@ -250,7 +252,7 @@ private fun SelectionView(
     allCharacters: List<Character>,
     selectedIds: List<Int>,
     expandedCharacterId: Int?,
-    isMoonstone: Boolean,
+    theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties,
     isHost: Boolean,
     onSelectionChange: (List<Int>) -> Unit,
     onExpandChange: (Int?) -> Unit,
@@ -296,9 +298,9 @@ private fun SelectionView(
             onClick = onConfirm,
             modifier = Modifier.fillMaxWidth(),
             enabled = selectedIds.size == requiredCount,
-            shape = if (isMoonstone) RoundedCornerShape(0.dp) else ButtonDefaults.shape
+            shape = theme.cardShape
         ) {
-            Text("Finalise Selection (${selectedIds.size}/$requiredCount)")
+            Text("Finalise Selection (${selectedIds.size}/$requiredCount)", style = theme.buttonTextStyle)
         }
     } else if (isOpponentManual && isHost && !opponentConfirmed) {
         // Host selects for manual player after themselves
@@ -341,9 +343,9 @@ private fun SelectionView(
             onClick = { onConfirmManual(manualSelectedIds, opponentId) },
             modifier = Modifier.fillMaxWidth(),
             enabled = manualSelectedIds.size == requiredCount,
-            shape = if (isMoonstone) RoundedCornerShape(0.dp) else ButtonDefaults.shape
+            shape = theme.cardShape
         ) {
-            Text("Finalise Manual Selection (${manualSelectedIds.size}/$requiredCount)")
+            Text("Finalise Manual Selection (${manualSelectedIds.size}/$requiredCount)", style = theme.buttonTextStyle)
         }
     } else {
         Text(
@@ -365,7 +367,7 @@ private fun DeploymentView(
     allCharacters: List<Character>,
     isHost: Boolean,
     deviceId: String,
-    isMoonstone: Boolean,
+    theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties,
     myDeploymentReady: Boolean,
     opponentDeploymentReady: Boolean,
     onConfirmInitiative: (String) -> Unit,
@@ -433,24 +435,24 @@ private fun DeploymentView(
                     Button(
                         onClick = { onConfirmInitiative(pairing.player1Id) },
                         modifier = Modifier.weight(1f),
-                        shape = if (isMoonstone) RoundedCornerShape(0.dp) else ButtonDefaults.shape,
+                        shape = theme.cardShape,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = if (myInitiativeSelection == pairing.player1Id) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
                         ),
                         enabled = !myDeploymentReady
                     ) {
-                        Text("${p1?.name ?: "P1"} Won", fontSize = 12.sp)
+                        Text("${p1?.name ?: "P1"} Won", style = theme.buttonTextStyle.copy(fontSize = 12.sp))
                     }
                     Button(
                         onClick = { onConfirmInitiative(pairing.player2Id) },
                         modifier = Modifier.weight(1f),
-                        shape = if (isMoonstone) RoundedCornerShape(0.dp) else ButtonDefaults.shape,
+                        shape = theme.cardShape,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = if (myInitiativeSelection == pairing.player2Id) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
                         ),
                         enabled = !myDeploymentReady
                     ) {
-                        Text("${p2?.name ?: "P2"} Won", fontSize = 12.sp)
+                        Text("${p2?.name ?: "P2"} Won", style = theme.buttonTextStyle.copy(fontSize = 12.sp))
                     }
                 }
                 
@@ -476,7 +478,8 @@ private fun DeploymentView(
             Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = theme.cardShape
                 ) {
                     Column(modifier = Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
@@ -501,9 +504,9 @@ private fun DeploymentView(
                     Button(
                         onClick = onConfirmDeployment,
                         modifier = Modifier.fillMaxWidth(),
-                        shape = if (isMoonstone) RoundedCornerShape(0.dp) else ButtonDefaults.shape
+                        shape = theme.cardShape
                     ) {
-                        Text("CONFIRM DEPLOYMENT")
+                        Text("CONFIRM DEPLOYMENT", style = theme.buttonTextStyle)
                     }
                     
                     TextButton(onClick = { onConfirmInitiative("") }) { // Clear selection
@@ -519,7 +522,7 @@ private fun DeploymentView(
 fun PairingListItem(
     pairing: TournamentPairing,
     players: List<TournamentPlayer>,
-    isMoonstone: Boolean,
+    theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties,
     isMyPairing: Boolean
 ) {
     val p1 = players.find { it.deviceId == pairing.player1Id }
@@ -527,7 +530,7 @@ fun PairingListItem(
     
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = if (isMoonstone) RoundedCornerShape(0.dp) else RoundedCornerShape(8.dp),
+        shape = theme.cardShape,
         colors = CardDefaults.cardColors(
             containerColor = if (isMyPairing) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant
         )
