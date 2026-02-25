@@ -2,6 +2,8 @@ package com.garemat.moonstone_companion.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
@@ -9,9 +11,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.garemat.moonstone_companion.AppTheme
 import com.garemat.moonstone_companion.CharacterEvent
 import com.garemat.moonstone_companion.CharacterState
+import com.garemat.moonstone_companion.LayoutDensity
+import com.garemat.moonstone_companion.ui.theme.LocalAppThemeProperties
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -21,23 +26,23 @@ fun SettingsScreen(
     onNavigateBack: () -> Unit
 ) {
     var name by remember { mutableStateOf(state.name) }
-    var lastBackPressTime by remember { mutableLongStateOf(0L) }
+    val theme = LocalAppThemeProperties.current
+    val scrollState = rememberScrollState()
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Settings") },
+            CenterAlignedTopAppBar(
+                title = { Text("Settings", style = theme.titleStyle) },
                 navigationIcon = {
-                    IconButton(onClick = {
-                        val currentTime = System.currentTimeMillis()
-                        if (currentTime - lastBackPressTime > 500) {
-                            onNavigateBack()
-                            lastBackPressTime = currentTime
-                        }
-                    }) {
+                    IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
-                }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    titleContentColor = MaterialTheme.colorScheme.primary,
+                    navigationIconContentColor = MaterialTheme.colorScheme.primary
+                )
             )
         }
     ) { padding ->
@@ -45,74 +50,113 @@ fun SettingsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp)
+                .verticalScroll(scrollState)
+                .padding(theme.screenPadding)
         ) {
-            Text("User Profile", style = MaterialTheme.typography.titleMedium)
-            Spacer(modifier = Modifier.height(8.dp))
+            Text("User Profile", style = theme.titleStyle.copy(fontSize = 20.sp), color = MaterialTheme.colorScheme.primary)
+            Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
                 label = { Text("Player Name") },
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true
+                singleLine = true,
+                shape = theme.cardShape
             )
             
-            Spacer(modifier = Modifier.height(24.dp))
-            HorizontalDivider()
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(theme.verticalSpacing))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Spacer(modifier = Modifier.height(theme.verticalSpacing))
             
-            Text("App Theme", style = MaterialTheme.typography.titleMedium)
-            Spacer(modifier = Modifier.height(16.dp))
+            Text("App Theme", style = theme.titleStyle.copy(fontSize = 20.sp), color = MaterialTheme.colorScheme.primary)
+            Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
             
             Column {
                 ThemeOption(
                     title = "Default",
                     selected = state.theme == AppTheme.DEFAULT,
-                    onSelect = { onEvent(CharacterEvent.ChangeTheme(AppTheme.DEFAULT)) }
+                    onSelect = { onEvent(CharacterEvent.ChangeTheme(AppTheme.DEFAULT)) },
+                    theme = theme
                 )
                 ThemeOption(
                     title = "Moonstone",
                     selected = state.theme == AppTheme.MOONSTONE,
-                    onSelect = { onEvent(CharacterEvent.ChangeTheme(AppTheme.MOONSTONE)) }
+                    onSelect = { onEvent(CharacterEvent.ChangeTheme(AppTheme.MOONSTONE)) },
+                    theme = theme
                 )
             }
 
-            Spacer(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.height(theme.verticalSpacing))
+            Text("Layout Density", style = theme.titleStyle.copy(fontSize = 20.sp), color = MaterialTheme.colorScheme.primary)
+            Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
+
+            Column {
+                LayoutDensity.entries.forEach { density ->
+                    DensityOption(
+                        title = density.name.lowercase().replaceFirstChar { it.uppercase() },
+                        selected = state.layoutDensity == density,
+                        onSelect = { onEvent(CharacterEvent.ChangeLayoutDensity(density)) },
+                        theme = theme
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(theme.verticalSpacing))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Spacer(modifier = Modifier.height(theme.verticalSpacing))
+
+            Text("Gameplay", style = theme.titleStyle.copy(fontSize = 20.sp), color = MaterialTheme.colorScheme.primary)
+            Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onEvent(CharacterEvent.SetLocalModeDefault(!state.useLocalModeByDefault)) }
+                    .padding(vertical = theme.verticalSpacing / 4),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Skip Game Mode Selection", style = theme.headerStyle.copy(fontSize = 18.sp))
+                    Text("Always jump straight to Local Game setup.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(checked = state.useLocalModeByDefault, onCheckedChange = { onEvent(CharacterEvent.SetLocalModeDefault(it)) })
+            }
+
+            Spacer(modifier = Modifier.height(theme.verticalSpacing * 2))
             
             Button(
-                onClick = { 
-                    onEvent(CharacterEvent.UpdateUserName(name))
-                    onNavigateBack()
-                },
-                modifier = Modifier.fillMaxWidth()
+                onClick = { onEvent(CharacterEvent.UpdateUserName(name)); onNavigateBack() },
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape = theme.cardShape
             ) {
-                Text("Save Settings")
+                Text(
+                    text = "Save Settings",
+                    style = theme.buttonTextStyle
+                )
             }
         }
     }
 }
 
 @Composable
-fun ThemeOption(
-    title: String,
-    selected: Boolean,
-    onSelect: () -> Unit
-) {
+fun ThemeOption(title: String, selected: Boolean, onSelect: () -> Unit, theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onSelect() }
-            .padding(vertical = 8.dp),
+        modifier = Modifier.fillMaxWidth().clickable { onSelect() }.padding(vertical = theme.verticalSpacing / 4),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        RadioButton(
-            selected = selected,
-            onClick = onSelect
-        )
-        Text(
-            text = title,
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.padding(start = 16.dp)
-        )
+        RadioButton(selected = selected, onClick = onSelect)
+        Text(text = title, style = theme.headerStyle.copy(fontSize = 18.sp), modifier = Modifier.padding(start = 16.dp))
+    }
+}
+
+@Composable
+fun DensityOption(title: String, selected: Boolean, onSelect: () -> Unit, theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties) {
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable { onSelect() }.padding(vertical = theme.verticalSpacing / 4),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        RadioButton(selected = selected, onClick = onSelect)
+        Text(text = title, style = theme.headerStyle.copy(fontSize = 18.sp), modifier = Modifier.padding(start = 16.dp))
     }
 }

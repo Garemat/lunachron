@@ -20,6 +20,8 @@ sealed interface CharacterEvent {
 
     data class UpdateUserName(val name: String) : CharacterEvent
     data class ChangeTheme(val theme: AppTheme) : CharacterEvent
+    data class ChangeLayoutDensity(val density: LayoutDensity) : CharacterEvent
+    data class SetLocalModeDefault(val useLocal: Boolean) : CharacterEvent
     
     // Tutorial
     data class SetHasSeenTutorial(val tutorialKey: String, val seen: Boolean) : CharacterEvent
@@ -42,4 +44,9 @@ sealed interface CharacterEvent {
 
     // Game Lifecycle
     data object AbandonGame : CharacterEvent
+    data object EndGame : CharacterEvent
+
+    // Tournament Events
+    data class CreateTournament(val tournamentName: String, val troupeSize: TroupeSizeSetting, val timer: Int, val hostParticipating: Boolean, val passcode: String) : CharacterEvent
+    data class JoinTournament(val sessionId: String) : CharacterEvent
 }

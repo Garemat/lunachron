@@ -15,20 +15,20 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.zIndex
 import com.garemat.moonstone_companion.*
-import kotlinx.coroutines.launch
+import com.garemat.moonstone_companion.ui.theme.LocalAppThemeProperties
 
 @Composable
 fun CharacterListScreen(
     state: CharacterState,
     onEvent: (CharacterEvent) -> Unit,
     onNavigateBack: () -> Unit,
-    triggerTutorial: Int = 0
+    onTargetPositioned: (String, LayoutCoordinates) -> Unit = { _, _ -> }
 ) {
     var expandedCharacterIds by remember { mutableStateOf(setOf<Int>()) }
     var searchQuery by remember { mutableStateOf("") }
     var selectedFactions by remember { mutableStateOf(setOf<Faction>()) }
+    val theme = LocalAppThemeProperties.current
     
     val availableTags = remember(state.characters, selectedFactions) {
         state.characters
@@ -51,26 +51,11 @@ fun CharacterListScreen(
                 character.activeAbilities.any { it.name.contains(searchQuery, ignoreCase = true) || it.description.contains(searchQuery, ignoreCase = true) } ||
                 character.arcaneAbilities.any { it.name.contains(searchQuery, ignoreCase = true) || it.description.contains(searchQuery, ignoreCase = true) }
             }.map { it.id }.toSet()
-            
-            if (matchingIds.size in 1..3) {
-                expandedCharacterIds = matchingIds
-            }
+            if (matchingIds.size in 1..3) expandedCharacterIds = matchingIds
         }
     }
 
-    val coordsMap = remember { mutableStateMapOf<String, LayoutCoordinates>() }
-    var showTutorialForcefully by remember { mutableStateOf(false) }
-
-    LaunchedEffect(triggerTutorial) {
-        if (triggerTutorial > 0) {
-            showTutorialForcefully = true
-        }
-    }
-
-    val shouldShowTutorial = (!state.hasSeenCharactersTutorial || showTutorialForcefully)
-    var tutorialStepIndex by remember { mutableIntStateOf(0) }
     val listState = rememberLazyListState()
-    val scope = rememberCoroutineScope()
 
     LaunchedEffect(availableTags) {
         selectedTags = selectedTags.filter { it in availableTags }.toSet()
@@ -85,7 +70,6 @@ fun CharacterListScreen(
                 character.passiveAbilities.any { it.name.contains(searchQuery, ignoreCase = true) || it.description.contains(searchQuery, ignoreCase = true) } ||
                 character.activeAbilities.any { it.name.contains(searchQuery, ignoreCase = true) || it.description.contains(searchQuery, ignoreCase = true) } ||
                 character.arcaneAbilities.any { it.name.contains(searchQuery, ignoreCase = true) || it.description.contains(searchQuery, ignoreCase = true) }
-            
             matchesFaction && matchesTags && matchesSearch
         }
     }
@@ -96,7 +80,7 @@ fun CharacterListScreen(
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     tonalElevation = 2.dp,
-                    shadowElevation = 4.dp
+                    shadowElevation = theme.surfaceElevation
                 ) {
                     CharacterFilterHeader(
                         searchQuery = searchQuery,
@@ -114,15 +98,15 @@ fun CharacterListScreen(
                             selectedTags = emptySet()
                             expandedCharacterIds = emptySet()
                         },
-                        coordsMap = coordsMap
+                        onTargetPositioned = onTargetPositioned
                     )
                 }
             }
 
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(top = 8.dp, bottom = 100.dp),
+                verticalArrangement = Arrangement.spacedBy(theme.verticalSpacing / 2),
+                contentPadding = PaddingValues(top = theme.verticalSpacing / 2, bottom = 100.dp, start = theme.screenPadding, end = theme.screenPadding),
                 state = listState
             ) {
                 if (filteredCharacters.isEmpty()) {
@@ -139,75 +123,24 @@ fun CharacterListScreen(
                         searchQuery = searchQuery,
                         isExpanded = expandedCharacterIds.contains(character.id),
                         onExpandClick = {
-                            expandedCharacterIds = if (expandedCharacterIds.contains(character.id)) {
-                                expandedCharacterIds - character.id
-                            } else {
-                                expandedCharacterIds + character.id
-                            }
+                            expandedCharacterIds = if (expandedCharacterIds.contains(character.id)) expandedCharacterIds - character.id else expandedCharacterIds + character.id
                         },
                         cardTargetName = if (isFirst) "FirstCharacterCard" else "CharacterCard",
-                        onPositioned = { name, coords -> 
-                            if (isFirst || name == "FlipButton") coordsMap[name] = coords
-                        },
-                        forceFlipped = if (shouldShowTutorial && isFirst && expandedCharacterIds.contains(character.id) && tutorialStepIndex >= 8) true else null
+                        onPositioned = { name, coords -> if (isFirst || name == "FlipButton") onTargetPositioned(name, coords) }
                     )
                 }
             }
         }
 
-        // Floating Action Button - Positioned manually to avoid Scaffold padding
         FloatingActionButton(
             onClick = { showFilterBar = !showFilterBar },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(16.dp),
+                .padding(16.dp)
+                .onGloballyPositioned { onTargetPositioned("FilterButtonOpen", it) },
             containerColor = if (selectedFactions.isNotEmpty() || selectedTags.isNotEmpty() || searchQuery.isNotEmpty()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer
         ) {
-            Icon(
-                imageVector = if (showFilterBar) Icons.Default.FilterListOff else Icons.Default.FilterList,
-                contentDescription = "Toggle Filters"
-            )
-        }
-
-        if (shouldShowTutorial) {
-            Box(modifier = Modifier.fillMaxSize().zIndex(100f)) {
-                TutorialOverlay(
-                    steps = charactersScreenTutorialSteps,
-                    targetCoordinates = coordsMap,
-                    onComplete = {
-                        onEvent(CharacterEvent.SetHasSeenTutorial("characters", true))
-                        showTutorialForcefully = false
-                        expandedCharacterIds = emptySet()
-                        tutorialStepIndex = 0
-                    },
-                    onSkip = {
-                        onEvent(CharacterEvent.SetHasSeenTutorial("characters", true))
-                        showTutorialForcefully = false
-                        expandedCharacterIds = emptySet()
-                        tutorialStepIndex = 0
-                    },
-                    onStepChange = { step ->
-                        tutorialStepIndex = step
-                        when(step) {
-                            0 -> showFilterBar = false
-                            1, 2, 3, 4 -> showFilterBar = true
-                            5 -> {
-                                showFilterBar = false
-                                expandedCharacterIds = emptySet()
-                            }
-                            6 -> {
-                                val firstId = filteredCharacters.firstOrNull()?.id
-                                if (firstId != null) expandedCharacterIds = setOf(firstId)
-                                scope.launch { listState.animateScrollToItem(0) }
-                            }
-                            7 -> {
-                                val firstId = filteredCharacters.firstOrNull()?.id
-                                if (firstId != null) expandedCharacterIds = setOf(firstId)
-                            }
-                        }
-                    }
-                )
-            }
+            Icon(imageVector = if (showFilterBar) Icons.Default.FilterListOff else Icons.Default.FilterList, contentDescription = null)
         }
     }
 }

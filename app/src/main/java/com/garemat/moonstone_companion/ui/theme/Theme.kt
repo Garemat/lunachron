@@ -9,16 +9,17 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import com.garemat.moonstone_companion.AppTheme
+import com.garemat.moonstone_companion.LayoutDensity
 
 val LocalAppTheme = staticCompositionLocalOf { AppTheme.DEFAULT }
 
 private val MoonstoneColorScheme = lightColorScheme(
-    primary = Color(0xFF2C1810), // InkColor
-    secondary = Color(0xFF8B4513), // RuleAccentColor
+    primary = Color(0xFF2C1810),
+    secondary = Color(0xFF8B4513),
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFF4E4BC), // ParchmentColor
-    onPrimaryContainer = Color(0xFF2C1810), // InkColor
-    secondaryContainer = Color(0xFFEADBB0), // Themed unselected background
+    primaryContainer = Color(0xFFF4E4BC),
+    onPrimaryContainer = Color(0xFF2C1810),
+    secondaryContainer = Color(0xFFEADBB0),
     onSecondaryContainer = Color(0xFF2C1810),
     surface = Color(0xFFF4E4BC),
     onSurface = Color(0xFF2C1810),
@@ -44,6 +45,7 @@ private val LightColorScheme = lightColorScheme(
 @Composable
 fun MoonstonecompanionTheme(
     appTheme: AppTheme = AppTheme.DEFAULT,
+    layoutDensity: LayoutDensity = LayoutDensity.COZY,
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
@@ -57,7 +59,12 @@ fun MoonstonecompanionTheme(
         AppTheme.DEFAULT -> DefaultTypography
     }
 
-    CompositionLocalProvider(LocalAppTheme provides appTheme) {
+    val themeProperties = getThemeProperties(appTheme, layoutDensity)
+
+    CompositionLocalProvider(
+        LocalAppTheme provides appTheme,
+        LocalAppThemeProperties provides themeProperties
+    ) {
         MaterialTheme(
             colorScheme = colorScheme,
             typography = typography,
