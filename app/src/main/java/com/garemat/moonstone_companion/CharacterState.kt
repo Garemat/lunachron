@@ -7,6 +7,11 @@ enum class AppTheme {
 }
 
 @Serializable
+enum class LayoutDensity {
+    COMPACT, COZY, SPACIOUS
+}
+
+@Serializable
 data class NewsItem(
     val title: String,
     val url: String,
@@ -74,6 +79,7 @@ data class CharacterState(
     val name: String = "",
     val deviceId: String = "",
     val theme: AppTheme = AppTheme.MOONSTONE,
+    val layoutDensity: LayoutDensity = LayoutDensity.COZY,
     val useLocalModeByDefault: Boolean = false,
     val isAddingCharacter: Boolean = false,
     val isAddingTroupe: Boolean = false,

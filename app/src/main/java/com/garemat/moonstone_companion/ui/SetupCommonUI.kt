@@ -199,7 +199,12 @@ fun GameInProgressContent(
         ) {
             Icon(Icons.Default.PlayArrow, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
-            Text(if (isMultiplayer) "REJOIN SESSION" else "CONTINUE GAME", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Text(
+                if (isMultiplayer) "REJOIN SESSION" else "CONTINUE GAME", 
+                fontSize = 18.sp, 
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center
+            )
         }
         
         Spacer(modifier = Modifier.height(16.dp))
@@ -210,7 +215,12 @@ fun GameInProgressContent(
             shape = RoundedCornerShape(if (isMoonstone) 0.dp else 12.dp),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
         ) {
-            Text("START NEW GAME", fontWeight = FontWeight.SemiBold)
+            Text(
+                "START NEW GAME", 
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }

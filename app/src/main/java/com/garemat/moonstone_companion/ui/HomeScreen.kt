@@ -7,7 +7,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,7 +15,6 @@ import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -24,8 +22,7 @@ import coil.compose.AsyncImage
 import com.garemat.moonstone_companion.CharacterEvent
 import com.garemat.moonstone_companion.CharacterState
 import com.garemat.moonstone_companion.NewsItem
-import com.garemat.moonstone_companion.ui.theme.LocalAppTheme
-import com.garemat.moonstone_companion.AppTheme
+import com.garemat.moonstone_companion.ui.theme.LocalAppThemeProperties
 import androidx.compose.ui.layout.ContentScale
 
 @Composable
@@ -36,10 +33,9 @@ fun HomeScreen(
 ) {
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
+    val theme = LocalAppThemeProperties.current
     var backPressedTime by remember { mutableLongStateOf(0L) }
-    val isMoonstone = LocalAppTheme.current == AppTheme.MOONSTONE
     
-    // Intercept back button to prevent accidental app exit from Home
     BackHandler {
         val currentTime = System.currentTimeMillis()
         if (backPressedTime + 2000 > currentTime) {
@@ -51,14 +47,10 @@ fun HomeScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp)
-        ) {
+        Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
             Text(
                 text = "Latest News",
-                style = if (isMoonstone) MaterialTheme.typography.displayLarge.copy(fontSize = 28.sp) else MaterialTheme.typography.headlineMedium,
+                style = theme.titleStyle.copy(fontSize = 28.sp),
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier
                     .padding(vertical = 16.dp)
@@ -76,10 +68,7 @@ fun HomeScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     items(state.newsItems) { item ->
-                        NewsCard(
-                            item = item,
-                            onClick = { uriHandler.openUri(item.url) }
-                        )
+                        NewsCard(item = item, onClick = { uriHandler.openUri(item.url) })
                     }
                 }
             }
@@ -89,46 +78,34 @@ fun HomeScreen(
 
 @Composable
 fun NewsCard(item: NewsItem, onClick: () -> Unit) {
-    val isMoonstone = LocalAppTheme.current == AppTheme.MOONSTONE
-    
+    val theme = LocalAppThemeProperties.current
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() },
-        shape = if (isMoonstone) RoundedCornerShape(0.dp) else CardDefaults.shape,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+        modifier = Modifier.fillMaxWidth().clickable { onClick() },
+        shape = theme.cardShape,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
         Column {
             if (item.imageUrl != null) {
                 AsyncImage(
                     model = item.imageUrl,
                     contentDescription = null,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(180.dp),
+                    modifier = Modifier.fillMaxWidth().height(180.dp),
                     contentScale = ContentScale.Crop
                 )
             }
-            
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
                     text = item.title,
-                    style = if (isMoonstone) MaterialTheme.typography.displayLarge.copy(fontSize = 20.sp) else MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
+                    style = theme.titleStyle.copy(fontSize = 20.sp),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                
                 Spacer(modifier = Modifier.height(4.dp))
-                
                 Text(
                     text = item.date,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.secondary
                 )
-                
                 if (item.summary != null) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(

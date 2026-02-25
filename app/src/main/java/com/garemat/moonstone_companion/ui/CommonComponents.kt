@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.sp
 import com.garemat.moonstone_companion.*
 import com.garemat.moonstone_companion.ui.theme.LocalAppTheme
 import com.garemat.moonstone_companion.R
+import com.garemat.moonstone_companion.ui.theme.LocalAppThemeProperties
 
 // --- Base Utilities ---
 
@@ -228,7 +229,8 @@ fun CommonStatBox(label: String, value: String, modifier: Modifier = Modifier, h
 
 @Composable
 fun CommonAbilityItem(name: String, description: String, searchQuery: String = "", oncePerTurn: Boolean = false, oncePerGame: Boolean = false, reloadable: Boolean = false, isUsed: Boolean = false, onUsedChange: ((Boolean) -> Unit)? = null, isEditable: Boolean = true) {
-    Column(modifier = Modifier.padding(vertical = 4.dp)) {
+    val theme = LocalAppThemeProperties.current
+    Column(modifier = Modifier.padding(vertical = theme.verticalSpacing / 2)) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             val title = buildAnnotatedString {
                 withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) { appendWithHighlight(name, searchQuery); append(": ") }
@@ -248,9 +250,10 @@ fun CommonAbilityItem(name: String, description: String, searchQuery: String = "
 
 @Composable
 fun CharacterFront(character: Character, searchQuery: String, onFlip: () -> Unit, onFlipPositioned: (LayoutCoordinates) -> Unit = {}) {
-    val isMoonstone = LocalAppTheme.current == AppTheme.MOONSTONE
+    val appTheme = LocalAppTheme.current
+    val theme = LocalAppThemeProperties.current
     Column {
-        if (isMoonstone) MoonstoneHeader(character, searchQuery, onFlip, onFlipPositioned)
+        if (appTheme == AppTheme.MOONSTONE) MoonstoneHeader(character, searchQuery, onFlip, onFlipPositioned)
         else Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.SpaceEvenly) {
                 CommonStatBox("Melee", character.melee.toString(), showDivider = true)
@@ -260,14 +263,14 @@ fun CharacterFront(character: Character, searchQuery: String, onFlip: () -> Unit
             }
             IconButton(onClick = onFlip, modifier = Modifier.onGloballyPositioned { onFlipPositioned(it) }) { Icon(Icons.Default.Refresh, contentDescription = "Flip", tint = MaterialTheme.colorScheme.primary) }
         }
-        if (isMoonstone) MoonstoneStats(character)
-        Spacer(modifier = Modifier.height(16.dp))
+        if (appTheme == AppTheme.MOONSTONE) MoonstoneStats(character)
+        Spacer(modifier = Modifier.height(theme.verticalSpacing))
         character.passiveAbilities.forEach { CommonAbilityItem(it.name, it.description, searchQuery) }
         if (character.activeAbilities.isNotEmpty()) { AbilityTypeSeparator(); character.activeAbilities.forEach { CommonAbilityItem("${it.name} (${it.cost}) ${it.range}", it.description, searchQuery, it.oncePerTurn, it.oncePerGame) } }
         if (character.arcaneAbilities.isNotEmpty()) { AbilityTypeSeparator(); character.arcaneAbilities.forEach { CommonAbilityItem("${it.name} (${it.cost}) ${it.range}", it.description, searchQuery, it.oncePerTurn, it.oncePerGame, it.reloadable) } }
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(text = buildAnnotatedString { append(if (isMoonstone) "Signature Move on a " else "Signature Move: "); withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { appendWithHighlight(if (isMoonstone) character.signatureMove.upgradeFrom else character.signatureMove.name, searchQuery) }; append(".") }, style = MaterialTheme.typography.bodyMedium, fontStyle = FontStyle.Italic, modifier = Modifier.clickable { onFlip() }.fillMaxWidth(), textAlign = if (isMoonstone) TextAlign.Start else TextAlign.Center, color = if (isMoonstone) Color.Unspecified else MaterialTheme.colorScheme.secondary)
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(theme.verticalSpacing))
+        Text(text = buildAnnotatedString { append(if (appTheme == AppTheme.MOONSTONE) "Signature Move on a " else "Signature Move: "); withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { appendWithHighlight(if (appTheme == AppTheme.MOONSTONE) character.signatureMove.upgradeFrom else character.signatureMove.name, searchQuery) }; append(".") }, style = MaterialTheme.typography.bodyMedium, fontStyle = FontStyle.Italic, modifier = Modifier.clickable { onFlip() }.fillMaxWidth(), textAlign = if (appTheme == AppTheme.MOONSTONE) TextAlign.Start else TextAlign.Center, color = if (appTheme == AppTheme.MOONSTONE) Color.Unspecified else MaterialTheme.colorScheme.secondary)
+        Spacer(modifier = Modifier.height(theme.verticalSpacing))
         HealthTracker(character.health, character.health, character.energyTrack, {}, isEditable = false)
         Text(text = "Base: ${character.baseSize}", style = MaterialTheme.typography.labelSmall, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End)
     }
@@ -306,26 +309,27 @@ private fun MoonstoneStats(character: Character) {
 
 @Composable
 fun CharacterBack(character: Character, searchQuery: String, onFlip: () -> Unit, onFlipPositioned: (LayoutCoordinates) -> Unit = {}) {
-    val isMoonstone = LocalAppTheme.current == AppTheme.MOONSTONE
+    val appTheme = LocalAppTheme.current
+    val theme = LocalAppThemeProperties.current
     Column {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
-            Text(text = highlightText(character.signatureMove.name, searchQuery), style = if (isMoonstone) MaterialTheme.typography.displayLarge.copy(fontSize = 28.sp) else MaterialTheme.typography.titleLarge, fontWeight = if (isMoonstone) null else FontWeight.Bold, color = if (isMoonstone) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
-            IconButton(onClick = onFlip, modifier = Modifier.onGloballyPositioned { onFlipPositioned(it) }) { Icon(Icons.Default.Refresh, contentDescription = "Flip", tint = if (isMoonstone) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary) }
+            Text(text = highlightText(character.signatureMove.name, searchQuery), style = if (appTheme == AppTheme.MOONSTONE) MaterialTheme.typography.displayLarge.copy(fontSize = 28.sp) else MaterialTheme.typography.titleLarge, fontWeight = if (appTheme == AppTheme.MOONSTONE) null else FontWeight.Bold, color = if (appTheme == AppTheme.MOONSTONE) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+            IconButton(onClick = onFlip, modifier = Modifier.onGloballyPositioned { onFlipPositioned(it) }) { Icon(Icons.Default.Refresh, contentDescription = "Flip", tint = if (appTheme == AppTheme.MOONSTONE) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary) }
         }
-        Text(text = buildAnnotatedString { append("Upgrade for "); withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(character.signatureMove.upgradeFrom) } }, style = MaterialTheme.typography.bodyLarge.copy(fontStyle = FontStyle.Italic), color = if (isMoonstone) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+        Text(text = buildAnnotatedString { append("Upgrade for "); withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(character.signatureMove.upgradeFrom) } }, style = MaterialTheme.typography.bodyLarge.copy(fontStyle = FontStyle.Italic), color = if (appTheme == AppTheme.MOONSTONE) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
         Spacer(modifier = Modifier.height(12.dp))
-        character.signatureMove.damageType?.let { Text(text = "Damage Type:", style = MaterialTheme.typography.labelSmall.copy(fontStyle = FontStyle.Italic)); Text(text = it, style = if (isMoonstone) MaterialTheme.typography.titleLarge else MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold); Spacer(modifier = Modifier.height(8.dp)) }
+        character.signatureMove.damageType?.let { Text(text = "Damage Type:", style = MaterialTheme.typography.labelSmall.copy(fontStyle = FontStyle.Italic)); Text(text = it, style = if (appTheme == AppTheme.MOONSTONE) MaterialTheme.typography.titleLarge else MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold); Spacer(modifier = Modifier.height(8.dp)) }
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("Opponent plays:", style = MaterialTheme.typography.labelSmall.copy(fontStyle = FontStyle.Italic)); Text("deal", style = MaterialTheme.typography.labelSmall.copy(fontStyle = FontStyle.Italic)) }
         Column(modifier = Modifier.fillMaxWidth()) {
             character.signatureMove.results.forEach { entry ->
                 Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text(entry.opponentPlay, style = if (isMoonstone) MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Normal) else MaterialTheme.typography.bodyMedium)
+                    Text(entry.opponentPlay, style = if (appTheme == AppTheme.MOONSTONE) MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Normal) else MaterialTheme.typography.bodyMedium)
                     SignatureResultDisplay(entry)
                 }
             }
         }
         if (character.signatureMove.passiveEffect != null || character.signatureMove.endStepEffect != null) {
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(theme.verticalSpacing))
             character.signatureMove.passiveEffect?.let { Text(text = parseAbilityDescription(it, searchQuery), style = MaterialTheme.typography.bodyMedium, inlineContent = getMoonstoneInlineContent()) }
             character.signatureMove.endStepEffect?.let { Text(text = buildAnnotatedString { withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("End Step Effect: ") }; append(parseAbilityDescription(it, searchQuery)) }, style = MaterialTheme.typography.bodyMedium, inlineContent = getMoonstoneInlineContent()) }
         }
@@ -336,10 +340,11 @@ fun CharacterBack(character: Character, searchQuery: String, onFlip: () -> Unit,
 fun CommonCharacterCard(character: Character, searchQuery: String, isExpanded: Boolean, onExpandClick: () -> Unit, modifier: Modifier = Modifier, cardTargetName: String = "CharacterCard", onPositioned: (String, LayoutCoordinates) -> Unit = { _, _ -> }, forceFlipped: Boolean? = null, selectionControl: @Composable (RowScope.() -> Unit)? = null) {
     var isFlippedState by remember { mutableStateOf(false) }; val isFlipped = forceFlipped ?: isFlippedState
     val context = LocalContext.current; val appTheme = LocalAppTheme.current
+    val theme = LocalAppThemeProperties.current
     val imageRes = remember(character.imageName) { if (character.imageName != null) context.resources.getIdentifier(character.imageName.substringBeforeLast("."), "drawable", context.packageName) else 0 }
-    Card(modifier = modifier.fillMaxWidth().animateContentSize().onGloballyPositioned { onPositioned(cardTargetName, it) }, shape = RoundedCornerShape(if (appTheme == AppTheme.MOONSTONE) 0.dp else 12.dp), elevation = CardDefaults.cardElevation(defaultElevation = if (appTheme == AppTheme.MOONSTONE) 2.dp else 4.dp), colors = CardDefaults.cardColors(containerColor = if (appTheme == AppTheme.MOONSTONE) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface)) {
+    Card(modifier = modifier.fillMaxWidth().animateContentSize().onGloballyPositioned { onPositioned(cardTargetName, it) }, shape = theme.cardShape, elevation = CardDefaults.cardElevation(defaultElevation = theme.surfaceElevation), colors = CardDefaults.cardColors(containerColor = if (appTheme == AppTheme.MOONSTONE) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface)) {
         Column {
-            Row(modifier = Modifier.fillMaxWidth().clickable { onExpandClick() }.padding(if (selectionControl != null) 8.dp else 16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Row(modifier = Modifier.fillMaxWidth().clickable { onExpandClick() }.padding(theme.cardContentPadding), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 if (selectionControl != null) { selectionControl(); Spacer(modifier = Modifier.width(4.dp)) }
                 Box(modifier = Modifier.size(if (selectionControl != null) 40.dp else 56.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
                     if (imageRes != 0) Image(painter = painterResource(id = imageRes), contentDescription = character.name, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
@@ -356,7 +361,7 @@ fun CommonCharacterCard(character: Character, searchQuery: String, isExpanded: B
                 if (appTheme != AppTheme.MOONSTONE) HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                 Box(modifier = Modifier.fillMaxWidth()) {
                     if (appTheme == AppTheme.MOONSTONE && imageRes != 0) Image(painter = painterResource(id = imageRes), contentDescription = null, modifier = Modifier.matchParentSize().alpha(0.25f), contentScale = ContentScale.Crop)
-                    Box(modifier = Modifier.padding(16.dp)) {
+                    Box(modifier = Modifier.padding(theme.cardContentPadding)) {
                         if (!isFlipped) CharacterFront(character = character, searchQuery = searchQuery, onFlip = { isFlippedState = true }, onFlipPositioned = { onPositioned("FlipButton", it) })
                         else CharacterBack(character = character, searchQuery = searchQuery, onFlip = { isFlippedState = false }, onFlipPositioned = { onPositioned("FlipButton", it) })
                     }
@@ -396,9 +401,8 @@ fun MitigationIcon(resId: Int, value: String) {
 @Composable
 fun ModifierDisplay(character: Character, isOffense: Boolean, modifier: Modifier = Modifier) {
     val appTheme = LocalAppTheme.current
-    val isMoonstone = appTheme == AppTheme.MOONSTONE
 
-    if (isMoonstone) {
+    if (appTheme == AppTheme.MOONSTONE) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier) {
             if (isOffense) {
                 val piercing = character.piercingDamageBuff.toIntOrNull() ?: 0

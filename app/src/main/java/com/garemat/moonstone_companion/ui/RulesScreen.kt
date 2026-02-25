@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.garemat.moonstone_companion.CharacterViewModel
 import com.garemat.moonstone_companion.RuleSection
+import com.garemat.moonstone_companion.ui.theme.LocalAppThemeProperties
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -32,112 +33,73 @@ fun RulesScreen(
 ) {
     var searchQuery by remember { mutableStateOf("") }
     val rules by viewModel.rules.collectAsState()
-    var lastBackPressTime by remember { mutableLongStateOf(0L) }
-    var showTutorialForcefully by remember { mutableStateOf(false) }
-
+    val theme = LocalAppThemeProperties.current
     val displayRules = remember(searchQuery, rules) {
-        if (searchQuery.isEmpty()) {
-            rules
-        } else {
-            rules.filter { rule ->
-                rule.searchable && (
-                    rule.title.contains(searchQuery, ignoreCase = true) ||
-                    rule.content.contains(searchQuery, ignoreCase = true) ||
-                    rule.keywords.any { it.contains(searchQuery, ignoreCase = true) } ||
-                    rule.category.contains(searchQuery, ignoreCase = true)
-                )
-            }
+        if (searchQuery.isEmpty()) rules
+        else rules.filter { rule ->
+            rule.searchable && (
+                rule.title.contains(searchQuery, ignoreCase = true) ||
+                rule.content.contains(searchQuery, ignoreCase = true) ||
+                rule.keywords.any { it.contains(searchQuery, ignoreCase = true) } ||
+                rule.category.contains(searchQuery, ignoreCase = true)
+            )
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = { 
-                        Text(
-                            "Rules Reference", 
-                            style = MaterialTheme.typography.titleLarge
-                        ) 
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = {
-                            val currentTime = System.currentTimeMillis()
-                            if (currentTime - lastBackPressTime > 500) {
-                                onNavigateBack()
-                                lastBackPressTime = currentTime
-                            }
-                        }) {
-                            Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.background,
-                        titleContentColor = MaterialTheme.colorScheme.onBackground,
-                        navigationIconContentColor = MaterialTheme.colorScheme.onBackground
-                    )
-                )
-            }
-        ) { padding ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background)
-                    .padding(padding)
-            ) {
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    placeholder = { Text("Search keywords, combat, magic...") },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                    trailingIcon = {
-                        if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { searchQuery = "" }) {
-                                Icon(Icons.Default.Clear, contentDescription = "Clear")
-                            }
-                        }
-                    },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline
-                    ),
-                    singleLine = true,
-                    shape = MaterialTheme.shapes.medium
-                )
-
-                if (displayRules.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        val message = if (searchQuery.isEmpty()) "No rules available." else "No matching rules found."
-                        Text(
-                            text = message,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                        )
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text("Rules Reference", style = theme.titleStyle) },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(bottom = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        items(displayRules) { rule ->
-                            RuleItem(rule, searchQuery)
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    titleContentColor = MaterialTheme.colorScheme.primary,
+                    navigationIconContentColor = MaterialTheme.colorScheme.primary
+                )
+            )
+        }
+    ) { padding ->
+        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                placeholder = { Text("Search keywords, combat, magic...") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { searchQuery = "" }) {
+                            Icon(Icons.Default.Clear, contentDescription = "Clear")
                         }
+                    }
+                },
+                singleLine = true,
+                shape = theme.cardShape
+            )
+
+            if (displayRules.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = if (searchQuery.isEmpty()) "No rules available." else "No matching rules found.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(displayRules) { rule ->
+                        RuleItem(rule, searchQuery)
                     }
                 }
             }
-        }
-
-        IconButton(
-            onClick = { showTutorialForcefully = true },
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(16.dp)
-        ) {
-            Icon(Icons.Default.Help, contentDescription = "Tutorial")
         }
     }
 }
@@ -145,35 +107,26 @@ fun RulesScreen(
 @Composable
 fun RuleItem(rule: RuleSection, searchQuery: String) {
     var isExpanded by remember { mutableStateOf(false) }
-
-    // Auto-expand if search query matches content or title to help user find the term
-    // Re-collapse when search is cleared
+    val theme = LocalAppThemeProperties.current
     LaunchedEffect(searchQuery) {
         if (searchQuery.isNotEmpty()) {
             if (rule.title.contains(searchQuery, ignoreCase = true) ||
                 rule.content.contains(searchQuery, ignoreCase = true)) {
                 isExpanded = true
             }
-        } else {
-            isExpanded = false
-        }
+        } else isExpanded = false
     }
 
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .animateContentSize(),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).animateContentSize(),
+        shape = theme.cardShape,
+        elevation = CardDefaults.cardElevation(defaultElevation = theme.surfaceElevation),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
         ),
         border = androidx.compose.foundation.BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
-        Column(
-            modifier = Modifier
-                .clickable { isExpanded = !isExpanded }
-                .padding(16.dp)
-        ) {
+        Column(modifier = Modifier.clickable { isExpanded = !isExpanded }.padding(theme.cardContentPadding)) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -189,9 +142,8 @@ fun RuleItem(rule: RuleSection, searchQuery: String) {
                     )
                     Text(
                         text = highlightText(rule.title, searchQuery),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontWeight = FontWeight.Bold
+                        style = theme.titleStyle.copy(fontSize = 18.sp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Icon(
@@ -222,26 +174,16 @@ fun parseRuleContent(content: String, searchQuery: String, accentColor: Color) =
     val lines = content.split("\n")
     lines.forEachIndexed { index, line ->
         var currentLine = line
-        
-        // Handle Bullets
-        if (currentLine.trim().startsWith("•")) {
-            append("  ")
-        }
-
-        // Handle Title separator " – "
+        if (currentLine.trim().startsWith("•")) append("  ")
         val dashIndex = currentLine.indexOf(" – ")
         if (dashIndex != -1) {
             val title = currentLine.substring(0, dashIndex)
-            val rest = currentLine.substring(dashIndex) // includes " – "
-            
+            val rest = currentLine.substring(dashIndex)
             withStyle(style = SpanStyle(fontWeight = FontWeight.Bold, color = accentColor)) {
                 appendFormattedPart(title, searchQuery)
             }
             appendFormattedPart(rest, searchQuery)
-        } else {
-            appendFormattedPart(currentLine, searchQuery)
-        }
-
+        } else appendFormattedPart(currentLine, searchQuery)
         if (index < lines.size - 1) append("\n")
     }
 }
@@ -249,20 +191,16 @@ fun parseRuleContent(content: String, searchQuery: String, accentColor: Color) =
 private fun AnnotatedString.Builder.appendFormattedPart(text: String, searchQuery: String) {
     val regex = "(\\*\\*(.*?)\\*\\*)|(\\{[Nn]ull\\})".toRegex()
     var lastIndex = 0
-    
     regex.findAll(text).forEach { match ->
         appendWithHighlight(text.substring(lastIndex, match.range.first), searchQuery)
-        
         when {
-            match.groupValues[1].isNotEmpty() -> { // **bold**
+            match.groupValues[1].isNotEmpty() -> {
                 val boldText = match.groupValues[2]
                 withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
                     appendWithHighlight(boldText, searchQuery)
                 }
             }
-            match.groupValues[3].isNotEmpty() -> { // {Null} or {null}
-                appendInlineContent("nullSymbol", "{Null}")
-            }
+            match.groupValues[3].isNotEmpty() -> appendInlineContent("nullSymbol", "{Null}")
         }
         lastIndex = match.range.last + 1
     }

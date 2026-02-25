@@ -1,10 +1,7 @@
 package com.garemat.moonstone_companion.ui
 
-import android.Manifest
-import android.content.pm.PackageManager
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -19,7 +16,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.garemat.moonstone_companion.*
-import com.garemat.moonstone_companion.ui.theme.LocalAppTheme
+import com.garemat.moonstone_companion.ui.theme.LocalAppThemeProperties
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,7 +34,7 @@ fun OfflineSetupUI(
     var troupeToPrune by remember { mutableStateOf<Pair<Int, Troupe>?>(null) }
     var troupeToSaveWithName by remember { mutableStateOf<Troupe?>(null) }
     var customTroupeName by remember { mutableStateOf("") }
-    val isMoonstone = LocalAppTheme.current == AppTheme.MOONSTONE
+    val theme = LocalAppThemeProperties.current
     
     LaunchedEffect(Unit) {
         viewModel.scannedTroupeEvent.collect { (index, troupe) ->
@@ -80,17 +77,9 @@ fun OfflineSetupUI(
             IconButton(onClick = onBack) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
             }
-            
             Spacer(modifier = Modifier.weight(1f))
-            
-            Text(
-                text = "Players:", 
-                style = if (isMoonstone) MaterialTheme.typography.displayLarge.copy(fontSize = 20.sp) else MaterialTheme.typography.titleMedium,
-                color = if (isMoonstone) MaterialTheme.colorScheme.primary else Color.Unspecified
-            )
-            
+            Text(text = "Players:", style = theme.titleStyle.copy(fontSize = 20.sp), color = MaterialTheme.colorScheme.primary)
             Spacer(modifier = Modifier.width(8.dp))
-            
             Row {
                 listOf(2, 3, 4).forEach { count ->
                     FilterChip(
@@ -101,11 +90,10 @@ fun OfflineSetupUI(
                         },
                         label = { Text(count.toString()) },
                         modifier = Modifier.padding(horizontal = 4.dp),
-                        shape = if (isMoonstone) RoundedCornerShape(0.dp) else FilterChipDefaults.shape
+                        shape = theme.cardShape
                     )
                 }
             }
-            
             Spacer(modifier = Modifier.weight(1f))
         }
         
@@ -115,12 +103,11 @@ fun OfflineSetupUI(
             items(playerCount) { index ->
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                    ),
-                    shape = RoundedCornerShape(if (isMoonstone) 0.dp else 12.dp)
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    shape = theme.cardShape,
+                    elevation = CardDefaults.cardElevation(defaultElevation = theme.surfaceElevation)
                 ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
+                    Column(modifier = Modifier.padding(theme.cardContentPadding)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.Person, contentDescription = null)
                             Spacer(modifier = Modifier.width(8.dp))
@@ -129,7 +116,6 @@ fun OfflineSetupUI(
                             Spacer(modifier = Modifier.weight(1f))
                             
                             val troupe = selectedTroupes[index]
-                            
                             val showSave = troupe != null && state.troupes.none { it.shareCode == troupe.shareCode && troupe.shareCode.isNotEmpty() }
                             
                             if (showSave) {
@@ -141,45 +127,30 @@ fun OfflineSetupUI(
                                         }
                                     },
                                     modifier = Modifier.onGloballyPositioned { if (index == 0) onPositioned("SaveTroupeSetup", it) }
-                                ) {
-                                    Icon(Icons.Default.Save, contentDescription = "Save Troupe")
-                                }
+                                ) { Icon(Icons.Default.Save, contentDescription = "Save Troupe") }
                             }
                             
                             if (troupe != null) {
                                 IconButton(
                                     onClick = { showQrForTroupe = troupe },
                                     modifier = Modifier.onGloballyPositioned { if (index == 0) onPositioned("QrCodeDisplayButton", it) }
-                                ) {
-                                    Icon(Icons.Default.QrCode, contentDescription = "Show QR")
-                                }
+                                ) { Icon(Icons.Default.QrCode, contentDescription = "Show QR") }
                             }
 
                             IconButton(
                                 onClick = { onScanRequest(index) },
                                 modifier = Modifier.onGloballyPositioned { if (index == 0) onPositioned("ScanQR", it) }
-                            ) {
-                                Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan QR")
-                            }
+                            ) { Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan QR") }
                         }
 
-                        val displayTroupes = state.troupes
-
                         TroupeSelector(
-                            troupes = displayTroupes,
+                            troupes = state.troupes,
                             selectedTroupe = selectedTroupes[index],
                             allCharacters = state.characters,
                             onTroupeSelected = { t ->
-                                val maxAllowed = when(playerCount) {
-                                    3 -> 4
-                                    4 -> 3
-                                    else -> 6
-                                }
-                                if (t.isTournamentList || t.characterIds.size > maxAllowed) {
-                                    troupeToPrune = index to t
-                                } else {
-                                    selectedTroupes[index] = t
-                                }
+                                val maxAllowed = when(playerCount) { 3 -> 4; 4 -> 3; else -> 6 }
+                                if (t.isTournamentList || t.characterIds.size > maxAllowed) troupeToPrune = index to t
+                                else selectedTroupes[index] = t
                             },
                             onCreateNewTroupe = {
                                 viewModel.editingTroupeId = null
@@ -211,28 +182,23 @@ fun OfflineSetupUI(
             },
             enabled = selectedTroupes.take(playerCount).all { it != null },
             modifier = Modifier.fillMaxWidth().height(56.dp).onGloballyPositioned { onPositioned("StartBattleButton", it) },
-            shape = RoundedCornerShape(if (isMoonstone) 0.dp else 12.dp)
+            shape = theme.cardShape
         ) {
-            Text("BATTLE!", fontSize = if (isMoonstone) 20.sp else 16.sp, fontWeight = FontWeight.ExtraBold)
+            Text(
+                "BATTLE!", 
+                style = theme.buttonTextStyle
+            )
         }
     }
     
     if (showQrForTroupe != null) {
         val shareCode = viewModel.generateFullShareCode(showQrForTroupe!!, state.characters)
-        QrCodeDialog(
-            troupeName = showQrForTroupe!!.troupeName,
-            shareCode = shareCode,
-            onDismiss = { showQrForTroupe = null }
-        )
+        QrCodeDialog(troupeName = showQrForTroupe!!.troupeName, shareCode = shareCode, onDismiss = { showQrForTroupe = null })
     }
 
     if (troupeToPrune != null) {
         val (index, troupe) = troupeToPrune!!
-        val maxAllowed = when(playerCount) {
-            3 -> 4
-            4 -> 3
-            else -> 6
-        }
+        val maxAllowed = when(playerCount) { 3 -> 4; 4 -> 3; else -> 6 }
         TroupeSelectionDialog(
             troupe = troupe,
             maxSelection = maxAllowed,
@@ -259,29 +225,23 @@ fun OfflineSetupUI(
                         modifier = Modifier.fillMaxWidth(),
                         placeholder = { Text("Troupe Name") },
                         singleLine = true,
-                        shape = if (isMoonstone) RoundedCornerShape(0.dp) else OutlinedTextFieldDefaults.shape
+                        shape = theme.cardShape
                     )
                 }
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        troupeToSaveWithName?.let {
-                            viewModel.saveTroupe(it.copy(troupeName = customTroupeName))
+                        troupeToSaveWithName?.let { troupe: Troupe ->
+                            viewModel.saveTroupe(troupe.copy(troupeName = customTroupeName))
                         }
                         troupeToSaveWithName = null
                     },
                     enabled = customTroupeName.isNotBlank(),
-                    shape = RoundedCornerShape(if (isMoonstone) 0.dp else 12.dp)
-                ) {
-                    Text("Save")
-                }
+                    shape = theme.cardShape
+                ) { Text("Save") }
             },
-            dismissButton = {
-                TextButton(onClick = { troupeToSaveWithName = null }) {
-                    Text("Cancel")
-                }
-            }
+            dismissButton = { TextButton(onClick = { troupeToSaveWithName = null }) { Text("Cancel") } }
         )
     }
 }

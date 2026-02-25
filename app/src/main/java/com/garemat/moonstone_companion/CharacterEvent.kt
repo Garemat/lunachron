@@ -20,6 +20,7 @@ sealed interface CharacterEvent {
 
     data class UpdateUserName(val name: String) : CharacterEvent
     data class ChangeTheme(val theme: AppTheme) : CharacterEvent
+    data class ChangeLayoutDensity(val density: LayoutDensity) : CharacterEvent
     data class SetLocalModeDefault(val useLocal: Boolean) : CharacterEvent
     
     // Tutorial

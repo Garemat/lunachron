@@ -15,9 +15,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.zIndex
 import com.garemat.moonstone_companion.*
-import kotlinx.coroutines.launch
+import com.garemat.moonstone_companion.ui.theme.LocalAppThemeProperties
 
 @Composable
 fun CharacterListScreen(
@@ -29,6 +28,7 @@ fun CharacterListScreen(
     var expandedCharacterIds by remember { mutableStateOf(setOf<Int>()) }
     var searchQuery by remember { mutableStateOf("") }
     var selectedFactions by remember { mutableStateOf(setOf<Faction>()) }
+    val theme = LocalAppThemeProperties.current
     
     val availableTags = remember(state.characters, selectedFactions) {
         state.characters
@@ -51,10 +51,7 @@ fun CharacterListScreen(
                 character.activeAbilities.any { it.name.contains(searchQuery, ignoreCase = true) || it.description.contains(searchQuery, ignoreCase = true) } ||
                 character.arcaneAbilities.any { it.name.contains(searchQuery, ignoreCase = true) || it.description.contains(searchQuery, ignoreCase = true) }
             }.map { it.id }.toSet()
-            
-            if (matchingIds.size in 1..3) {
-                expandedCharacterIds = matchingIds
-            }
+            if (matchingIds.size in 1..3) expandedCharacterIds = matchingIds
         }
     }
 
@@ -73,7 +70,6 @@ fun CharacterListScreen(
                 character.passiveAbilities.any { it.name.contains(searchQuery, ignoreCase = true) || it.description.contains(searchQuery, ignoreCase = true) } ||
                 character.activeAbilities.any { it.name.contains(searchQuery, ignoreCase = true) || it.description.contains(searchQuery, ignoreCase = true) } ||
                 character.arcaneAbilities.any { it.name.contains(searchQuery, ignoreCase = true) || it.description.contains(searchQuery, ignoreCase = true) }
-            
             matchesFaction && matchesTags && matchesSearch
         }
     }
@@ -84,7 +80,7 @@ fun CharacterListScreen(
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     tonalElevation = 2.dp,
-                    shadowElevation = 4.dp
+                    shadowElevation = theme.surfaceElevation
                 ) {
                     CharacterFilterHeader(
                         searchQuery = searchQuery,
@@ -127,22 +123,15 @@ fun CharacterListScreen(
                         searchQuery = searchQuery,
                         isExpanded = expandedCharacterIds.contains(character.id),
                         onExpandClick = {
-                            expandedCharacterIds = if (expandedCharacterIds.contains(character.id)) {
-                                expandedCharacterIds - character.id
-                            } else {
-                                expandedCharacterIds + character.id
-                            }
+                            expandedCharacterIds = if (expandedCharacterIds.contains(character.id)) expandedCharacterIds - character.id else expandedCharacterIds + character.id
                         },
                         cardTargetName = if (isFirst) "FirstCharacterCard" else "CharacterCard",
-                        onPositioned = { name, coords -> 
-                            if (isFirst || name == "FlipButton") onTargetPositioned(name, coords)
-                        }
+                        onPositioned = { name, coords -> if (isFirst || name == "FlipButton") onTargetPositioned(name, coords) }
                     )
                 }
             }
         }
 
-        // Floating Action Button - Positioned manually to avoid Scaffold padding
         FloatingActionButton(
             onClick = { showFilterBar = !showFilterBar },
             modifier = Modifier
@@ -151,10 +140,7 @@ fun CharacterListScreen(
                 .onGloballyPositioned { onTargetPositioned("FilterButtonOpen", it) },
             containerColor = if (selectedFactions.isNotEmpty() || selectedTags.isNotEmpty() || searchQuery.isNotEmpty()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer
         ) {
-            Icon(
-                imageVector = if (showFilterBar) Icons.Default.FilterListOff else Icons.Default.FilterList,
-                contentDescription = "Toggle Filters"
-            )
+            Icon(imageVector = if (showFilterBar) Icons.Default.FilterListOff else Icons.Default.FilterList, contentDescription = null)
         }
     }
 }

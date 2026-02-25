@@ -8,7 +8,6 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -20,7 +19,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
@@ -33,6 +31,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.garemat.moonstone_companion.ui.*
+import com.garemat.moonstone_companion.ui.theme.LocalAppThemeProperties
 import com.garemat.moonstone_companion.ui.theme.MoonstonecompanionTheme
 import kotlinx.coroutines.launch
 
@@ -60,7 +59,6 @@ class MainActivity : ComponentActivity() {
         setContent {
             val state by viewModel.state.collectAsState()
             var showTutorialForcefully by remember { mutableStateOf(false) }
-            val isMoonstone = state.theme == AppTheme.MOONSTONE
             
             // Global coordinate tracking for tutorial
             val tutorialCoords = remember { mutableStateMapOf<String, LayoutCoordinates>() }
@@ -71,6 +69,7 @@ class MainActivity : ComponentActivity() {
             var targetManualPlayerId by remember { mutableStateOf<String?>(null) }
 
             MoonstonecompanionTheme(appTheme = state.theme) {
+                val theme = LocalAppThemeProperties.current
                 val navController = rememberNavController()
                 val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
                 val scope = rememberCoroutineScope()
@@ -104,7 +103,7 @@ class MainActivity : ComponentActivity() {
                     gesturesEnabled = showNavBars,
                     drawerContent = {
                         ModalDrawerSheet(
-                            drawerShape = if (isMoonstone) RoundedCornerShape(0.dp) else DrawerDefaults.shape,
+                            drawerShape = theme.drawerShape,
                             drawerContainerColor = MaterialTheme.colorScheme.surface,
                             drawerContentColor = MaterialTheme.colorScheme.primary
                         ) {
@@ -112,19 +111,19 @@ class MainActivity : ComponentActivity() {
                             Text(
                                 "Moonstone Companion",
                                 modifier = Modifier.padding(16.dp),
-                                style = if (isMoonstone) MaterialTheme.typography.displayLarge.copy(fontSize = 24.sp) else MaterialTheme.typography.titleLarge,
-                                color = if (isMoonstone) MaterialTheme.colorScheme.primary else Color.Unspecified
+                                style = theme.titleStyle,
+                                color = MaterialTheme.colorScheme.primary
                             )
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                             NavigationDrawerItem(
                                 icon = { Icon(Icons.Default.MenuBook, contentDescription = null) },
-                                label = { Text("Rules", style = if (isMoonstone) MaterialTheme.typography.displayLarge.copy(fontSize = 18.sp) else MaterialTheme.typography.labelLarge) },
+                                label = { Text("Rules", style = theme.headerStyle.copy(fontSize = 18.sp)) },
                                 selected = false,
                                 onClick = {
                                     scope.launch { drawerState.close() }
                                     navController.navigate(Screen.Rules.route)
                                 },
-                                shape = if (isMoonstone) RoundedCornerShape(0.dp) else CircleShape,
+                                shape = theme.navItemShape,
                                 colors = NavigationDrawerItemDefaults.colors(
                                     unselectedIconColor = MaterialTheme.colorScheme.primary,
                                     unselectedTextColor = MaterialTheme.colorScheme.primary,
@@ -135,13 +134,13 @@ class MainActivity : ComponentActivity() {
                             )
                             NavigationDrawerItem(
                                 icon = { Icon(Icons.Default.Help, contentDescription = null) },
-                                label = { Text("Tutorial Help", style = if (isMoonstone) MaterialTheme.typography.displayLarge.copy(fontSize = 18.sp) else MaterialTheme.typography.labelLarge) },
+                                label = { Text("Tutorial Help", style = theme.headerStyle.copy(fontSize = 18.sp)) },
                                 selected = false,
                                 onClick = {
                                     scope.launch { drawerState.close() }
                                     showTutorialForcefully = true
                                 },
-                                shape = if (isMoonstone) RoundedCornerShape(0.dp) else CircleShape,
+                                shape = theme.navItemShape,
                                 colors = NavigationDrawerItemDefaults.colors(
                                     unselectedIconColor = MaterialTheme.colorScheme.primary,
                                     unselectedTextColor = MaterialTheme.colorScheme.primary
@@ -149,13 +148,13 @@ class MainActivity : ComponentActivity() {
                             )
                             NavigationDrawerItem(
                                 icon = { Icon(Icons.Default.Settings, contentDescription = null) },
-                                label = { Text("Settings", style = if (isMoonstone) MaterialTheme.typography.displayLarge.copy(fontSize = 18.sp) else MaterialTheme.typography.labelLarge) },
+                                label = { Text("Settings", style = theme.headerStyle.copy(fontSize = 18.sp)) },
                                 selected = false,
                                 onClick = {
                                     scope.launch { drawerState.close() }
                                     navController.navigate(Screen.Settings.route)
                                 },
-                                shape = if (isMoonstone) RoundedCornerShape(0.dp) else CircleShape,
+                                shape = theme.navItemShape,
                                 colors = NavigationDrawerItemDefaults.colors(
                                     unselectedIconColor = MaterialTheme.colorScheme.primary,
                                     unselectedTextColor = MaterialTheme.colorScheme.primary
@@ -163,13 +162,13 @@ class MainActivity : ComponentActivity() {
                             )
                             NavigationDrawerItem(
                                 icon = { Icon(Icons.Default.EmojiEvents, contentDescription = null) },
-                                label = { Text("Setup Local Tournament", style = if (isMoonstone) MaterialTheme.typography.displayLarge.copy(fontSize = 18.sp) else MaterialTheme.typography.labelLarge) },
+                                label = { Text("Setup Local Tournament", style = theme.headerStyle.copy(fontSize = 18.sp)) },
                                 selected = false,
                                 onClick = {
                                     scope.launch { drawerState.close() }
                                     navController.navigate(Screen.TournamentSetup.route)
                                 },
-                                shape = if (isMoonstone) RoundedCornerShape(0.dp) else CircleShape,
+                                shape = theme.navItemShape,
                                 colors = NavigationDrawerItemDefaults.colors(
                                     unselectedIconColor = MaterialTheme.colorScheme.primary,
                                     unselectedTextColor = MaterialTheme.colorScheme.primary
@@ -192,7 +191,7 @@ class MainActivity : ComponentActivity() {
                                             Screen.Stats.route -> "Statistics"
                                             else -> "Moonstone Companion"
                                         },
-                                        style = if (isMoonstone) MaterialTheme.typography.displayLarge.copy(fontSize = 24.sp) else MaterialTheme.typography.titleLarge
+                                        style = theme.titleStyle
                                     ) },
                                     navigationIcon = {
                                         if (currentDestination?.route == Screen.AddEditTroupe.route) {
@@ -223,8 +222,8 @@ class MainActivity : ComponentActivity() {
                         bottomBar = {
                             if (showNavBars) {
                                 NavigationBar(
-                                    containerColor = if (isMoonstone) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceVariant,
-                                    tonalElevation = if (isMoonstone) 0.dp else NavigationBarDefaults.Elevation
+                                    containerColor = if (state.theme == AppTheme.MOONSTONE) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceVariant,
+                                    tonalElevation = theme.navigationBarElevation
                                 ) {
                                     val items = listOf(
                                         BottomNavItem("Home", Screen.Home.route, Icons.Default.Home),
@@ -250,14 +249,14 @@ class MainActivity : ComponentActivity() {
                                                 if (isPlayButton) {
                                                     Surface(
                                                         shape = CircleShape,
-                                                        color = if (isSelected) MaterialTheme.colorScheme.primary else if (isMoonstone) Color.Transparent else MaterialTheme.colorScheme.secondaryContainer,
+                                                        color = if (isSelected) MaterialTheme.colorScheme.primary else if (state.theme == AppTheme.MOONSTONE) Color.Transparent else MaterialTheme.colorScheme.secondaryContainer,
                                                         modifier = Modifier.size(48.dp)
                                                     ) {
                                                         Box(contentAlignment = Alignment.Center) {
                                                             Icon(
                                                                 item.icon, 
                                                                 contentDescription = item.label,
-                                                                tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else if (isMoonstone) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSecondaryContainer
+                                                                tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else theme.unselectedNavColor
                                                             )
                                                         }
                                                     }
@@ -268,7 +267,7 @@ class MainActivity : ComponentActivity() {
                                             label = { 
                                                 Text(
                                                     text = item.label,
-                                                    style = if (isMoonstone) MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold) else LocalTextStyle.current
+                                                    style = theme.labelStyle
                                                 ) 
                                             },
                                             selected = isSelected,
@@ -282,7 +281,7 @@ class MainActivity : ComponentActivity() {
                                                 }
                                             },
                                             colors = NavigationBarItemDefaults.colors(
-                                                indicatorColor = if (isPlayButton) Color.Transparent else if (isMoonstone) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else MaterialTheme.colorScheme.secondaryContainer
+                                                indicatorColor = if (isPlayButton) Color.Transparent else if (state.theme == AppTheme.MOONSTONE) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else MaterialTheme.colorScheme.secondaryContainer
                                             )
                                         )
                                     }

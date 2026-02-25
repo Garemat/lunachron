@@ -20,10 +20,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.garemat.moonstone_companion.*
+import com.garemat.moonstone_companion.ui.theme.LocalAppThemeProperties
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,53 +43,38 @@ fun TroupeListScreen(
     var showImportDialog by remember { mutableStateOf(false) }
     var importCode by remember { mutableStateOf("") }
     val context = LocalContext.current
+    val theme = LocalAppThemeProperties.current
     
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             topBar = {
                 if (selectionMode) {
-                    TopAppBar(
-                        title = { Text("Select Tournament Troupe") },
-                        navigationIcon = {
-                            IconButton(onClick = onNavigateBack) {
-                                Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-                            }
-                        }
+                    CenterAlignedTopAppBar(
+                        title = { Text("Select Tournament Troupe", style = theme.titleStyle) },
+                        navigationIcon = { IconButton(onClick = onNavigateBack) { Icon(Icons.Default.ArrowBack, contentDescription = null) } }
                     )
                 }
             },
             floatingActionButton = {
-                FloatingActionButton(
-                    onClick = onAddTroupe,
-                    modifier = Modifier.onGloballyPositioned { onTargetPositioned("AddTroupe", it) }
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "Create Troupe")
-                }
+                FloatingActionButton(onClick = onAddTroupe, modifier = Modifier.onGloballyPositioned { onTargetPositioned("AddTroupe", it) }) { Icon(Icons.Default.Add, contentDescription = null) }
             }
         ) { padding ->
-            // If no troupes exist AND tutorial is active, show a dummy one for the tutorial
             val troupesToShow = if (state.troupes.isEmpty() && isTutorialActive) {
                 listOf(Troupe(id = -1, troupeName = "Example Troupe", faction = Faction.COMMONWEALTH, characterIds = emptyList(), shareCode = "DUMMY"))
-            } else {
-                state.troupes
-            }
+            } else state.troupes
 
             if (troupesToShow.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                    Text("No troupes yet. Create or import one!")
-                }
+                Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) { Text("No troupes yet. Create or import one!") }
             } else {
                 LazyColumn(
                     contentPadding = padding,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .onGloballyPositioned { onTargetPositioned("TroupeList", it) },
+                    modifier = Modifier.fillMaxSize().onGloballyPositioned { onTargetPositioned("TroupeList", it) },
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(troupesToShow) { troupe ->
                         val isValid = if (tournamentCriteria != null) {
-                            val requiredChars = if (tournamentCriteria.troupeSize == TroupeSizeSetting.V6_10) 10 else 8
-                            troupe.isTournamentList && troupe.characterIds.size == requiredChars
+                            val req = if (tournamentCriteria.troupeSize == TroupeSizeSetting.V6_10) 10 else 8
+                            troupe.isTournamentList && troupe.characterIds.size == req
                         } else true
 
                         TroupeListItem(
@@ -97,28 +82,15 @@ fun TroupeListScreen(
                             onClick = { 
                                 if (selectionMode) {
                                     if (isValid) onTroupeSelected(troupe)
-                                    else {
-                                        viewModel.onEvent(CharacterEvent.EditTroupe(troupe))
-                                        onEditTroupe()
-                                    }
-                                } else if (troupe.id != -1) {
-                                    viewModel.onEvent(CharacterEvent.EditTroupe(troupe))
-                                    onEditTroupe()
-                                }
+                                    else { viewModel.onEvent(CharacterEvent.EditTroupe(troupe)); onEditTroupe() }
+                                } else if (troupe.id != -1) { viewModel.onEvent(CharacterEvent.EditTroupe(troupe)); onEditTroupe() }
                             },
                             onDelete = { if (troupe.id != -1) troupeToDelete = troupe },
                             onShare = { 
-                                if (troupe.id != -1) {
-                                    val fullCode = viewModel.generateFullShareCode(troupe, state.characters)
-                                    shareTroupe(context, troupe.troupeName, fullCode)
-                                } else {
-                                    shareTroupe(context, troupe.troupeName, "DUMMY_CODE")
-                                }
+                                val code = if (troupe.id != -1) viewModel.generateFullShareCode(troupe, state.characters) else "DUMMY_CODE"
+                                shareTroupe(context, troupe.troupeName, code)
                             },
-                            onEdit = {
-                                viewModel.onEvent(CharacterEvent.EditTroupe(troupe))
-                                onEditTroupe()
-                            },
+                            onEdit = { viewModel.onEvent(CharacterEvent.EditTroupe(troupe)); onEditTroupe() },
                             isDimmed = selectionMode && !isValid,
                             selectionMode = selectionMode,
                             onPositioned = onTargetPositioned
@@ -127,83 +99,16 @@ fun TroupeListScreen(
                 }
             }
             
-            // Delete Dialog
             if (troupeToDelete != null) {
-                AlertDialog(
-                    onDismissRequest = { troupeToDelete = null },
-                    title = { Text("Delete Troupe") },
-                    text = { Text("Are you sure you want to delete '${troupeToDelete?.troupeName}'?") },
-                    confirmButton = {
-                        TextButton(
-                            onClick = {
-                                troupeToDelete?.let { viewModel.onEvent(CharacterEvent.DeleteTroupe(it)) }
-                                troupeToDelete = null
-                            },
-                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                        ) {
-                            Text("Delete")
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { troupeToDelete = null }) {
-                            Text("Cancel")
-                        }
-                    }
-                )
+                AlertDialog(onDismissRequest = { troupeToDelete = null }, title = { Text("Delete Troupe") }, text = { Text("Are you sure?") }, confirmButton = { TextButton(onClick = { troupeToDelete?.let { viewModel.onEvent(CharacterEvent.DeleteTroupe(it)) }; troupeToDelete = null }, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text("Delete") } }, dismissButton = { TextButton(onClick = { troupeToDelete = null }) { Text("Cancel") } })
             }
 
-            // Import Dialog
             if (showImportDialog) {
-                AlertDialog(
-                    onDismissRequest = { showImportDialog = false },
-                    title = { Text("Import Troupe") },
-                    text = {
-                        Column {
-                            Text("Paste the shared troupe code below:")
-                            Spacer(modifier = Modifier.height(8.dp))
-                            OutlinedTextField(
-                                value = importCode,
-                                onValueChange = { importCode = it },
-                                modifier = Modifier.fillMaxWidth(),
-                                placeholder = { Text("Paste code here") }
-                            )
-                        }
-                    },
-                    confirmButton = {
-                        Button(
-                            onClick = {
-                                viewModel.importTroupe(importCode, state.characters)
-                                if (viewModel.state.value.errorMessage == null) {
-                                    showImportDialog = false
-                                    importCode = ""
-                                    onAddTroupe() // Navigate to editor with imported data
-                                }
-                            },
-                            enabled = importCode.isNotBlank()
-                        ) {
-                            Text("Import")
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { showImportDialog = false }) {
-                            Text("Cancel")
-                        }
-                    }
-                )
+                AlertDialog(onDismissRequest = { showImportDialog = false }, title = { Text("Import") }, text = { OutlinedTextField(value = importCode, onValueChange = { importCode = it }, modifier = Modifier.fillMaxWidth()) }, confirmButton = { Button(onClick = { viewModel.importTroupe(importCode, state.characters); if (viewModel.state.value.errorMessage == null) { showImportDialog = false; importCode = ""; onAddTroupe() } }, enabled = importCode.isNotBlank()) { Text("Import") } }, dismissButton = { TextButton(onClick = { showImportDialog = false }) { Text("Cancel") } })
             }
 
-            // Error Dialog
             if (state.errorMessage != null) {
-                AlertDialog(
-                    onDismissRequest = { viewModel.onEvent(CharacterEvent.DismissError) },
-                    title = { Text("Import Failed") },
-                    text = { Text(state.errorMessage) },
-                    confirmButton = {
-                        TextButton(onClick = { viewModel.onEvent(CharacterEvent.DismissError) }) {
-                            Text("OK")
-                        }
-                    }
-                )
+                AlertDialog(onDismissRequest = { viewModel.onEvent(CharacterEvent.DismissError) }, title = { Text("Failed") }, text = { Text(state.errorMessage) }, confirmButton = { TextButton(onClick = { viewModel.onEvent(CharacterEvent.DismissError) }) { Text("OK") } })
             }
         }
     }
@@ -220,89 +125,45 @@ fun TroupeListItem(
     selectionMode: Boolean = false,
     onPositioned: (String, LayoutCoordinates) -> Unit = { _, _ -> }
 ) {
+    val theme = LocalAppThemeProperties.current
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp)
-            .alpha(if (isDimmed) 0.5f else 1.0f)
-            .clickable { onClick() },
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp).alpha(if (isDimmed) 0.5f else 1.0f).clickable { onClick() },
+        shape = theme.cardShape,
+        elevation = CardDefaults.cardElevation(defaultElevation = theme.surfaceElevation),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(getFactionColor(troupe.faction)),
-                contentAlignment = Alignment.Center
-            ) {
-                FactionSymbol(
-                    faction = troupe.faction,
-                    modifier = Modifier.fillMaxSize(),
-                    tint = Color.White
-                )
+        Row(modifier = Modifier.padding(theme.cardContentPadding), verticalAlignment = Alignment.CenterVertically) {
+            Box(modifier = Modifier.size(32.dp).clip(CircleShape).background(getFactionColor(troupe.faction)), contentAlignment = Alignment.Center) {
+                FactionSymbol(faction = troupe.faction, modifier = Modifier.fillMaxSize().padding(4.dp), tint = Color.White)
             }
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = troupe.troupeName,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
+                        text = troupe.troupeName, 
+                        style = theme.titleStyle.copy(fontSize = 18.sp, lineHeight = 22.sp), 
+                        maxLines = 1, 
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                     )
                     if (troupe.isTournamentList) {
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Icon(
-                            Icons.Default.EmojiEvents, 
-                            contentDescription = "Tournament Ready",
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(Icons.Default.EmojiEvents, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
                     }
                 }
                 Text(
-                    text = "${troupe.characterIds.size} Characters",
-                    style = MaterialTheme.typography.bodySmall,
+                    text = "${troupe.characterIds.size} Characters", 
+                    style = MaterialTheme.typography.bodySmall.copy(lineHeight = 16.sp), 
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-
-            if (selectionMode) {
-                IconButton(onClick = onEdit) {
-                    Icon(Icons.Default.Edit, contentDescription = "Edit Troupe")
-                }
-            } else {
-                IconButton(
-                    onClick = onShare,
-                    modifier = Modifier.onGloballyPositioned { onPositioned("ShareTroupe", it) }
-                ) {
-                    Icon(Icons.Default.Share, contentDescription = "Share Code")
-                }
-            }
-            
-            IconButton(
-                onClick = onDelete,
-                modifier = Modifier.onGloballyPositioned { onPositioned("DeleteTroupe", it) }
-            ) {
-                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
-            }
+            if (selectionMode) IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) { Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(20.dp)) }
+            else IconButton(onClick = onShare, modifier = Modifier.size(36.dp).onGloballyPositioned { onPositioned("ShareTroupe", it) }) { Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(20.dp)) }
+            IconButton(onClick = onDelete, modifier = Modifier.size(36.dp).onGloballyPositioned { onPositioned("DeleteTroupe", it) }) { Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.error) }
         }
     }
 }
 
 private fun shareTroupe(context: Context, name: String, code: String) {
-    val sendIntent: Intent = Intent().apply {
-        action = Intent.ACTION_SEND
-        putExtra(Intent.EXTRA_TEXT, "$code")
-        type = "text/plain"
-    }
-    val shareIntent = Intent.createChooser(sendIntent, null)
-    context.startActivity(shareIntent)
+    val intent = Intent().apply { action = Intent.ACTION_SEND; putExtra(Intent.EXTRA_TEXT, code); type = "text/plain" }
+    context.startActivity(Intent.createChooser(intent, null))
 }
