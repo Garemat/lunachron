@@ -69,7 +69,7 @@ fun TroupeListScreen(
                 LazyColumn(
                     contentPadding = padding,
                     modifier = Modifier.fillMaxSize().onGloballyPositioned { onTargetPositioned("TroupeList", it) },
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(theme.verticalSpacing / 2)
                 ) {
                     items(troupesToShow) { troupe ->
                         val isValid = if (tournamentCriteria != null) {
@@ -127,7 +127,7 @@ fun TroupeListItem(
 ) {
     val theme = LocalAppThemeProperties.current
     Card(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp).alpha(if (isDimmed) 0.5f else 1.0f).clickable { onClick() },
+        modifier = Modifier.fillMaxWidth().padding(horizontal = theme.screenPadding, vertical = theme.verticalSpacing / 8).alpha(if (isDimmed) 0.5f else 1.0f).clickable { onClick() },
         shape = theme.cardShape,
         elevation = CardDefaults.cardElevation(defaultElevation = theme.surfaceElevation),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)

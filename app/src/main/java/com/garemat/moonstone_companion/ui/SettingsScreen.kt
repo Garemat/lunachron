@@ -51,10 +51,10 @@ fun SettingsScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(scrollState)
-                .padding(16.dp)
+                .padding(theme.screenPadding)
         ) {
             Text("User Profile", style = theme.titleStyle.copy(fontSize = 20.sp), color = MaterialTheme.colorScheme.primary)
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
@@ -64,12 +64,12 @@ fun SettingsScreen(
                 shape = theme.cardShape
             )
             
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(theme.verticalSpacing))
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(theme.verticalSpacing))
             
             Text("App Theme", style = theme.titleStyle.copy(fontSize = 20.sp), color = MaterialTheme.colorScheme.primary)
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
             
             Column {
                 ThemeOption(
@@ -86,9 +86,9 @@ fun SettingsScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(theme.verticalSpacing))
             Text("Layout Density", style = theme.titleStyle.copy(fontSize = 20.sp), color = MaterialTheme.colorScheme.primary)
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
 
             Column {
                 LayoutDensity.entries.forEach { density ->
@@ -101,18 +101,18 @@ fun SettingsScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(theme.verticalSpacing))
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(theme.verticalSpacing))
 
             Text("Gameplay", style = theme.titleStyle.copy(fontSize = 20.sp), color = MaterialTheme.colorScheme.primary)
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
 
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { onEvent(CharacterEvent.SetLocalModeDefault(!state.useLocalModeByDefault)) }
-                    .padding(vertical = 8.dp),
+                    .padding(vertical = theme.verticalSpacing / 4),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -123,7 +123,7 @@ fun SettingsScreen(
                 Switch(checked = state.useLocalModeByDefault, onCheckedChange = { onEvent(CharacterEvent.SetLocalModeDefault(it)) })
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(theme.verticalSpacing * 2))
             
             Button(
                 onClick = { onEvent(CharacterEvent.UpdateUserName(name)); onNavigateBack() },
@@ -142,7 +142,7 @@ fun SettingsScreen(
 @Composable
 fun ThemeOption(title: String, selected: Boolean, onSelect: () -> Unit, theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties) {
     Row(
-        modifier = Modifier.fillMaxWidth().clickable { onSelect() }.padding(vertical = 8.dp),
+        modifier = Modifier.fillMaxWidth().clickable { onSelect() }.padding(vertical = theme.verticalSpacing / 4),
         verticalAlignment = Alignment.CenterVertically
     ) {
         RadioButton(selected = selected, onClick = onSelect)
@@ -153,7 +153,7 @@ fun ThemeOption(title: String, selected: Boolean, onSelect: () -> Unit, theme: c
 @Composable
 fun DensityOption(title: String, selected: Boolean, onSelect: () -> Unit, theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties) {
     Row(
-        modifier = Modifier.fillMaxWidth().clickable { onSelect() }.padding(vertical = 8.dp),
+        modifier = Modifier.fillMaxWidth().clickable { onSelect() }.padding(vertical = theme.verticalSpacing / 4),
         verticalAlignment = Alignment.CenterVertically
     ) {
         RadioButton(selected = selected, onClick = onSelect)

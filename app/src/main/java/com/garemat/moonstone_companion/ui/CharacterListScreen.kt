@@ -105,8 +105,8 @@ fun CharacterListScreen(
 
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(top = 8.dp, bottom = 100.dp),
+                verticalArrangement = Arrangement.spacedBy(theme.verticalSpacing / 2),
+                contentPadding = PaddingValues(top = theme.verticalSpacing / 2, bottom = 100.dp, start = theme.screenPadding, end = theme.screenPadding),
                 state = listState
             ) {
                 if (filteredCharacters.isEmpty()) {

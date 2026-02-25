@@ -33,6 +33,7 @@ data class AppThemeProperties(
     val navigationBarElevation: Dp,
     val cardContentPadding: Dp,
     val verticalSpacing: Dp,
+    val screenPadding: Dp,
     val showFactionBackgrounds: Boolean = false
 )
 
@@ -50,21 +51,22 @@ val LocalAppThemeProperties = staticCompositionLocalOf {
         surfaceElevation = 4.dp,
         navigationBarElevation = 8.dp,
         cardContentPadding = 16.dp,
-        verticalSpacing = 8.dp
+        verticalSpacing = 16.dp,
+        screenPadding = 16.dp
     )
 }
 
 @Composable
 fun getThemeProperties(appTheme: AppTheme, density: LayoutDensity): AppThemeProperties {
-    val padding = when (density) {
-        LayoutDensity.COMPACT -> 4.dp
-        LayoutDensity.COZY -> 8.dp
-        LayoutDensity.SPACIOUS -> 16.dp
+    val spacing = when (density) {
+        LayoutDensity.COMPACT -> 8.dp
+        LayoutDensity.COZY -> 16.dp
+        LayoutDensity.SPACIOUS -> 24.dp
     }
     
-    val spacing = when (density) {
-        LayoutDensity.COMPACT -> 4.dp
-        LayoutDensity.COZY -> 8.dp
+    val cardPadding = when (density) {
+        LayoutDensity.COMPACT -> 8.dp
+        LayoutDensity.COZY -> 12.dp
         LayoutDensity.SPACIOUS -> 16.dp
     }
 
@@ -81,8 +83,9 @@ fun getThemeProperties(appTheme: AppTheme, density: LayoutDensity): AppThemeProp
             unselectedNavColor = MaterialTheme.colorScheme.primary,
             surfaceElevation = 0.dp,
             navigationBarElevation = 0.dp,
-            cardContentPadding = padding,
+            cardContentPadding = cardPadding,
             verticalSpacing = spacing,
+            screenPadding = spacing,
             showFactionBackgrounds = true
         )
         AppTheme.DEFAULT -> AppThemeProperties(
@@ -97,8 +100,9 @@ fun getThemeProperties(appTheme: AppTheme, density: LayoutDensity): AppThemeProp
             unselectedNavColor = MaterialTheme.colorScheme.onSurfaceVariant,
             surfaceElevation = 4.dp,
             navigationBarElevation = 3.dp,
-            cardContentPadding = padding,
+            cardContentPadding = cardPadding,
             verticalSpacing = spacing,
+            screenPadding = spacing,
             showFactionBackgrounds = false
         )
     }

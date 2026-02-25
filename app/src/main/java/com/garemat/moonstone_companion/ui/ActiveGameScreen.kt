@@ -122,13 +122,13 @@ fun ActiveGameScreen(
                     val listState = rememberLazyListState()
                     Row(modifier = Modifier.fillMaxSize()) {
                         AnimatedVisibility(visible = isDrawerOpen, enter = expandHorizontally(), exit = shrinkHorizontally()) {
-                            Column(modifier = Modifier.width(70.dp).fillMaxHeight().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f)).padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Column(modifier = Modifier.width(70.dp).fillMaxHeight().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f)).padding(vertical = theme.verticalSpacing / 2), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(theme.verticalSpacing / 2)) {
                                 characters.forEachIndexed { charIndex, character ->
                                     CharacterPortraitJump(character = character, onClick = { if (!isTutorialActive) scope.launch { listState.animateScrollToItem(charIndex) } })
                                 }
                             }
                         }
-                        LazyColumn(state = listState, modifier = Modifier.weight(1f), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        LazyColumn(state = listState, modifier = Modifier.weight(1f), contentPadding = PaddingValues(theme.screenPadding), verticalArrangement = Arrangement.spacedBy(theme.verticalSpacing)) {
                             itemsIndexed(characters) { charIndex, character ->
                                 val stateKey = "${pageIndex}_${charIndex}"
                                 val playState = if (isTutorialActive) CharacterPlayState(currentHealth = character.health, moonstones = if (charIndex == 0) 2 else 0) else state.characterPlayStates[stateKey] ?: CharacterPlayState(currentHealth = character.health)
@@ -170,7 +170,7 @@ fun ActiveGameScreen(
     }
 
     if (showEndGameConfirm) {
-        AlertDialog(onDismissRequest = { showEndGameConfirm = false }, title = { Text("End Game?") }, text = { Text("Are you sure you want to end the game now and calculate the winner based on current Moonstones?") }, confirmButton = { Button(onClick = { showEndGameConfirm = false; viewModel.onEvent(CharacterEvent.EndGame) }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Confirm End") } }, dismissButton = { TextButton(onClick = { showEndGameConfirm = false }) { Text("Cancel") } })
+        AlertDialog(onDismissRequest = { showEndGameConfirm = false }, title = { Text("End Game?") }, text = { Text("Are you sure you want to end the game now and calculate the winner based on current Moonstones?") }, confirmButton = { Button(onClick = { showEndGameConfirm = false; viewModel.onEvent(CharacterEvent.EndGame) }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error), shape = theme.cardShape) { Text("Confirm End", style = theme.buttonTextStyle) } }, dismissButton = { TextButton(onClick = { showEndGameConfirm = false }) { Text("Cancel") } }, shape = theme.cardShape)
     }
     GameEndDialogs(state, viewModel, isTutorialActive)
 }
@@ -189,7 +189,7 @@ private fun ActiveGameTopBar(state: CharacterState, viewModel: CharacterViewMode
                     IconButton(onClick = { if (!isTutorialActive) viewModel.onEvent(CharacterEvent.RewindTurn) }, enabled = canR, modifier = Modifier.onGloballyPositioned { onTargetPositioned("RewindButton", it) }) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) { Icon(Icons.Default.History, contentDescription = null, tint = if (rReady) MaterialTheme.colorScheme.primary else if (canR) MaterialTheme.colorScheme.primary.copy(alpha = 0.6f) else MaterialTheme.colorScheme.outline); if (state.gameSession != null) Text("($rCount/$totalP)", style = MaterialTheme.typography.labelSmall, fontSize = 8.sp) }
                     }
-                    Text(text = if (state.currentTurn > 4) "Sudden Death" else "Round: ${state.currentTurn}", style = theme.titleStyle, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(horizontal = 16.dp))
+                    Text(text = if (state.currentTurn > 4) "Sudden Death" else "Round: ${state.currentTurn}", style = theme.titleStyle, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(horizontal = theme.screenPadding))
                     val nReady = state.readyForNextTurn.contains(state.deviceId); val nCount = state.readyForNextTurn.size
                     IconButton(onClick = { if (!isTutorialActive) viewModel.onEvent(CharacterEvent.NextTurn) }, modifier = Modifier.onGloballyPositioned { onTargetPositioned("NextTurnButton", it) }) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) { Icon(Icons.Default.SkipNext, contentDescription = null, tint = if (nReady) MaterialTheme.colorScheme.primary else if (canR) MaterialTheme.colorScheme.primary.copy(alpha = 0.6f) else MaterialTheme.colorScheme.outline); if (state.gameSession != null) Text("($nCount/$totalP)", style = MaterialTheme.typography.labelSmall, fontSize = 8.sp) }
@@ -201,7 +201,7 @@ private fun ActiveGameTopBar(state: CharacterState, viewModel: CharacterViewMode
             colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent), windowInsets = WindowInsets(top = 0.dp)
         )
         if (activePlayers.size > 1) {
-            ScrollableTabRow(selectedTabIndex = pagerState.currentPage, edgePadding = 16.dp, containerColor = Color.Transparent, divider = {}) {
+            ScrollableTabRow(selectedTabIndex = pagerState.currentPage, edgePadding = theme.screenPadding, containerColor = Color.Transparent, divider = {}) {
                 activePlayers.forEachIndexed { index, (troupe, _) ->
                     Tab(selected = pagerState.currentPage == index, onClick = { scope.launch { pagerState.animateScrollToPage(index) } }, text = { Text(text = troupe.troupeName, style = theme.labelStyle) })
                 }
@@ -215,9 +215,9 @@ private fun ActiveGameBottomBar(state: CharacterState, pagerState: androidx.comp
     val theme = LocalAppThemeProperties.current
     val isLocal = if (isTutorialActive) true else state.gameSession?.players?.getOrNull(pagerState.currentPage)?.deviceId == state.deviceId || state.gameSession == null
     Surface(color = MaterialTheme.colorScheme.surfaceVariant, tonalElevation = theme.surfaceElevation) {
-        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = theme.screenPadding, vertical = theme.verticalSpacing / 2), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
             Box(modifier = Modifier.size(60.dp).onGloballyPositioned { potBounds.value = it.boundsInWindow(); onTargetPositioned("MoonstonePool", it) }.pointerInput(isLocal) {
-                if (isLocal) detectDragGestures(onDragStart = onDragStart, onDrag = { change, amount -> change.consume(); onDrag(amount) }, onDragEnd = onDragEnd, onDragCancel = onDragEnd)
+                if (isLocal) detectDragGestures(onDragStart = onDragStart, onDrag = { change, amount -> change.consume(); onDrag(amount) }, onDragEnd = { onDragEnd() }, onDragCancel = { onDragEnd() })
             }, contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) { MoonstoneIcon(size = 32.dp, modifier = Modifier.alpha(if (isLocal) 1f else 0.3f)); Text("POOL", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.ExtraBold) }
             }
@@ -228,11 +228,12 @@ private fun ActiveGameBottomBar(state: CharacterState, pagerState: androidx.comp
 @Composable
 private fun GameEndDialogs(state: CharacterState, viewModel: CharacterViewModel, isTutorialActive: Boolean) {
     val isMoonstone = LocalAppTheme.current == AppTheme.MOONSTONE
+    val theme = LocalAppThemeProperties.current
     if (state.winnerName != null && !isTutorialActive) {
-        AlertDialog(onDismissRequest = { viewModel.onEvent(CharacterEvent.ResetGamePlayState) }, title = { Text("Victory!", style = if (isMoonstone) MaterialTheme.typography.displayLarge else MaterialTheme.typography.headlineMedium) }, text = { Text(text = "${state.winnerName} has collected the most Moonstones and wins the game!", textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) }, confirmButton = { Button(onClick = { viewModel.onEvent(CharacterEvent.ResetGamePlayState) }) { Text("New Game") } })
+        AlertDialog(onDismissRequest = { viewModel.onEvent(CharacterEvent.ResetGamePlayState) }, title = { Text("Victory!", style = if (isMoonstone) MaterialTheme.typography.displayLarge else MaterialTheme.typography.headlineMedium) }, text = { Text(text = "${state.winnerName} has collected the most Moonstones and wins the game!", textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) }, confirmButton = { Button(onClick = { viewModel.onEvent(CharacterEvent.ResetGamePlayState) }, shape = theme.cardShape) { Text("New Game", style = theme.buttonTextStyle) } }, shape = theme.cardShape)
     }
     if (state.isTie && !isTutorialActive) {
-        AlertDialog(onDismissRequest = { viewModel.onEvent(CharacterEvent.ResetGamePlayState) }, title = { Text("It's a Tie!", style = if (isMoonstone) MaterialTheme.typography.displayLarge else MaterialTheme.typography.headlineMedium) }, text = { Text(text = "No single player collected more Moonstones than the others. The game ends in a draw!", textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) }, confirmButton = { Button(onClick = { viewModel.onEvent(CharacterEvent.ResetGamePlayState) }) { Text("New Game") } })
+        AlertDialog(onDismissRequest = { viewModel.onEvent(CharacterEvent.ResetGamePlayState) }, title = { Text("It's a Tie!", style = if (isMoonstone) MaterialTheme.typography.displayLarge else MaterialTheme.typography.headlineMedium) }, text = { Text(text = "No single player collected more Moonstones than the others. The game ends in a draw!", textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) }, confirmButton = { Button(onClick = { viewModel.onEvent(CharacterEvent.ResetGamePlayState) }, shape = theme.cardShape) { Text("New Game", style = theme.buttonTextStyle) } }, shape = theme.cardShape)
     }
 }
 
@@ -264,7 +265,7 @@ fun CharacterGameCard(character: Character, playState: CharacterPlayState, isEdi
     val theme = LocalAppThemeProperties.current
     Card(modifier = Modifier.fillMaxWidth().animateContentSize(), shape = theme.cardShape, colors = CardDefaults.cardColors(containerColor = if (playState.currentHealth <= 0) Color.DarkGray else MaterialTheme.colorScheme.surfaceVariant)) {
         Box {
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(modifier = Modifier.padding(theme.cardContentPadding)) {
                 if (!playState.isFlipped) FrontSide(character, playState, isEditable, onHealthChange, onEnergyChange, onExpandToggle, onAbilityToggle, onFlip = { onFlippedChange(true) })
                 else CharacterBack(character = character, searchQuery = "", onFlip = { onFlippedChange(false) })
             }
@@ -287,12 +288,20 @@ fun FrontSide(character: Character, playState: CharacterPlayState, isEditable: B
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.SpaceBetween) {
             Column(modifier = Modifier.weight(1f).clickable { onFlip() }.padding(start = 24.dp)) {
                 Text(text = character.name, style = theme.titleStyle, color = MaterialTheme.colorScheme.primary)
-                if (character.signatureMove.upgradeFrom.isNotEmpty()) Text(text = character.signatureMove.upgradeFrom, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.secondary, fontStyle = FontStyle.Italic)
-                else if (character.signatureMove.name.isNotEmpty()) Text(text = character.signatureMove.name, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.secondary, fontStyle = FontStyle.Italic)
+                val signature = if (character.signatureMove.upgradeFrom.isNotEmpty()) character.signatureMove.upgradeFrom else character.signatureMove.name
+                if (signature.isNotEmpty()) {
+                    Text(
+                        text = signature,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.secondary,
+                        fontStyle = FontStyle.Italic,
+                        modifier = Modifier.offset(y = (-8).dp)
+                    )
+                }
             }
             IconButton(onClick = onFlip) { Icon(Icons.Default.Refresh, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
         }
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(4.dp))
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
             Column(modifier = Modifier.weight(2f)) {
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
@@ -300,7 +309,7 @@ fun FrontSide(character: Character, playState: CharacterPlayState, isEditable: B
                     CommonStatBox("ARCANE", character.arcane.toString(), modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally)
                     CommonStatBox("EVADE", character.evade, modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally)
                 }
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     ModifierDisplay(character, isOffense = true, modifier = Modifier.weight(1f))
                     Spacer(modifier = Modifier.width(16.dp))
@@ -321,16 +330,16 @@ fun FrontSide(character: Character, playState: CharacterPlayState, isEditable: B
             IconButton(onClick = onExpandToggle, modifier = Modifier.size(32.dp)) { Icon(if (playState.isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, contentDescription = null) }
         }
         if (playState.isExpanded) {
-            Spacer(modifier = Modifier.height(12.dp)); HorizontalDivider(); Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(theme.verticalSpacing / 2)); HorizontalDivider(); Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
             if (character.passiveAbilities.isNotEmpty()) {
                 Text("PASSIVE ABILITIES", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                 character.passiveAbilities.forEach { CommonAbilityItem(name = it.name, description = it.description, oncePerTurn = it.oncePerTurn, oncePerGame = it.oncePerGame) }
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
             }
             if (character.activeAbilities.isNotEmpty()) {
                 Text("ACTIVE ABILITIES", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                 character.activeAbilities.forEach { it -> CommonAbilityItem(name = "${it.name} (${it.cost})${if (it.range.isNotEmpty()) " " + it.range else ""}", description = it.description, oncePerTurn = it.oncePerTurn, oncePerGame = it.oncePerGame, isUsed = playState.usedAbilities[it.name] ?: false, onUsedChange = { u -> onAbilityToggle(it.name, u) }, isEditable = isEditable) }
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
             }
             if (character.arcaneAbilities.isNotEmpty()) {
                 Text("ARCANE ABILITIES", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)

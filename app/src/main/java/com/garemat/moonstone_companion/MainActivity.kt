@@ -68,7 +68,10 @@ class MainActivity : ComponentActivity() {
             // State for manual troupe selection in tournament
             var targetManualPlayerId by remember { mutableStateOf<String?>(null) }
 
-            MoonstonecompanionTheme(appTheme = state.theme) {
+            MoonstonecompanionTheme(
+                appTheme = state.theme,
+                layoutDensity = state.layoutDensity
+            ) {
                 val theme = LocalAppThemeProperties.current
                 val navController = rememberNavController()
                 val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)

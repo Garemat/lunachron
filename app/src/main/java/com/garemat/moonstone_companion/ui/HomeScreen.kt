@@ -47,13 +47,13 @@ fun HomeScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+        Column(modifier = Modifier.fillMaxSize().padding(horizontal = theme.screenPadding)) {
             Text(
                 text = "Latest News",
                 style = theme.titleStyle.copy(fontSize = 28.sp),
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier
-                    .padding(vertical = 16.dp)
+                    .padding(vertical = theme.verticalSpacing)
                     .onGloballyPositioned { onTargetPositioned("Latest News", it) }
             )
 
@@ -64,8 +64,8 @@ fun HomeScreen(
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    contentPadding = PaddingValues(bottom = theme.verticalSpacing),
+                    verticalArrangement = Arrangement.spacedBy(theme.verticalSpacing)
                 ) {
                     items(state.newsItems) { item ->
                         NewsCard(item = item, onClick = { uriHandler.openUri(item.url) })
@@ -93,21 +93,21 @@ fun NewsCard(item: NewsItem, onClick: () -> Unit) {
                     contentScale = ContentScale.Crop
                 )
             }
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(modifier = Modifier.padding(theme.cardContentPadding)) {
                 Text(
                     text = item.title,
                     style = theme.titleStyle.copy(fontSize = 20.sp),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(theme.verticalSpacing / 4))
                 Text(
                     text = item.date,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.secondary
                 )
                 if (item.summary != null) {
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
                     Text(
                         text = item.summary,
                         style = MaterialTheme.typography.bodyMedium,
