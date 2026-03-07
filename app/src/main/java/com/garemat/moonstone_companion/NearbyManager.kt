@@ -5,7 +5,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.net.NetworkInfo
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
 import android.net.wifi.p2p.WifiP2pConfig
@@ -29,6 +28,8 @@ import java.io.BufferedReader
 import java.io.BufferedWriter
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
+import java.net.Inet4Address
+import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
 import java.util.UUID
@@ -196,7 +197,11 @@ class NearbyManager(private val context: Context) {
                         Log.w(TAG, "NSD resolve failed: $code")
                     }
                     override fun onServiceResolved(info: NsdServiceInfo) {
-                        val host = info.host.hostAddress ?: return
+                        val addr = info.host ?: return
+                        if (addr !is Inet4Address) {
+                            Log.w(TAG, "NSD skipping non-IPv4: ${addr.hostAddress}"); return
+                        }
+                        val host = addr.hostAddress ?: return
                         val endpointId = "nsd_${UUID.randomUUID()}"
                         nsdDiscoveredHosts[endpointId] = host to info.port
                         _discoveredEndpoints.update { it + (endpointId to info.serviceName) }
@@ -227,16 +232,17 @@ class NearbyManager(private val context: Context) {
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(ctx: Context, intent: Intent) {
                 if (intent.action != WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION) return
-                val networkInfo = intent.getParcelableExtra<NetworkInfo>(WifiP2pManager.EXTRA_NETWORK_INFO)
-                if (networkInfo?.isConnected != true) return
                 val targetId = pendingWifiDirectEndpointId ?: return
                 wifiP2pManager.requestConnectionInfo(ch) { info ->
+                    Log.d(TAG, "Wi-Fi Direct conn info: groupFormed=${info?.groupFormed}, isGroupOwner=${info?.isGroupOwner}")
                     if (info?.groupFormed == true && !info.isGroupOwner) {
                         val goAddress = info.groupOwnerAddress?.hostAddress ?: return@requestConnectionInfo
                         pendingWifiDirectEndpointId = null
                         scope.launch {
                             try {
-                                openConnection(targetId, Socket(goAddress, WIFI_DIRECT_PORT))
+                                val socket = Socket()
+                                socket.connect(InetSocketAddress(goAddress, WIFI_DIRECT_PORT), 10_000)
+                                openConnection(targetId, socket)
                             } catch (e: Exception) {
                                 Log.e(TAG, "Wi-Fi Direct TCP connect failed to $goAddress", e)
                             }
@@ -272,7 +278,9 @@ class NearbyManager(private val context: Context) {
                 }
                 scope.launch {
                     try {
-                        openConnection(endpointId, Socket(host, port))
+                        val socket = Socket()
+                        socket.connect(InetSocketAddress(host, port), 10_000)
+                        openConnection(endpointId, socket)
                     } catch (e: Exception) {
                         Log.e(TAG, "NSD TCP connect failed to $host:$port", e)
                     }
