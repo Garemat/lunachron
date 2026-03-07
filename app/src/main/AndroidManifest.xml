@@ -6,8 +6,6 @@
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
 
-    <!-- Location required for NSD service discovery on Android < 12 -->
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <!-- Wi-Fi peer discovery on Android 13+ -->
     <uses-permission
         android:name="android.permission.NEARBY_WIFI_DEVICES"
