@@ -77,7 +77,7 @@ fun TournamentWaitingRoomScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp)
+                .padding(theme.screenPadding)
         ) {
             // Tournament Info Header
             Card(
@@ -209,7 +209,7 @@ fun TournamentWaitingRoomScreen(
                             modifier = Modifier.weight(1f).height(56.dp),
                             shape = theme.cardShape,
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isReady) Color(0xFF2E7D32) else MaterialTheme.colorScheme.primary
+                                containerColor = if (isReady) theme.readyColor else MaterialTheme.colorScheme.primary
                             )
                         ) {
                             Text(if (isReady) "READY" else "CONFIRM READY", style = theme.buttonTextStyle)
@@ -394,9 +394,9 @@ fun TournamentPlayerItem(
 
                 if (player.isReady) {
                     Icon(
-                        Icons.Default.CheckCircle, 
-                        contentDescription = "Ready", 
-                        tint = Color(0xFF2E7D32),
+                        Icons.Default.CheckCircle,
+                        contentDescription = "Ready",
+                        tint = theme.readyColor,
                         modifier = Modifier.size(24.dp)
                     )
                 }

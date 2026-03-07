@@ -47,6 +47,7 @@ fun GameSetupScreen(
     var showScannerDialogForPlayer by remember { mutableStateOf<Int?>(null) }
     var showDiscoveryDialog by remember { mutableStateOf(false) }
     var showTournamentDiscoveryDialog by remember { mutableStateOf(false) }
+    var showHostModeDialog by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     // Navigation state within Setup
@@ -84,15 +85,10 @@ fun GameSetupScreen(
 
     val nearbyPermissions = remember {
         val permissions = mutableListOf<String>()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            permissions.add(Manifest.permission.BLUETOOTH_SCAN)
-            permissions.add(Manifest.permission.BLUETOOTH_ADVERTISE)
-            permissions.add(Manifest.permission.BLUETOOTH_CONNECT)
-        } else {
-            permissions.add(Manifest.permission.ACCESS_FINE_LOCATION)
-        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             permissions.add(Manifest.permission.NEARBY_WIFI_DEVICES)
+        } else {
+            permissions.add(Manifest.permission.ACCESS_FINE_LOCATION)
         }
         permissions.toTypedArray()
     }
@@ -192,11 +188,7 @@ fun GameSetupScreen(
                         else -> {
                             SetupModeSelection(
                                 onLocalSelected = { setupMode.value = SetupMode.LOCAL },
-                                onHostSelected = {
-                                    checkAndRunNearbyAction {
-                                        viewModel.startHosting(state.name.ifEmpty { "Host" })
-                                    }
-                                },
+                                onHostSelected = { showHostModeDialog = true },
                                 onJoinSelected = {
                                     checkAndRunNearbyAction {
                                         viewModel.startDiscovering()
@@ -214,6 +206,22 @@ fun GameSetupScreen(
                         }
                     }
                 }
+            }
+
+            if (showHostModeDialog) {
+                HostModeDialog(
+                    onSelectMode = { mode ->
+                        showHostModeDialog = false
+                        if (mode == com.garemat.moonstone_companion.HostMode.WIFI_DIRECT) {
+                            checkAndRunNearbyAction {
+                                viewModel.startHosting(state.name.ifEmpty { "Host" }, mode)
+                            }
+                        } else {
+                            viewModel.startHosting(state.name.ifEmpty { "Host" }, mode)
+                        }
+                    },
+                    onDismiss = { showHostModeDialog = false }
+                )
             }
 
             if (showDiscoveryDialog && activeSession == null) {

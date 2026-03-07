@@ -5,10 +5,14 @@ import android.content.Context
 import android.util.Base64
 import android.widget.Toast
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.garemat.moonstone_companion.ui.CampaignSubScreen
 import io.ktor.client.*
 import io.ktor.client.engine.android.*
 import io.ktor.client.plugins.HttpTimeout
@@ -27,7 +31,7 @@ import java.util.UUID
 
 class CharacterViewModel(
     application: Application,
-    private val dao: CharacterDAO
+    private val repository: CharacterRepository
 ) : AndroidViewModel(application) {
 
     private val prefs = application.getSharedPreferences("moonstone_prefs", Context.MODE_PRIVATE)
@@ -56,15 +60,31 @@ class CharacterViewModel(
         newsItems = loadCachedNews()
     ))
     
-    private val _characters = dao.getCharactersOrderedByName()
-    private val _troupes = dao.getTroupes()
-    val gameResults = dao.getGameResults().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    private val _characters = repository.getCharacters()
+    private val _troupes = repository.getTroupes()
+    private val _upgrades = repository.getUpgradeCards()
+    private val _campaignCards = repository.getCampaignCards()
+    private val _campaigns = repository.getCampaigns()
+    val gameResults = repository.getGameResults().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _rules = MutableStateFlow<List<RuleSection>>(emptyList())
     val rules = _rules.asStateFlow()
 
-    val state = combine(_state, _characters, _troupes) { state, characters, troupes ->
-        state.copy(characters = characters, troupes = troupes)
+    val state = combine(
+        _state, 
+        _characters, 
+        _troupes, 
+        _upgrades, 
+        _campaignCards
+    ) { state, characters, troupes, upgrades, campaignCards ->
+        state.copy(
+            characters = characters,
+            troupes = troupes,
+            upgradeCards = upgrades,
+            campaignCards = campaignCards
+        )
+    }.combine(_campaigns) { state, campaigns ->
+        state.copy(campaigns = campaigns)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), _state.value)
 
     val discoveredEndpoints = nearbyManager.discoveredEndpoints
@@ -77,7 +97,7 @@ class CharacterViewModel(
 
     sealed class UiEvent {
         data object GameStarted : UiEvent()
-        data class TroupeCreated(val troupe: Troupe, val playerIndex: Int?) : UiEvent()
+        data class TroupeCreated(val troupe: Troupe, val playerIndex: Int?, val campaignPlayerId: String? = null) : UiEvent()
         data object TournamentJoined : UiEvent()
         data object TournamentDisbanded : UiEvent()
     }
@@ -146,13 +166,15 @@ class CharacterViewModel(
     var selectedTroupeFaction by mutableStateOf(Faction.COMMONWEALTH)
     var selectedCharacterIds by mutableStateOf(setOf<Int>())
     var isTournamentList by mutableStateOf(false)
+    var isCampaignTroupe by mutableStateOf(false)
     var pendingTroupePlayerIndex by mutableStateOf<Int?>(null)
+    var pendingCampaignPlayerId by mutableStateOf<String?>(null)
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val playersWithCharacters = state.flatMapLatest { currentState ->
         val troupes = currentState.activeTroupes
         if (troupes.isEmpty()) return@flatMapLatest flowOf(emptyList<Pair<Troupe, List<Character>>>())
-        val flows = troupes.map { troupe -> dao.getCharactersByIds(troupe.characterIds).map { troupe to it } }
+        val flows = troupes.map { troupe -> repository.getCharactersByIds(troupe.characterIds).map { troupe to it } }
         combine(flows) { troupePairs ->
             troupePairs.toList().map { (troupe, characters) ->
                 val summonIds = characters.flatMap { it.summonsCharacterIds }
@@ -172,27 +194,21 @@ class CharacterViewModel(
                     initial["${pIdx}_${cIdx}"] = CharacterPlayState(character.health, calculateReplenishedEnergy(character, character.health))
                 }
             }
-            _state.update { it.copy(characterPlayStates = initial, currentTurn = 1, turnHistory = emptyList()) }
+            _state.update { it.copy(characterPlayStates = initial, currentTurn = it.currentTurn, turnHistory = it.turnHistory) }
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun onEvent(event: CharacterEvent) {
         when (event) {
-            is CharacterEvent.DeleteTroupe -> viewModelScope.launch { dao.deleteTroupe(event.troupe) }
+            is CharacterEvent.DeleteTroupe -> viewModelScope.launch { repository.deleteTroupe(event.troupe) }
             is CharacterEvent.EditTroupe -> {
                 editingTroupeId = event.troupe.id; newTroupeName = event.troupe.troupeName
                 selectedTroupeFaction = event.troupe.faction; selectedCharacterIds = event.troupe.characterIds.toSet()
                 isTournamentList = event.troupe.isTournamentList
+                isCampaignTroupe = event.troupe.isCampaignTroupe
             }
-            CharacterEvent.SaveTroupe -> {
-                val troupe = Troupe(editingTroupeId ?: 0, newTroupeName, selectedTroupeFaction, selectedCharacterIds.toList(), "", isTournamentList)
-                viewModelScope.launch { 
-                    val id = dao.upsertTroupe(troupe)
-                    _uiEvent.emit(UiEvent.TroupeCreated(troupe.copy(id = id.toInt()), pendingTroupePlayerIndex))
-                    pendingTroupePlayerIndex = null
-                }
-                resetNewTroupeFields()
-            }
+            CharacterEvent.SaveTroupe -> performSaveTroupe()
+            is CharacterEvent.SaveTroupeWithMetadata -> performSaveTroupe(event.victoryPoints, event.equippedUpgrades, event.campaignCards)
             is CharacterEvent.SortCharacters -> _state.update { it.copy(sortType = event.sortType) }
             CharacterEvent.DismissError -> _state.update { it.copy(errorMessage = null) }
             is CharacterEvent.UpdateUserName -> {
@@ -245,9 +261,39 @@ class CharacterViewModel(
                 nearbyManager.stopAll()
             }
             CharacterEvent.EndGame -> handleReadyAction(GameAction.NEXT_TURN, forceEnd = true)
-            is CharacterEvent.CreateTournament -> startHostingTournament(event.tournamentName, event.troupeSize, event.timer, event.hostParticipating, event.passcode)
+            is CharacterEvent.CreateTournament -> startHostingTournament(event.tournamentName, event.troupeSize, event.timer, event.hostParticipating, event.passcode, event.hostMode)
             else -> {}
         }
+    }
+
+    private fun performSaveTroupe(
+        victoryPoints: Int = 0,
+        equippedUpgrades: Map<Int, List<Int>> = emptyMap(),
+        campaignCards: List<TroupeCampaignCard> = emptyList()
+    ) {
+        val troupe = Troupe(
+            id = editingTroupeId ?: 0,
+            troupeName = newTroupeName,
+            faction = selectedTroupeFaction,
+            characterIds = selectedCharacterIds.toList(),
+            shareCode = "",
+            isTournamentList = isTournamentList,
+            isCampaignTroupe = isCampaignTroupe,
+            victoryPoints = victoryPoints,
+            equippedUpgrades = equippedUpgrades,
+            campaignCards = campaignCards
+        )
+        viewModelScope.launch {
+            val id = repository.upsertTroupe(troupe)
+            val savedTroupe = troupe.copy(id = id.toInt())
+            if (pendingCampaignPlayerId != null) {
+                broadcastTroupeSelectionForCampaign(savedTroupe, pendingCampaignPlayerId!!)
+            }
+            _uiEvent.emit(UiEvent.TroupeCreated(savedTroupe, pendingTroupePlayerIndex, pendingCampaignPlayerId))
+            pendingTroupePlayerIndex = null
+            pendingCampaignPlayerId = null
+        }
+        resetNewTroupeFields()
     }
 
     private fun updateCharacterState(playerIndex: Int, charIndex: Int, update: (CharacterPlayState) -> CharacterPlayState) {
@@ -302,7 +348,7 @@ class CharacterViewModel(
                 val charStats = characters.mapIndexed { cIdx, char -> CharacterGameStat(char.id, char.name, cur.characterPlayStates["${pIdx}_${cIdx}"]?.moonstones ?: 0, (cur.characterPlayStates["${pIdx}_${cIdx}"]?.currentHealth ?: 0) <= 0) }
                 PlayerStat(if (cur.gameSession != null) cur.gameSession.players.getOrNull(pIdx)?.name else (if (pIdx == 0) cur.name.ifEmpty { null } else "Player ${pIdx + 1}"), troupe.troupeName, troupe.faction, charStats.sumOf { it.stones }, charStats)
             }
-            dao.upsertGameResult(GameResult(timestamp = System.currentTimeMillis(), playerStats = playerStats, winnerIndex = winnerIndex))
+            repository.upsertGameResult(GameResult(timestamp = System.currentTimeMillis(), playerStats = playerStats, winnerIndex = winnerIndex))
         }
     }
 
@@ -333,15 +379,25 @@ class CharacterViewModel(
     }
 
     fun saveTroupe(troupe: Troupe) {
-        viewModelScope.launch { dao.upsertTroupe(troupe.copy(id = 0)) }
+        viewModelScope.launch { 
+            // If the troupe already has a valid database ID, use it to update instead of inserting a new one
+            val id = repository.upsertTroupe(troupe)
+            val savedTroupe = troupe.copy(id = id.toInt())
+            if (pendingCampaignPlayerId != null) {
+                broadcastTroupeSelectionForCampaign(savedTroupe, pendingCampaignPlayerId!!)
+            }
+            _uiEvent.emit(UiEvent.TroupeCreated(savedTroupe, pendingTroupePlayerIndex, pendingCampaignPlayerId))
+            pendingTroupePlayerIndex = null
+            pendingCampaignPlayerId = null
+        }
     }
 
     fun onTroupeScanned(playerIndex: Int, troupe: Troupe) {
         viewModelScope.launch { _scannedTroupeEvent.emit(playerIndex to troupe) }
     }
 
-    fun resetNewTroupeFields(isTournament: Boolean = false) {
-        editingTroupeId = null; newTroupeName = ""; selectedTroupeFaction = Faction.COMMONWEALTH; selectedCharacterIds = emptySet(); isTournamentList = isTournament
+    fun resetNewTroupeFields(isTournament: Boolean = false, isCampaign: Boolean = false) {
+        editingTroupeId = null; newTroupeName = ""; selectedTroupeFaction = Faction.COMMONWEALTH; selectedCharacterIds = emptySet(); isTournamentList = isTournament; isCampaignTroupe = isCampaign
     }
 
     fun generateFullShareCode(troupe: Troupe, characters: List<Character>): String {
@@ -362,16 +418,16 @@ class CharacterViewModel(
         } catch (e: Exception) { return null }
     }
 
-    fun startHosting(hostName: String) {
+    fun startHosting(hostName: String, mode: HostMode = HostMode.WIFI_NSD) {
         nearbyManager.stopAll(); val actual = _state.value.name.ifEmpty { hostName }
         _state.update { it.copy(gameSession = GameSession(listOf(GamePlayer(actual, deviceId = persistentDeviceId)), true, UUID.randomUUID().toString().take(8))) }
-        nearbyManager.startAdvertising(actual)
+        nearbyManager.startAdvertising(actual, mode)
     }
 
-    fun startHostingTournament(name: String, size: TroupeSizeSetting, timer: Int, participating: Boolean, passcode: String) {
+    fun startHostingTournament(name: String, size: TroupeSizeSetting, timer: Int, participating: Boolean, passcode: String, mode: HostMode = HostMode.WIFI_NSD) {
         nearbyManager.stopAll(); val actual = _state.value.name.ifEmpty { "Host" }
         _state.update { it.copy(isTournamentHost = true, tournamentSettings = TournamentSettings(name, size, timer, participating, UUID.randomUUID().toString().take(8), passcode), tournamentPlayers = if (participating) listOf(TournamentPlayer(actual, persistentDeviceId)) else emptyList()) }
-        nearbyManager.startAdvertising(name)
+        nearbyManager.startAdvertising(name, mode)
     }
 
     fun startDiscovering() { nearbyManager.startDiscovery() }
@@ -501,4 +557,255 @@ class CharacterViewModel(
     fun broadcastGameplayUpdate(update: SessionMessage.GameplayUpdate) { nearbyManager.sendPayloadToAll(MessageParser.encode(update)) }
     fun broadcastTurnUpdate(turn: Int, states: Map<String, CharacterPlayState>) { nearbyManager.sendPayloadToAll(MessageParser.encode(SessionMessage.TurnUpdate(turn, states))) }
     fun broadcastStartGame() { nearbyManager.sendPayloadToAll(MessageParser.encode(SessionMessage.StartGame)) }
+
+    var editingCampaignId by mutableStateOf<Int?>(null)
+    var newCampaignName by mutableStateOf("")
+    var newCampaignDescription by mutableStateOf("")
+    var newCampaignAttacksEnabled by mutableStateOf(false)
+    var selectedCampaignPlayers = mutableStateListOf<CampaignPlayer>()
+    var currentCampaignSubScreen by mutableStateOf<CampaignSubScreen?>(null)
+
+    // Machination phase draft state — persists across navigation within session
+    var isCampaignMachinating: Boolean by mutableStateOf(false)
+    val machinationType1: SnapshotStateMap<String, MachinationType?> = mutableStateMapOf()
+    val machinationType2: SnapshotStateMap<String, MachinationType?> = mutableStateMapOf()
+    val machinationTarget1: SnapshotStateMap<String, String> = mutableStateMapOf()
+    val machinationTarget2: SnapshotStateMap<String, String> = mutableStateMapOf()
+    val machinationIsAttacking: SnapshotStateMap<String, Boolean> = mutableStateMapOf()
+    val machinationAttackType: SnapshotStateMap<String, AttackType> = mutableStateMapOf()
+    val machinationAttackTargetPlayer: SnapshotStateMap<String, String> = mutableStateMapOf()
+    val machinationAttackTargetChar: SnapshotStateMap<String, Int> = mutableStateMapOf()
+
+    fun initMachinationDraft(campaign: Campaign) {
+        machinationType1.clear(); machinationType2.clear()
+        machinationTarget1.clear(); machinationTarget2.clear()
+        machinationIsAttacking.clear(); machinationAttackType.clear()
+        machinationAttackTargetPlayer.clear(); machinationAttackTargetChar.clear()
+        campaign.players.forEach { machinationType1[it.id] = null; machinationType2[it.id] = null }
+        isCampaignMachinating = true
+    }
+
+    fun clearMachinationDraft() {
+        machinationType1.clear(); machinationType2.clear()
+        machinationTarget1.clear(); machinationTarget2.clear()
+        machinationIsAttacking.clear(); machinationAttackType.clear()
+        machinationAttackTargetPlayer.clear(); machinationAttackTargetChar.clear()
+        isCampaignMachinating = false
+    }
+
+    fun saveMachinationDraft(campaign: Campaign) {
+        val draft = campaign.players.associate { player ->
+            player.id to PlayerMachinationDraft(
+                machType1 = machinationType1[player.id],
+                machType2 = machinationType2[player.id],
+                target1 = machinationTarget1[player.id] ?: "",
+                target2 = machinationTarget2[player.id] ?: "",
+                isAttacking = machinationIsAttacking[player.id] == true,
+                attackType = machinationAttackType[player.id] ?: AttackType.ASSAULT,
+                attackTargetPlayerId = machinationAttackTargetPlayer[player.id] ?: "",
+                attackTargetCharId = machinationAttackTargetChar[player.id] ?: -1
+            )
+        }
+        updateCampaign(campaign.copy(machinationPhaseActive = true, machinationDraft = draft))
+    }
+
+    fun loadMachinationDraft(campaign: Campaign) {
+        val draft = campaign.machinationDraft ?: return
+        machinationType1.clear(); machinationType2.clear()
+        machinationTarget1.clear(); machinationTarget2.clear()
+        machinationIsAttacking.clear(); machinationAttackType.clear()
+        machinationAttackTargetPlayer.clear(); machinationAttackTargetChar.clear()
+        draft.forEach { (playerId, pd) ->
+            machinationType1[playerId] = pd.machType1
+            machinationType2[playerId] = pd.machType2
+            if (pd.target1.isNotEmpty()) machinationTarget1[playerId] = pd.target1
+            if (pd.target2.isNotEmpty()) machinationTarget2[playerId] = pd.target2
+            machinationIsAttacking[playerId] = pd.isAttacking
+            machinationAttackType[playerId] = pd.attackType
+            if (pd.attackTargetPlayerId.isNotEmpty()) machinationAttackTargetPlayer[playerId] = pd.attackTargetPlayerId
+            if (pd.attackTargetCharId != -1) machinationAttackTargetChar[playerId] = pd.attackTargetCharId
+        }
+        isCampaignMachinating = true
+    }
+
+    fun resetNewCampaignFields() {
+        editingCampaignId = null
+        newCampaignName = ""
+        newCampaignDescription = ""
+        newCampaignAttacksEnabled = false
+        selectedCampaignPlayers.clear()
+        currentCampaignSubScreen = null
+        clearMachinationDraft()
+    }
+
+    fun editCampaign(campaignId: Int) {
+        if (editingCampaignId == campaignId) return
+        val campaign = state.value.campaigns.find { it.id == campaignId } ?: return
+        editingCampaignId = campaign.id
+        newCampaignName = campaign.name
+        newCampaignDescription = campaign.description
+        newCampaignAttacksEnabled = campaign.attacksEnabled
+        selectedCampaignPlayers.clear()
+        selectedCampaignPlayers.addAll(campaign.players)
+    }
+
+    fun createCampaign(name: String, description: String, players: List<CampaignPlayer>, attacksEnabled: Boolean) {
+        viewModelScope.launch {
+            val existing = state.value.campaigns.find { it.id == editingCampaignId }
+            val campaign = existing?.copy(
+                name = name,
+                description = description,
+                players = players,
+                attacksEnabled = attacksEnabled
+            ) ?: Campaign(id = 0, name = name, description = description, players = players, attacksEnabled = attacksEnabled)
+
+            repository.upsertCampaign(campaign)
+            resetNewCampaignFields()
+        }
+    }
+
+    fun updateCampaign(campaign: Campaign) {
+        viewModelScope.launch { repository.upsertCampaign(campaign) }
+    }
+
+    fun deleteCampaign(campaign: Campaign) {
+        viewModelScope.launch { repository.deleteCampaign(campaign) }
+    }
+
+    fun recordCampaignGameResult(campaign: Campaign, game: CampaignGame, winnerId: String?) {
+        val newRounds = campaign.rounds.map { round ->
+            if (round.roundNumber == campaign.currentRound) {
+                round.copy(games = round.games.map { if (it.playerIds == game.playerIds) it.copy(winnerId = winnerId, isPlayed = true) else it })
+            } else round
+        }
+        updateCampaign(campaign.copy(rounds = newRounds))
+    }
+
+    fun recordCampaignAttack(campaign: Campaign, sourcePlayerId: String, targetPlayerId: String, characterId: Int, type: AttackType) {
+        val source = campaign.players.find { it.id == sourcePlayerId } ?: return
+        if (source.attackPoints < type.cost) return
+
+        val newPlayers = campaign.players.map { 
+            if (it.id == sourcePlayerId) it.copy(attackPoints = it.attackPoints - type.cost) else it 
+        }
+
+        val newRounds = campaign.rounds.toMutableList()
+        val roundIdx = newRounds.indexOfFirst { it.roundNumber == campaign.currentRound }
+        val attack = CampaignAttack(sourcePlayerId, targetPlayerId, characterId, type)
+        
+        if (roundIdx != -1) {
+            val round = newRounds[roundIdx]
+            newRounds[roundIdx] = round.copy(attacks = round.attacks + attack)
+        } else {
+            newRounds.add(CampaignRound(campaign.currentRound, emptyList(), emptyList(), listOf(attack)))
+        }
+
+        updateCampaign(campaign.copy(players = newPlayers, rounds = newRounds))
+    }
+
+    fun progressCampaignRound(campaign: Campaign) {
+        val currentRound = campaign.rounds.find { it.roundNumber == campaign.currentRound } ?: return
+        val currentTroupes = state.value.troupes
+
+        // 1. Tier calculation — power = VP + MP, tierSize = n/3 rounded down (min 1)
+        //    Ties at the top boundary are promoted up; ties at the bottom boundary are promoted to middle.
+        data class PlayerPower(val playerId: String, val power: Int)
+        val playerPowers = campaign.players.map { cp ->
+            val vp = currentTroupes.find { it.id == cp.troupeId }?.victoryPoints ?: 0
+            PlayerPower(cp.id, vp + cp.machinationPoints)
+        }.sortedByDescending { it.power }
+
+        val n = playerPowers.size
+        val tierSize = (n / 3).coerceAtLeast(1)
+        val topBoundaryPower = playerPowers.getOrNull(tierSize - 1)?.power ?: 0
+        val actualTopCount = playerPowers.count { it.power >= topBoundaryPower }
+        val remaining = playerPowers.drop(actualTopCount)
+        val bottomIdx = (remaining.size - tierSize).coerceAtLeast(0)
+        val bottomBoundaryPower = remaining.getOrNull(bottomIdx)?.power ?: Int.MIN_VALUE
+        val tiedAtBottom = remaining.getOrNull(bottomIdx - 1)?.power == bottomBoundaryPower
+
+        fun getTier(playerId: String): String {
+            val power = playerPowers.find { it.playerId == playerId }?.power ?: 0
+            return when {
+                power >= topBoundaryPower -> "TOP"
+                tiedAtBottom && power == bottomBoundaryPower -> "MIDDLE"
+                power <= bottomBoundaryPower -> "BOTTOM"
+                else -> "MIDDLE"
+            }
+        }
+
+        // 2. Process machinations — compute MP delta for each player in one pass
+        data class PlayerResult(val updated: CampaignPlayer, val mpDelta: Int)
+        val results = campaign.players.map { player ->
+            var mpDelta = 0
+
+            // MP from this player's own machinations (as source)
+            currentRound.machinations.filter { it.sourcePlayerId == player.id }.forEach { mach ->
+                val targetTier = getTier(mach.targetPlayerId)
+                val targetWon = currentRound.games.any {
+                    it.playerIds.contains(mach.targetPlayerId) && it.winnerId == mach.targetPlayerId
+                }
+                val targetLost = currentRound.games.any {
+                    it.playerIds.contains(mach.targetPlayerId) && it.isPlayed &&
+                    it.winnerId != mach.targetPlayerId && it.winnerId != null
+                }
+
+                if (mach.type == MachinationType.SUPPORT) {
+                    when (targetTier) {
+                        "TOP"    -> if (targetWon) mpDelta += 1 else if (targetLost) mpDelta -= 2
+                        "MIDDLE" -> if (targetWon) mpDelta += 1 else if (targetLost) mpDelta -= 1
+                        "BOTTOM" -> if (targetWon) mpDelta += 1 // 0 on loss
+                    }
+                } else { // SABOTAGE
+                    when (targetTier) {
+                        "TOP"    -> if (targetLost) mpDelta += 1              // 0 on win
+                        "MIDDLE" -> if (targetWon) mpDelta -= 1 else if (targetLost) mpDelta += 1
+                        "BOTTOM" -> if (targetWon) mpDelta -= 1              // 0 on loss
+                    }
+                }
+            }
+
+            // Campaign card draw = 2 + supports received - sabotages received, clamped 1–3
+            // Cards over the cap give +1 MP each instead
+            val supportsReceived = currentRound.machinations.count {
+                it.targetPlayerId == player.id && it.type == MachinationType.SUPPORT
+            }
+            val sabotagesReceived = currentRound.machinations.count {
+                it.targetPlayerId == player.id && it.type == MachinationType.SABOTAGE
+            }
+            val rawCards = 2 + supportsReceived - sabotagesReceived
+            val cardDraw = rawCards.coerceIn(1, 3)
+            val cardOverflow = (rawCards - 3).coerceAtLeast(0)
+            mpDelta += cardOverflow
+
+            PlayerResult(
+                player.copy(
+                    machinationPoints = player.machinationPoints + mpDelta,
+                    campaignCardDraw = cardDraw
+                ),
+                mpDelta
+            )
+        }
+
+        val newPlayers = results.map { it.updated }
+        // Only store non-zero deltas so history isn't cluttered
+        val mpDeltas = results.filter { it.mpDelta != 0 }.associate { it.updated.id to it.mpDelta }
+
+        // 3. Stamp the completed round with its MP results, then advance
+        val updatedRounds = campaign.rounds.map { round ->
+            if (round.roundNumber == campaign.currentRound) round.copy(mpDeltas = mpDeltas) else round
+        }
+        updateCampaign(campaign.copy(
+            players = newPlayers,
+            currentRound = campaign.currentRound + 1,
+            rounds = updatedRounds + CampaignRound(campaign.currentRound + 1, emptyList())
+        ))
+    }
+
+    fun broadcastTroupeSelectionForCampaign(troupe: Troupe, targetPlayerId: String) {
+        val playerIdx = selectedCampaignPlayers.indexOfFirst { it.id == targetPlayerId }
+        if (playerIdx != -1) {
+            selectedCampaignPlayers[playerIdx] = selectedCampaignPlayers[playerIdx].copy(troupeId = troupe.id)
+        }
+    }
 }

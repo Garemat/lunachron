@@ -140,7 +140,7 @@ fun SettingsScreen(
 }
 
 @Composable
-fun ThemeOption(title: String, selected: Boolean, onSelect: () -> Unit, theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties) {
+fun SelectionOption(title: String, selected: Boolean, onSelect: () -> Unit, theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties) {
     Row(
         modifier = Modifier.fillMaxWidth().clickable { onSelect() }.padding(vertical = theme.verticalSpacing / 4),
         verticalAlignment = Alignment.CenterVertically
@@ -150,13 +150,11 @@ fun ThemeOption(title: String, selected: Boolean, onSelect: () -> Unit, theme: c
     }
 }
 
+// Aliases kept for backward compatibility within this file
 @Composable
-fun DensityOption(title: String, selected: Boolean, onSelect: () -> Unit, theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties) {
-    Row(
-        modifier = Modifier.fillMaxWidth().clickable { onSelect() }.padding(vertical = theme.verticalSpacing / 4),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        RadioButton(selected = selected, onClick = onSelect)
-        Text(text = title, style = theme.headerStyle.copy(fontSize = 18.sp), modifier = Modifier.padding(start = 16.dp))
-    }
-}
+fun ThemeOption(title: String, selected: Boolean, onSelect: () -> Unit, theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties) =
+    SelectionOption(title, selected, onSelect, theme)
+
+@Composable
+fun DensityOption(title: String, selected: Boolean, onSelect: () -> Unit, theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties) =
+    SelectionOption(title, selected, onSelect, theme)

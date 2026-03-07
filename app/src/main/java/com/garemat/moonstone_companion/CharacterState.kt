@@ -76,6 +76,10 @@ data class TournamentRound(
 data class CharacterState(
     val characters: List<Character> = emptyList(),
     val troupes: List<Troupe> = emptyList(),
+    val upgradeCards: List<UpgradeCard> = emptyList(),
+    val campaignCards: List<CampaignCard> = emptyList(),
+    val campaigns: List<Campaign> = emptyList(),
+    
     val name: String = "",
     val deviceId: String = "",
     val theme: AppTheme = AppTheme.MOONSTONE,
@@ -118,7 +122,10 @@ data class CharacterState(
 
     // Game End State
     val winnerName: String? = null,
-    val isTie: Boolean = false
+    val isTie: Boolean = false,
+
+    // Campaign Management State
+    val activeCampaign: Campaign? = null
 )
 
 @Serializable

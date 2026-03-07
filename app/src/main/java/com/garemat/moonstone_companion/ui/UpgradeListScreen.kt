@@ -19,57 +19,34 @@ import com.garemat.moonstone_companion.*
 import com.garemat.moonstone_companion.ui.theme.LocalAppThemeProperties
 
 @Composable
-fun CharacterListScreen(
+fun UpgradeListScreen(
     state: CharacterState,
-    onEvent: (CharacterEvent) -> Unit,
     onNavigateBack: () -> Unit,
     onTargetPositioned: (String, LayoutCoordinates) -> Unit = { _, _ -> }
 ) {
-    var expandedCharacterIds by remember { mutableStateOf(setOf<Int>()) }
+    var expandedCardIds by remember { mutableStateOf(setOf<Int>()) }
     var searchQuery by remember { mutableStateOf("") }
     var selectedFactions by remember { mutableStateOf(setOf<Faction>()) }
+    var selectedTags by remember { mutableStateOf(setOf<String>()) }
     val theme = LocalAppThemeProperties.current
     
-    val availableTags = remember(state.characters, selectedFactions) {
-        state.characters
-            .filter { char -> selectedFactions.isEmpty() || char.factions.any { it in selectedFactions } }
-            .flatMap { it.tags }
+    val availableTags = remember(state.upgradeCards) {
+        state.upgradeCards
+            .flatMap { it.tags ?: emptyList() }
             .distinct()
             .sorted()
     }
     
-    var selectedTags by remember { mutableStateOf(setOf<String>()) }
     var showFilterBar by remember { mutableStateOf(true) }
 
-    LaunchedEffect(searchQuery) {
-        if (searchQuery.isEmpty()) {
-            expandedCharacterIds = emptySet()
-        } else {
-            val matchingIds = state.characters.filter { character ->
-                character.name.contains(searchQuery, ignoreCase = true) ||
-                character.passiveAbilities.any { it.name.contains(searchQuery, ignoreCase = true) || it.description.contains(searchQuery, ignoreCase = true) } ||
-                character.activeAbilities.any { it.name.contains(searchQuery, ignoreCase = true) || it.description.contains(searchQuery, ignoreCase = true) } ||
-                character.arcaneAbilities.any { it.name.contains(searchQuery, ignoreCase = true) || it.description.contains(searchQuery, ignoreCase = true) }
-            }.map { it.id }.toSet()
-            if (matchingIds.size in 1..3) expandedCharacterIds = matchingIds
-        }
-    }
-
-    val listState = rememberLazyListState()
-
-    LaunchedEffect(availableTags) {
-        selectedTags = selectedTags.filter { it in availableTags }.toSet()
-    }
-
-    val filteredCharacters = remember(state.characters, searchQuery, selectedFactions, selectedTags) {
-        state.characters.filter { character ->
-            val matchesFaction = selectedFactions.isEmpty() || character.factions.any { it in selectedFactions }
-            val matchesTags = selectedTags.isEmpty() || character.tags.containsAll(selectedTags)
+    val filteredUpgrades = remember(state.upgradeCards, searchQuery, selectedFactions, selectedTags) {
+        state.upgradeCards.filter { card ->
+            // If a card doesn't mention a tag/faction, assume it applies for all (restriction logic)
+            val matchesFaction = selectedFactions.isEmpty() || card.factions == null || card.factions.any { it in selectedFactions }
+            val matchesTags = selectedTags.isEmpty() || card.tags == null || card.tags.any { it in selectedTags }
             val matchesSearch = searchQuery.isEmpty() || 
-                character.name.contains(searchQuery, ignoreCase = true) ||
-                character.passiveAbilities.any { it.name.contains(searchQuery, ignoreCase = true) || it.description.contains(searchQuery, ignoreCase = true) } ||
-                character.activeAbilities.any { it.name.contains(searchQuery, ignoreCase = true) || it.description.contains(searchQuery, ignoreCase = true) } ||
-                character.arcaneAbilities.any { it.name.contains(searchQuery, ignoreCase = true) || it.description.contains(searchQuery, ignoreCase = true) }
+                card.name.contains(searchQuery, ignoreCase = true) ||
+                card.abilities.any { it.name.contains(searchQuery, ignoreCase = true) || it.description.contains(searchQuery, ignoreCase = true) }
             matchesFaction && matchesTags && matchesSearch
         }
     }
@@ -90,13 +67,14 @@ fun CharacterListScreen(
                         selectedTags = selectedTags,
                         onTagsChange = { selectedTags = it },
                         availableTags = availableTags,
-                        showCollapseAll = expandedCharacterIds.isNotEmpty(),
-                        onCollapseAll = { expandedCharacterIds = emptySet() },
+                        isFactionFixed = false,
+                        showCollapseAll = expandedCardIds.isNotEmpty(),
+                        onCollapseAll = { expandedCardIds = emptySet() },
                         onClearAll = {
                             searchQuery = ""
                             selectedFactions = emptySet()
                             selectedTags = emptySet()
-                            expandedCharacterIds = emptySet()
+                            expandedCardIds = emptySet()
                         },
                         onTargetPositioned = onTargetPositioned
                     )
@@ -107,26 +85,23 @@ fun CharacterListScreen(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(theme.verticalSpacing / 2),
                 contentPadding = PaddingValues(top = theme.verticalSpacing / 2, bottom = 100.dp, start = theme.screenPadding, end = theme.screenPadding),
-                state = listState
+                state = rememberLazyListState()
             ) {
-                if (filteredCharacters.isEmpty()) {
+                if (filteredUpgrades.isEmpty()) {
                     item {
                         Box(modifier = Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
-                            Text("No characters match your search.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("No upgrades match your search.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
-                items(filteredCharacters, key = { it.id }) { character ->
-                    val isFirst = filteredCharacters.firstOrNull()?.id == character.id
-                    CommonCharacterCard(
-                        character = character,
+                items(filteredUpgrades, key = { it.id }) { card ->
+                    UpgradeCardUI(
+                        card = card,
                         searchQuery = searchQuery,
-                        isExpanded = expandedCharacterIds.contains(character.id),
+                        isExpanded = expandedCardIds.contains(card.id),
                         onExpandClick = {
-                            expandedCharacterIds = if (expandedCharacterIds.contains(character.id)) expandedCharacterIds - character.id else expandedCharacterIds + character.id
-                        },
-                        cardTargetName = if (isFirst) "FirstCharacterCard" else "CharacterCard",
-                        onPositioned = { name, coords -> if (isFirst || name == "FlipButton") onTargetPositioned(name, coords) }
+                            expandedCardIds = if (expandedCardIds.contains(card.id)) expandedCardIds - card.id else expandedCardIds + card.id
+                        }
                     )
                 }
             }
@@ -136,8 +111,7 @@ fun CharacterListScreen(
             onClick = { showFilterBar = !showFilterBar },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(16.dp)
-                .onGloballyPositioned { onTargetPositioned("FilterButtonOpen", it) },
+                .padding(16.dp),
             containerColor = if (selectedFactions.isNotEmpty() || selectedTags.isNotEmpty() || searchQuery.isNotEmpty()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer
         ) {
             Icon(imageVector = if (showFilterBar) Icons.Default.FilterListOff else Icons.Default.FilterList, contentDescription = null)

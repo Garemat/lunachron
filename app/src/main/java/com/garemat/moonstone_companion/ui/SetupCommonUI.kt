@@ -22,7 +22,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.garemat.moonstone_companion.AppTheme
+import com.garemat.moonstone_companion.HostMode
 import com.garemat.moonstone_companion.ui.theme.LocalAppTheme
+import com.garemat.moonstone_companion.ui.theme.LocalAppThemeProperties
 
 @Composable
 fun SetupModeSelection(
@@ -144,6 +146,78 @@ fun SetupOptionCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+            }
+        }
+    }
+}
+
+/**
+ * Dialog shown when the user taps "Host Game", letting them choose between
+ * same-Wi-Fi (NSD) and router-free (Wi-Fi Direct) hosting.
+ */
+@Composable
+fun HostModeDialog(
+    onSelectMode: (HostMode) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val theme = LocalAppThemeProperties.current
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text("How do you want to host?", style = theme.headerStyle)
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                HostModeOptionCard(
+                    title = "Same Wi-Fi",
+                    description = "All players must be on the same router. Recommended for most setups.",
+                    icon = Icons.Default.Wifi,
+                    onClick = { onSelectMode(HostMode.WIFI_NSD) }
+                )
+                HostModeOptionCard(
+                    title = "Wi-Fi Direct",
+                    description = "No router needed — devices connect directly. Note: joining players may temporarily lose internet access.",
+                    icon = Icons.Default.WifiTethering,
+                    onClick = { onSelectMode(HostMode.WIFI_DIRECT) }
+                )
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+        shape = theme.cardShape
+    )
+}
+
+@Composable
+private fun HostModeOptionCard(
+    title: String,
+    description: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit
+) {
+    val theme = LocalAppThemeProperties.current
+    Card(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = theme.cardShape,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(32.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, style = theme.headerStyle.copy(fontSize = 16.sp), fontWeight = FontWeight.Bold)
+                Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

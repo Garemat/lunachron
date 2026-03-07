@@ -254,9 +254,10 @@ sealed class StoneSource {
 
 @Composable
 fun MoonstoneIcon(size: androidx.compose.ui.unit.Dp, modifier: Modifier = Modifier) {
+    val moonstoneColor = LocalAppThemeProperties.current.moonstoneColor
     Canvas(modifier = modifier.size(size)) {
         val path = Path().apply { moveTo(size.toPx() / 2f, 0f); lineTo(size.toPx(), size.toPx()); lineTo(0f, size.toPx()); close() }
-        drawPath(path, color = Color(0xFF2196F3))
+        drawPath(path, color = moonstoneColor)
     }
 }
 

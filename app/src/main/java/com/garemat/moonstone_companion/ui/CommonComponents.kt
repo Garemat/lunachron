@@ -216,7 +216,43 @@ fun FactionSelector(selectedFactions: Set<Faction>, onFactionsChange: (Set<Facti
     }
 }
 
-// --- Character Components ---
+// --- Common Components ---
+
+@Composable
+fun SetupOptionCard(
+    title: String,
+    description: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val theme = LocalAppThemeProperties.current
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape = theme.cardShape,
+        elevation = CardDefaults.cardElevation(defaultElevation = theme.surfaceElevation),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(32.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+            Column {
+                Text(text = title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text(text = description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
 
 @Composable
 fun CommonStatBox(label: String, value: String, modifier: Modifier = Modifier, horizontalAlignment: Alignment.Horizontal = Alignment.CenterHorizontally, showDivider: Boolean = false) {
@@ -239,7 +275,7 @@ fun CommonAbilityItem(name: String, description: String, searchQuery: String = "
             }
             Text(text = title, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
             if (oncePerGame && onUsedChange != null) {
-                Box(modifier = Modifier.padding(start = 8.dp).size(16.dp).clip(CircleShape).background(if (isUsed) Color.Gray else Color.Transparent).border(1.2.dp, if (isEditable) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, CircleShape).then(if (isEditable) Modifier.clickable { onUsedChange(!isUsed) } else Modifier), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.padding(start = 8.dp).size(16.dp).clip(CircleShape).background(if (isUsed) MaterialTheme.colorScheme.onSurfaceVariant else Color.Transparent).border(1.2.dp, if (isEditable) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, CircleShape).then(if (isEditable) Modifier.clickable { onUsedChange(!isUsed) } else Modifier), contentAlignment = Alignment.Center) {
                     if (isUsed) Icon(imageVector = Icons.Default.Close, contentDescription = null, modifier = Modifier.size(10.dp), tint = Color.White)
                 }
             }
@@ -372,6 +408,78 @@ fun CommonCharacterCard(character: Character, searchQuery: String, isExpanded: B
     }
 }
 
+@Composable
+fun UpgradeCardUI(card: UpgradeCard, searchQuery: String, isExpanded: Boolean, onExpandClick: () -> Unit, modifier: Modifier = Modifier) {
+    val theme = LocalAppThemeProperties.current
+    val appTheme = LocalAppTheme.current
+    Card(
+        modifier = modifier.fillMaxWidth().animateContentSize(),
+        shape = theme.cardShape,
+        elevation = CardDefaults.cardElevation(defaultElevation = theme.surfaceElevation),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column {
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable { onExpandClick() }.padding(theme.cardContentPadding),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(text = "Upgrade", style = MaterialTheme.typography.labelSmall, fontStyle = FontStyle.Italic)
+                    Text(text = highlightText(card.name, searchQuery), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                }
+                Icon(imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, contentDescription = null)
+            }
+            if (isExpanded) {
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                Column(modifier = Modifier.padding(theme.cardContentPadding)) {
+                    card.tags?.let { tags ->
+                        Text(text = "Restrictions: ${tags.joinToString(", ")}", style = MaterialTheme.typography.bodySmall, fontStyle = FontStyle.Italic)
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                    card.abilities.forEach { CommonAbilityItem(it.name, it.description, searchQuery) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CampaignCardUI(card: CampaignCard, searchQuery: String, isExpanded: Boolean, onExpandClick: () -> Unit, modifier: Modifier = Modifier) {
+    val theme = LocalAppThemeProperties.current
+    Card(
+        modifier = modifier.fillMaxWidth().animateContentSize(),
+        shape = theme.cardShape,
+        elevation = CardDefaults.cardElevation(defaultElevation = theme.surfaceElevation),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column {
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable { onExpandClick() }.padding(theme.cardContentPadding),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(text = "Campaign Card", style = MaterialTheme.typography.labelSmall, fontStyle = FontStyle.Italic)
+                    Text(text = highlightText(card.name, searchQuery), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Text(text = highlightText(card.timing, searchQuery), style = MaterialTheme.typography.bodySmall, fontStyle = FontStyle.Italic)
+                }
+                Icon(imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, contentDescription = null)
+            }
+            if (isExpanded) {
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                Column(modifier = Modifier.padding(theme.cardContentPadding)) {
+                    Text(text = parseAbilityDescription(card.description, searchQuery), style = MaterialTheme.typography.bodyMedium, inlineContent = getMoonstoneInlineContent())
+                    card.extraDescription?.let {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(text = it, style = MaterialTheme.typography.bodySmall, fontStyle = FontStyle.Italic)
+                    }
+                }
+            }
+        }
+    }
+}
+
 // --- Shared Internal Helpers ---
 
 @Composable
@@ -385,11 +493,12 @@ fun AbilityTypeSeparator() {
 @Composable
 fun MitigationIcon(resId: Int, value: String) {
     if (resId != 0) {
+        val strikeColor = MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
         Box(modifier = Modifier.size(16.dp), contentAlignment = Alignment.Center) {
             Image(painter = painterResource(id = resId), contentDescription = null, modifier = Modifier.fillMaxSize())
             Canvas(modifier = Modifier.fillMaxSize()) {
                 drawLine(
-                    color = Color.Red.copy(alpha = 0.5f),
+                    color = strikeColor,
                     start = Offset(0f, 0f),
                     end = Offset(size.width, size.height),
                     strokeWidth = 2.dp.toPx()
@@ -478,8 +587,8 @@ fun HealthTracker(totalHealth: Int, currentHealth: Int, energyTrack: List<Int>, 
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.Start), modifier = modifier.padding(top = theme.verticalSpacing / 2), verticalAlignment = Alignment.CenterVertically) {
         for (i in 1..totalHealth) {
             val isLost = i > currentHealth; val isEnergy = energyTrack.contains(i)
-            Box(modifier = Modifier.size(20.dp).clip(CircleShape).background(when { isLost -> Color.Transparent; isEnergy -> if (isEditable) Color(0xFF2196F3) else Color(0xFF90CAF9); else -> if (isEditable) Color(0xFF4CAF50) else Color(0xFFA5D6A7) }).border(1.dp, if (isEnergy) Color(0xFF1565C0) else Color.DarkGray, CircleShape).then(if (isEditable) Modifier.clickable { onHealthChange(if (i <= currentHealth) i - 1 else i) } else Modifier), contentAlignment = Alignment.Center) {
-                if (isLost) Icon(imageVector = Icons.Default.Close, contentDescription = null, modifier = Modifier.size(14.dp), tint = Color.Red)
+            Box(modifier = Modifier.size(20.dp).clip(CircleShape).background(when { isLost -> Color.Transparent; isEnergy -> if (isEditable) theme.moonstoneColor else theme.moonstoneColor.copy(alpha = 0.5f); else -> if (isEditable) theme.positiveColor else theme.positiveColor.copy(alpha = 0.5f) }).border(1.dp, if (isEnergy) theme.moonstoneColor.copy(alpha = 0.6f) else MaterialTheme.colorScheme.outline, CircleShape).then(if (isEditable) Modifier.clickable { onHealthChange(if (i <= currentHealth) i - 1 else i) } else Modifier), contentAlignment = Alignment.Center) {
+                if (isLost) Icon(imageVector = Icons.Default.Close, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.error)
             }
         }
     }

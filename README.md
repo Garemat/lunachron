@@ -22,3 +22,5 @@ Common JSON reference
 "slicingDamageMitigation": 1,
 
 "allDamageMitigation": 1,
+
+
