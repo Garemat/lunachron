@@ -52,6 +52,13 @@ sealed interface CharacterEvent {
     data object AbandonGame : CharacterEvent
     data object EndGame : CharacterEvent
 
+    // Game View / Tracking
+    data class ChangeGameTrackingMode(val mode: GameTrackingMode) : CharacterEvent
+    data class AddSummonedCharacter(val playerIndex: Int, val characterId: Int, val summonedByCharacterId: Int?) : CharacterEvent
+    data class RemoveSummonedCharacter(val playerIndex: Int, val characterId: Int) : CharacterEvent
+    data class UpdatePoolResource(val playerIndex: Int, val resourceName: String, val count: Int) : CharacterEvent
+    data class UpdateCharacterPoolResource(val playerIndex: Int, val charIndex: Int, val resourceName: String, val count: Int) : CharacterEvent
+
     // Tournament Events
     data class CreateTournament(val tournamentName: String, val troupeSize: TroupeSizeSetting, val timer: Int, val hostParticipating: Boolean, val passcode: String, val hostMode: HostMode = HostMode.WIFI_NSD) : CharacterEvent
     data class JoinTournament(val sessionId: String) : CharacterEvent

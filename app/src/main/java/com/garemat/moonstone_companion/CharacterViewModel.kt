@@ -57,6 +57,7 @@ class CharacterViewModel(
         layoutDensity = LayoutDensity.valueOf(prefs.getString("layout_density", LayoutDensity.COZY.name) ?: LayoutDensity.COZY.name),
         useLocalModeByDefault = prefs.getBoolean("use_local_mode_by_default", false),
         hasSeenGlobalTutorial = prefs.getBoolean("has_seen_global_tutorial", false),
+        gameTrackingMode = GameTrackingMode.valueOf(prefs.getString("game_tracking_mode", GameTrackingMode.LOW_DETAIL.name) ?: GameTrackingMode.LOW_DETAIL.name),
         newsItems = loadCachedNews()
     ))
     
@@ -249,7 +250,66 @@ class CharacterViewModel(
             }
             is CharacterEvent.ToggleCharacterFlipped -> updateCharacterState(event.playerIndex, event.charIndex) { it.copy(isFlipped = event.flipped) }
             is CharacterEvent.ToggleCharacterExpanded -> updateCharacterState(event.playerIndex, event.charIndex) { it.copy(isExpanded = event.expanded) }
-            CharacterEvent.ResetGamePlayState -> _state.update { it.copy(characterPlayStates = emptyMap(), currentTurn = 1, turnHistory = emptyList(), winnerName = null, isTie = false) }
+            CharacterEvent.ResetGamePlayState -> _state.update { it.copy(characterPlayStates = emptyMap(), currentTurn = 1, turnHistory = emptyList(), winnerName = null, isTie = false, activeSummons = emptyMap(), poolResourceCounts = emptyMap()) }
+            is CharacterEvent.ChangeGameTrackingMode -> {
+                _state.update { it.copy(gameTrackingMode = event.mode) }
+                prefs.edit().putString("game_tracking_mode", event.mode.name).apply()
+            }
+            is CharacterEvent.AddSummonedCharacter -> {
+                _state.update { cur ->
+                    val summons = cur.activeSummons.toMutableMap()
+                    val list = (summons[event.playerIndex] ?: emptyList()).toMutableList()
+                    if (list.none { it.characterId == event.characterId }) {
+                        list.add(SummonEntry(event.characterId, event.summonedByCharacterId))
+                        summons[event.playerIndex] = list
+                        val baseSize = cur.activeTroupes.getOrNull(event.playerIndex)?.characterIds?.size ?: 0
+                        val charIndex = baseSize + list.size - 1
+                        val allChars = cur.characters
+                        val char = allChars.find { it.id == event.characterId }
+                        val newPlayStates = cur.characterPlayStates.toMutableMap()
+                        if (char != null) newPlayStates["${event.playerIndex}_$charIndex"] = CharacterPlayState(char.health, calculateReplenishedEnergy(char, char.health))
+                        cur.copy(activeSummons = summons, characterPlayStates = newPlayStates)
+                    } else cur
+                }
+            }
+            is CharacterEvent.RemoveSummonedCharacter -> {
+                _state.update { cur ->
+                    val summons = cur.activeSummons.toMutableMap()
+                    val list = (summons[event.playerIndex] ?: emptyList()).toMutableList()
+                    val idx = list.indexOfFirst { it.characterId == event.characterId }
+                    if (idx >= 0) {
+                        list.removeAt(idx)
+                        summons[event.playerIndex] = list
+                        val baseSize = cur.activeTroupes.getOrNull(event.playerIndex)?.characterIds?.size ?: 0
+                        val removedCharIndex = baseSize + idx
+                        val newPlayStates = cur.characterPlayStates.toMutableMap()
+                        newPlayStates.remove("${event.playerIndex}_$removedCharIndex")
+                        // Re-index subsequent summon states
+                        for (i in idx until list.size) {
+                            val oldKey = "${event.playerIndex}_${baseSize + i + 1}"
+                            val newKey = "${event.playerIndex}_${baseSize + i}"
+                            newPlayStates[newKey] = newPlayStates.remove(oldKey) ?: continue
+                        }
+                        cur.copy(activeSummons = summons, characterPlayStates = newPlayStates)
+                    } else cur
+                }
+            }
+            is CharacterEvent.UpdatePoolResource -> {
+                _state.update { cur ->
+                    val pools = cur.poolResourceCounts.toMutableMap()
+                    val playerPool = (pools[event.playerIndex] ?: emptyMap()).toMutableMap()
+                    playerPool[event.resourceName] = event.count
+                    pools[event.playerIndex] = playerPool
+                    cur.copy(poolResourceCounts = pools)
+                }
+            }
+            is CharacterEvent.UpdateCharacterPoolResource -> {
+                updateCharacterState(event.playerIndex, event.charIndex) { ps ->
+                    val held = ps.heldPoolResources.toMutableMap()
+                    held[event.resourceName] = event.count
+                    ps.copy(heldPoolResources = held)
+                }
+            }
             CharacterEvent.NextTurn -> handleReadyAction(GameAction.NEXT_TURN)
             CharacterEvent.RewindTurn -> handleReadyAction(GameAction.REWIND)
             is CharacterEvent.UpdateCharacterMoonstones -> {

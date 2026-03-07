@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.sp
 import com.garemat.moonstone_companion.AppTheme
 import com.garemat.moonstone_companion.CharacterEvent
 import com.garemat.moonstone_companion.CharacterState
+import com.garemat.moonstone_companion.GameTrackingMode
 import com.garemat.moonstone_companion.LayoutDensity
 import com.garemat.moonstone_companion.ui.theme.LocalAppThemeProperties
 
@@ -123,6 +124,30 @@ fun SettingsScreen(
                 Switch(checked = state.useLocalModeByDefault, onCheckedChange = { onEvent(CharacterEvent.SetLocalModeDefault(it)) })
             }
 
+            Spacer(modifier = Modifier.height(theme.verticalSpacing))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Spacer(modifier = Modifier.height(theme.verticalSpacing))
+
+            Text("Game View", style = theme.titleStyle.copy(fontSize = 20.sp), color = MaterialTheme.colorScheme.primary)
+            Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
+
+            Column {
+                SelectionOption(
+                    title = "Low Detail",
+                    selected = state.gameTrackingMode == GameTrackingMode.LOW_DETAIL,
+                    onSelect = { onEvent(CharacterEvent.ChangeGameTrackingMode(GameTrackingMode.LOW_DETAIL)) },
+                    theme = theme,
+                    subtitle = "Stats at a glance, no resource tracking"
+                )
+                SelectionOption(
+                    title = "Track Resources in App",
+                    selected = state.gameTrackingMode == GameTrackingMode.FULL_TRACKING,
+                    onSelect = { onEvent(CharacterEvent.ChangeGameTrackingMode(GameTrackingMode.FULL_TRACKING)) },
+                    theme = theme,
+                    subtitle = "Energy, moonstones, and ability used markers"
+                )
+            }
+
             Spacer(modifier = Modifier.height(theme.verticalSpacing * 2))
             
             Button(
@@ -140,13 +165,16 @@ fun SettingsScreen(
 }
 
 @Composable
-fun SelectionOption(title: String, selected: Boolean, onSelect: () -> Unit, theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties) {
+fun SelectionOption(title: String, selected: Boolean, onSelect: () -> Unit, theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties, subtitle: String? = null) {
     Row(
         modifier = Modifier.fillMaxWidth().clickable { onSelect() }.padding(vertical = theme.verticalSpacing / 4),
         verticalAlignment = Alignment.CenterVertically
     ) {
         RadioButton(selected = selected, onClick = onSelect)
-        Text(text = title, style = theme.headerStyle.copy(fontSize = 18.sp), modifier = Modifier.padding(start = 16.dp))
+        Column(modifier = Modifier.padding(start = 16.dp)) {
+            Text(text = title, style = theme.headerStyle.copy(fontSize = 18.sp))
+            if (subtitle != null) Text(text = subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
 
