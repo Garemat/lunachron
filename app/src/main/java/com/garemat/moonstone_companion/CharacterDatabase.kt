@@ -11,8 +11,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 @Database(
-    entities = [Character::class, Troupe::class, GameResult::class],
-    version = 5,
+    entities = [Character::class, Troupe::class, GameResult::class, UpgradeCard::class, CampaignCard::class, Campaign::class],
+    version = 7,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -54,10 +54,7 @@ abstract class CharacterDatabase : RoomDatabase() {
         private fun prepopulate(context: Context) {
             CoroutineScope(Dispatchers.IO).launch {
                 val database = getDatabase(context)
-                val characters = CharacterData.getCharactersFromAssets(context)
-                characters.forEach {
-                    database.dao.upsertCharacter(it)
-                }
+                LocalCharacterRepository(database.dao).seedFromAssets(context)
             }
         }
     }

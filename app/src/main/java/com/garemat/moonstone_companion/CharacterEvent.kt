@@ -5,6 +5,12 @@ sealed interface CharacterEvent {
     data class DeleteCharacter(val character: Character) : CharacterEvent
     
     data object SaveTroupe : CharacterEvent
+    data class SaveTroupeWithMetadata(
+        val victoryPoints: Int,
+        val equippedUpgrades: Map<Int, List<Int>>,
+        val campaignCards: List<TroupeCampaignCard>
+    ) : CharacterEvent
+    
     data class DeleteTroupe(val troupe: Troupe) : CharacterEvent
     data class EditTroupe(val troupe: Troupe) : CharacterEvent
 
@@ -47,6 +53,6 @@ sealed interface CharacterEvent {
     data object EndGame : CharacterEvent
 
     // Tournament Events
-    data class CreateTournament(val tournamentName: String, val troupeSize: TroupeSizeSetting, val timer: Int, val hostParticipating: Boolean, val passcode: String) : CharacterEvent
+    data class CreateTournament(val tournamentName: String, val troupeSize: TroupeSizeSetting, val timer: Int, val hostParticipating: Boolean, val passcode: String, val hostMode: HostMode = HostMode.WIFI_NSD) : CharacterEvent
     data class JoinTournament(val sessionId: String) : CharacterEvent
 }

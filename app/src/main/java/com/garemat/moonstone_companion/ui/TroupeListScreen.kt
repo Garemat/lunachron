@@ -36,6 +36,7 @@ fun TroupeListScreen(
     isTutorialActive: Boolean = false,
     selectionMode: Boolean = false,
     tournamentCriteria: TournamentSettings? = null,
+    isCampaignSelection: Boolean = false,
     onTroupeSelected: (Troupe) -> Unit = {},
     onTargetPositioned: (String, LayoutCoordinates) -> Unit = { _, _ -> }
 ) {
@@ -50,21 +51,29 @@ fun TroupeListScreen(
             topBar = {
                 if (selectionMode) {
                     CenterAlignedTopAppBar(
-                        title = { Text("Select Tournament Troupe", style = theme.titleStyle) },
+                        title = { Text(if (isCampaignSelection) "Select Campaign Troupe" else "Select Tournament Troupe", style = theme.titleStyle) },
                         navigationIcon = { IconButton(onClick = onNavigateBack) { Icon(Icons.Default.ArrowBack, contentDescription = null) } }
                     )
                 }
             },
             floatingActionButton = {
-                FloatingActionButton(onClick = onAddTroupe, modifier = Modifier.onGloballyPositioned { onTargetPositioned("AddTroupe", it) }) { Icon(Icons.Default.Add, contentDescription = null) }
+                if (!selectionMode) {
+                    FloatingActionButton(onClick = onAddTroupe, modifier = Modifier.onGloballyPositioned { onTargetPositioned("AddTroupe", it) }) { Icon(Icons.Default.Add, contentDescription = null) }
+                }
             }
         ) { padding ->
-            val troupesToShow = if (state.troupes.isEmpty() && isTutorialActive) {
-                listOf(Troupe(id = -1, troupeName = "Example Troupe", faction = Faction.COMMONWEALTH, characterIds = emptyList(), shareCode = "DUMMY"))
-            } else state.troupes
+            val troupesToShow = remember(state.troupes, isCampaignSelection) {
+                if (isCampaignSelection) {
+                    state.troupes.filter { it.isCampaignTroupe }
+                } else if (state.troupes.isEmpty() && isTutorialActive) {
+                    listOf(Troupe(id = -1, troupeName = "Example Troupe", faction = Faction.COMMONWEALTH, characterIds = emptyList(), shareCode = "DUMMY"))
+                } else state.troupes
+            }
 
             if (troupesToShow.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) { Text("No troupes yet. Create or import one!") }
+                Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) { 
+                    Text(if (isCampaignSelection) "No campaign troupes found. Create one first!" else "No troupes yet. Create or import one!") 
+                }
             } else {
                 LazyColumn(
                     contentPadding = padding,
@@ -148,6 +157,10 @@ fun TroupeListItem(
                     if (troupe.isTournamentList) {
                         Spacer(modifier = Modifier.width(4.dp))
                         Icon(Icons.Default.EmojiEvents, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
+                    }
+                    if (troupe.isCampaignTroupe) {
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(Icons.Default.HistoryEdu, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.secondary)
                     }
                 }
                 Text(

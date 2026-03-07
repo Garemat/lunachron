@@ -60,8 +60,8 @@ fun TournamentRoundScreen(
     ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+            contentPadding = PaddingValues(theme.screenPadding),
+            verticalArrangement = Arrangement.spacedBy(theme.verticalSpacing * 1.5f)
         ) {
             if (myPairing != null) {
                 item {
@@ -198,7 +198,7 @@ fun MyPairingCard(
                 
                 if (myDeploymentReady && opponentDeploymentReady) {
                     Spacer(modifier = Modifier.width(8.dp))
-                    Icon(Icons.Default.CheckCircle, contentDescription = "Ready", tint = Color(0xFF2E7D32))
+                    Icon(Icons.Default.CheckCircle, contentDescription = "Ready", tint = theme.readyColor)
                 }
             }
             
@@ -543,7 +543,7 @@ fun PairingListItem(
             Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                 Column {
                     Text(text = p1?.name ?: "Unknown", fontWeight = FontWeight.Bold)
-                    if (pairing.player1DeploymentReady) Text("Ready", style = MaterialTheme.typography.labelSmall, color = Color(0xFF2E7D32))
+                    if (pairing.player1DeploymentReady) Text("Ready", style = MaterialTheme.typography.labelSmall, color = theme.readyColor)
                     else if (pairing.player1Confirmed) Text("Selected", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                 }
                 if (p1?.troupe != null) {
@@ -566,7 +566,7 @@ fun PairingListItem(
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text(text = p2?.name ?: "Unknown", fontWeight = FontWeight.Bold)
-                    if (pairing.player2DeploymentReady) Text("Ready", style = MaterialTheme.typography.labelSmall, color = Color(0xFF2E7D32))
+                    if (pairing.player2DeploymentReady) Text("Ready", style = MaterialTheme.typography.labelSmall, color = theme.readyColor)
                     else if (pairing.player2Confirmed) Text("Selected", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                 }
             }

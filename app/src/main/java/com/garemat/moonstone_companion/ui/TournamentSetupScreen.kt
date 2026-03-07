@@ -14,6 +14,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.garemat.moonstone_companion.CharacterState
+import com.garemat.moonstone_companion.HostMode
 import com.garemat.moonstone_companion.TroupeSizeSetting
 import com.garemat.moonstone_companion.ui.theme.LocalAppThemeProperties
 import kotlin.random.Random
@@ -23,7 +24,7 @@ import kotlin.random.Random
 fun TournamentSetupScreen(
     state: CharacterState,
     onNavigateBack: () -> Unit,
-    onStartTournament: (String, TroupeSizeSetting, Int, Boolean, String) -> Unit,
+    onStartTournament: (String, TroupeSizeSetting, Int, Boolean, String, HostMode) -> Unit,
     isEditMode: Boolean = false,
     onUpdateSettings: (String, TroupeSizeSetting, Int, Boolean) -> Unit = { _, _, _, _ -> },
     onDisband: () -> Unit = {}
@@ -35,7 +36,8 @@ fun TournamentSetupScreen(
     var roundTimer by remember { mutableStateOf(existingSettings?.roundTimerMinutes?.toString() ?: "90") }
     var hostParticipating by remember { mutableStateOf(existingSettings?.hostParticipating ?: true) }
     var passcode by remember { mutableStateOf(existingSettings?.passcode ?: String.format("%04d", Random.nextInt(10000))) }
-    
+    var selectedHostMode by remember { mutableStateOf(HostMode.WIFI_NSD) }
+
     var showDisbandConfirmation by remember { mutableStateOf(false) }
 
     val theme = LocalAppThemeProperties.current
@@ -187,15 +189,40 @@ fun TournamentSetupScreen(
                 )
             }
 
+            if (!isEditMode) {
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Text("Connection Method", style = MaterialTheme.typography.titleMedium)
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Column(horizontalAlignment = Alignment.Start) {
+                    TroupeSizeOption(
+                        title = "Same Wi-Fi",
+                        description = "All players on the same router. Recommended for most venues.",
+                        selected = selectedHostMode == HostMode.WIFI_NSD,
+                        onSelect = { selectedHostMode = HostMode.WIFI_NSD },
+                        theme = theme
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    TroupeSizeOption(
+                        title = "Wi-Fi Direct",
+                        description = "No router needed — devices connect directly. Joining players may temporarily lose internet access.",
+                        selected = selectedHostMode == HostMode.WIFI_DIRECT,
+                        onSelect = { selectedHostMode = HostMode.WIFI_DIRECT },
+                        theme = theme
+                    )
+                }
+            }
+
             Spacer(modifier = Modifier.height(32.dp))
 
             Button(
-                onClick = { 
+                onClick = {
                     val timer = roundTimer.toIntOrNull() ?: 90
                     if (isEditMode) {
                         onUpdateSettings(tournamentName, selectedTroupeSize, timer, hostParticipating)
                     } else {
-                        onStartTournament(tournamentName, selectedTroupeSize, timer, hostParticipating, passcode)
+                        onStartTournament(tournamentName, selectedTroupeSize, timer, hostParticipating, passcode, selectedHostMode)
                     }
                 },
                 modifier = Modifier.fillMaxWidth().height(56.dp),

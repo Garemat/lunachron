@@ -34,7 +34,16 @@ data class AppThemeProperties(
     val cardContentPadding: Dp,
     val verticalSpacing: Dp,
     val screenPadding: Dp,
-    val showFactionBackgrounds: Boolean = false
+    val showFactionBackgrounds: Boolean = false,
+    // Semantic game / UI colors — change all game colours from getThemeProperties()
+    val moonstoneColor: Color = Color(0xFF2196F3),
+    val positiveColor: Color = Color(0xFF4CAF50),
+    val rankingGoldColor: Color = Color(0xFFFFD700),
+    val rankingSilverColor: Color = Color(0xFFC0C0C0),
+    val rankingBronzeColor: Color = Color(0xFFCD7F32),
+    val readyColor: Color = Color(0xFF2E7D32),
+    val scoreCircleColor: Color = Color(0xFF1976D2),
+    val cardBackground: Color = Color.Unspecified
 )
 
 val LocalAppThemeProperties = staticCompositionLocalOf {
@@ -86,7 +95,8 @@ fun getThemeProperties(appTheme: AppTheme, density: LayoutDensity): AppThemeProp
             cardContentPadding = cardPadding,
             verticalSpacing = spacing,
             screenPadding = spacing,
-            showFactionBackgrounds = true
+            showFactionBackgrounds = true,
+            cardBackground = MaterialTheme.colorScheme.surfaceVariant
         )
         AppTheme.DEFAULT -> AppThemeProperties(
             cardShape = RoundedCornerShape(12.dp),
@@ -103,7 +113,8 @@ fun getThemeProperties(appTheme: AppTheme, density: LayoutDensity): AppThemeProp
             cardContentPadding = cardPadding,
             verticalSpacing = spacing,
             screenPadding = spacing,
-            showFactionBackgrounds = false
+            showFactionBackgrounds = false,
+            cardBackground = MaterialTheme.colorScheme.surface
         )
     }
 }

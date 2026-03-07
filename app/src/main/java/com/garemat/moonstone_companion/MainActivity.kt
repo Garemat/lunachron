@@ -26,10 +26,12 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.NavController
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.garemat.moonstone_companion.ui.*
 import com.garemat.moonstone_companion.ui.theme.LocalAppThemeProperties
 import com.garemat.moonstone_companion.ui.theme.MoonstonecompanionTheme
@@ -46,7 +48,7 @@ class MainActivity : ComponentActivity() {
             object : ViewModelProvider.Factory {
                 override fun <T : ViewModel> create(modelClass: Class<T>): T {
                     @Suppress("UNCHECKED_CAST")
-                    return CharacterViewModel(application, db.dao) as T
+                    return CharacterViewModel(application, LocalCharacterRepository(db.dao)) as T
                 }
             }
         }
@@ -65,8 +67,9 @@ class MainActivity : ComponentActivity() {
             val isTutorialActive = !state.hasSeenGlobalTutorial || showTutorialForcefully
             var currentTutorialStep by remember { mutableStateOf<TutorialStep?>(null) }
 
-            // State for manual troupe selection in tournament
+            // State for manual troupe selection
             var targetManualPlayerId by remember { mutableStateOf<String?>(null) }
+            var isSelectingForCampaign by remember { mutableStateOf(false) }
 
             MoonstonecompanionTheme(
                 appTheme = state.theme,
@@ -81,13 +84,19 @@ class MainActivity : ComponentActivity() {
                 val backDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
 
                 val showNavBars = remember(currentDestination) {
-                    currentDestination?.route in listOf(
+                    currentDestination?.route?.split("/")?.firstOrNull() in listOf(
                         Screen.Home.route,
+                        Screen.Compendium.route,
                         Screen.Characters.route,
+                        Screen.Upgrades.route,
+                        Screen.CampaignCards.route,
                         Screen.Troupes.route,
                         Screen.AddEditTroupe.route,
                         Screen.GameSetup.route,
-                        Screen.Stats.route
+                        Screen.CampaignManagement.route,
+                        Screen.AddEditCampaign.route,
+                        "edit_campaign",
+                        "campaign_details"
                     )
                 }
 
@@ -96,6 +105,13 @@ class MainActivity : ComponentActivity() {
                         if (event is CharacterViewModel.UiEvent.TournamentDisbanded) {
                             navController.navigate(Screen.GameSetup.route) {
                                 popUpTo(navController.graph.findStartDestination().id) { inclusive = false }
+                            }
+                        } else if (event is CharacterViewModel.UiEvent.TroupeCreated) {
+                            // If we were creating a troupe specifically for a campaign, navigate back past
+                            // both AddEditTroupe and SelectTroupe to EditCampaign in one step (no flash)
+                            if (event.campaignPlayerId != null) {
+                                navController.safePopBackStack()
+                                navController.safePopBackStack()
                             }
                         }
                     }
@@ -118,6 +134,7 @@ class MainActivity : ComponentActivity() {
                                 color = MaterialTheme.colorScheme.primary
                             )
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                            
                             NavigationDrawerItem(
                                 icon = { Icon(Icons.Default.MenuBook, contentDescription = null) },
                                 label = { Text("Rules", style = theme.headerStyle.copy(fontSize = 18.sp)) },
@@ -129,10 +146,7 @@ class MainActivity : ComponentActivity() {
                                 shape = theme.navItemShape,
                                 colors = NavigationDrawerItemDefaults.colors(
                                     unselectedIconColor = MaterialTheme.colorScheme.primary,
-                                    unselectedTextColor = MaterialTheme.colorScheme.primary,
-                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                    selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                    unselectedTextColor = MaterialTheme.colorScheme.primary
                                 )
                             )
                             NavigationDrawerItem(
@@ -177,6 +191,20 @@ class MainActivity : ComponentActivity() {
                                     unselectedTextColor = MaterialTheme.colorScheme.primary
                                 )
                             )
+                             NavigationDrawerItem(
+                                icon = { Icon(Icons.Default.BarChart, contentDescription = null) },
+                                label = { Text("Stats", style = theme.headerStyle.copy(fontSize = 18.sp)) },
+                                selected = false,
+                                onClick = {
+                                    scope.launch { drawerState.close() }
+                                    navController.navigate(Screen.Stats.route)
+                                },
+                                shape = theme.navItemShape,
+                                colors = NavigationDrawerItemDefaults.colors(
+                                    unselectedIconColor = MaterialTheme.colorScheme.primary,
+                                    unselectedTextColor = MaterialTheme.colorScheme.primary
+                                )
+                            )
                         }
                     }
                 ) {
@@ -186,18 +214,37 @@ class MainActivity : ComponentActivity() {
                             if (showNavBars) {
                                 CenterAlignedTopAppBar(
                                     title = { Text(
-                                        text = when(currentDestination?.route) {
-                                            Screen.Characters.route -> "Character Compendium"
-                                            Screen.Troupes.route -> "My Troupes"
-                                            Screen.AddEditTroupe.route -> if (viewModel.editingTroupeId == null) "Build Troupe" else "Edit Troupe"
-                                            Screen.GameSetup.route -> "Game Setup"
-                                            Screen.Stats.route -> "Statistics"
+                                        text = when {
+                                            currentDestination?.route == Screen.Home.route -> "Moonstone Companion"
+                                            currentDestination?.route == Screen.Compendium.route -> "Compendium"
+                                            currentDestination?.route == Screen.Characters.route -> "Character List"
+                                            currentDestination?.route == Screen.Upgrades.route -> "Upgrades"
+                                            currentDestination?.route == Screen.CampaignCards.route -> "Campaign Cards"
+                                            currentDestination?.route == Screen.Troupes.route -> "My Troupes"
+                                            currentDestination?.route == Screen.AddEditTroupe.route -> if (viewModel.editingTroupeId == null) "Build Troupe" else "Edit Troupe"
+                                            currentDestination?.route == Screen.GameSetup.route -> "Game Setup"
+                                            currentDestination?.route == Screen.CampaignManagement.route -> "Wizard Chamberlain"
+                                            currentDestination?.route == Screen.AddEditCampaign.route -> "New Campaign"
+                                            currentDestination?.route?.startsWith("edit_campaign") == true -> "Campaign Settings"
+                                            currentDestination?.route?.startsWith("campaign_details") == true -> {
+                                                val cId = navController.currentBackStackEntry?.arguments?.getInt("campaignId")
+                                                val camp = state.campaigns.find { it.id == cId }
+                                                val r = camp?.currentRound
+                                                when (viewModel.currentCampaignSubScreen) {
+                                                    CampaignSubScreen.RANKINGS -> "Rankings"
+                                                    CampaignSubScreen.GAMES -> if (r != null) "Round $r — Games" else "Games"
+                                                    CampaignSubScreen.MACHINATIONS -> if (r != null) "Round $r — Machinations" else "Machinations"
+                                                    CampaignSubScreen.ATTACKS -> if (r != null) "Round $r — Attacks" else "Attacks"
+                                                    CampaignSubScreen.HISTORY -> "Round History"
+                                                    null -> camp?.name ?: "Campaign"
+                                                }
+                                            }
                                             else -> "Moonstone Companion"
                                         },
                                         style = theme.titleStyle
                                     ) },
                                     navigationIcon = {
-                                        if (currentDestination?.route == Screen.AddEditTroupe.route) {
+                                        if (currentDestination?.route in listOf(Screen.AddEditTroupe.route, Screen.Characters.route, Screen.Upgrades.route, Screen.CampaignCards.route, Screen.Rules.route, Screen.Settings.route, Screen.TournamentSetup.route, Screen.AddEditCampaign.route) || currentDestination?.route?.startsWith("edit_campaign") == true || currentDestination?.route?.startsWith("campaign_details") == true) {
                                             IconButton(onClick = { backDispatcher?.onBackPressed() }) {
                                                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                                             }
@@ -230,10 +277,10 @@ class MainActivity : ComponentActivity() {
                                 ) {
                                     val items = listOf(
                                         BottomNavItem("Home", Screen.Home.route, Icons.Default.Home),
-                                        BottomNavItem("Characters", Screen.Characters.route, Icons.Default.PersonSearch),
+                                        BottomNavItem("Compendium", Screen.Compendium.route, Icons.Default.MenuBook),
                                         BottomNavItem("Play", Screen.GameSetup.route, Icons.Default.PlayArrow),
                                         BottomNavItem("Troupes", Screen.Troupes.route, Icons.Default.Groups),
-                                        BottomNavItem("Stats", Screen.Stats.route, Icons.Default.BarChart)
+                                        BottomNavItem("Campaigns", Screen.CampaignManagement.route, Icons.Default.HistoryEdu)
                                     )
                                     items.forEach { item ->
                                         val isSelected = currentDestination?.hierarchy?.any { it.route == item.route } == true
@@ -242,10 +289,11 @@ class MainActivity : ComponentActivity() {
                                         NavigationBarItem(
                                             modifier = Modifier.onGloballyPositioned { 
                                                 when(item.label) {
-                                                    "Characters" -> tutorialCoords["CharactersNav"] = it
+                                                    "Home" -> tutorialCoords["HomeNav"] = it
+                                                    "Compendium" -> tutorialCoords["CompendiumNav"] = it
                                                     "Troupes" -> tutorialCoords["TroupesNav"] = it
                                                     "Play" -> tutorialCoords["PlayNav"] = it
-                                                    "Stats" -> tutorialCoords["StatsNav"] = it
+                                                    "Campaigns" -> tutorialCoords["CampaignsNav"] = it
                                                 }
                                             },
                                             icon = { 
@@ -318,12 +366,31 @@ class MainActivity : ComponentActivity() {
                                         onNavigateBack = { navController.safePopBackStack() }
                                     )
                                 }
+                                composable(Screen.Compendium.route) {
+                                    CompendiumScreen(
+                                        onNavigateToCharacters = { navController.navigate(Screen.Characters.route) },
+                                        onNavigateToUpgrades = { navController.navigate(Screen.Upgrades.route) },
+                                        onNavigateToCampaignCards = { navController.navigate(Screen.CampaignCards.route) }
+                                    )
+                                }
                                 composable(Screen.Characters.route) {
                                     CharacterListScreen(
                                         state = state,
                                         onEvent = viewModel::onEvent,
                                         onNavigateBack = { navController.safePopBackStack() },
                                         onTargetPositioned = { name, coords -> tutorialCoords[name] = coords }
+                                    )
+                                }
+                                composable(Screen.Upgrades.route) {
+                                    UpgradeListScreen(
+                                        state = state,
+                                        onNavigateBack = { navController.safePopBackStack() }
+                                    )
+                                }
+                                composable(Screen.CampaignCards.route) {
+                                    CampaignCardListScreen(
+                                        state = state,
+                                        onNavigateBack = { navController.safePopBackStack() }
                                     )
                                 }
                                 composable(Screen.Troupes.route) {
@@ -344,17 +411,30 @@ class MainActivity : ComponentActivity() {
                                     TroupeListScreen(
                                         state = state,
                                         viewModel = viewModel,
-                                        onNavigateBack = { navController.safePopBackStack() },
+                                        onNavigateBack = { 
+                                            navController.safePopBackStack()
+                                            isSelectingForCampaign = false
+                                        },
                                         onAddTroupe = { 
-                                            viewModel.resetNewTroupeFields(isTournament = true) 
+                                            viewModel.resetNewTroupeFields(isTournament = !isSelectingForCampaign, isCampaign = isSelectingForCampaign) 
+                                            // Handle special case for campaign troupe creation
+                                            if (isSelectingForCampaign) {
+                                                viewModel.pendingCampaignPlayerId = targetManualPlayerId
+                                            }
                                             navController.navigate(Screen.AddEditTroupe.route) 
                                         },
                                         onEditTroupe = { navController.navigate(Screen.AddEditTroupe.route) },
                                         selectionMode = true,
-                                        tournamentCriteria = state.tournamentSettings,
+                                        tournamentCriteria = if (isSelectingForCampaign) null else state.tournamentSettings,
+                                        isCampaignSelection = isSelectingForCampaign,
                                         onTroupeSelected = { troupe ->
-                                            viewModel.broadcastTroupeSelection(troupe, targetManualPlayerId)
+                                            if (isSelectingForCampaign) {
+                                                viewModel.broadcastTroupeSelectionForCampaign(troupe, targetManualPlayerId!!)
+                                            } else {
+                                                viewModel.broadcastTroupeSelection(troupe, targetManualPlayerId)
+                                            }
                                             targetManualPlayerId = null
+                                            isSelectingForCampaign = false
                                             navController.safePopBackStack()
                                         },
                                         onTargetPositioned = { name, coords -> tutorialCoords[name] = coords }
@@ -416,8 +496,8 @@ class MainActivity : ComponentActivity() {
                                                 navController.safePopBackStack() 
                                             }
                                         },
-                                        onStartTournament = { name, size, timer, hostParticipating, passcode ->
-                                            viewModel.onEvent(CharacterEvent.CreateTournament(name, size, timer, hostParticipating, passcode))
+                                        onStartTournament = { name, size, timer, hostParticipating, passcode, hostMode ->
+                                            viewModel.onEvent(CharacterEvent.CreateTournament(name, size, timer, hostParticipating, passcode, hostMode))
                                             navController.navigate(Screen.TournamentWaitingRoom.route)
                                         },
                                         isEditMode = state.isTournamentHost,
@@ -443,10 +523,12 @@ class MainActivity : ComponentActivity() {
                                         },
                                         onSelectTroupe = {
                                             targetManualPlayerId = null
+                                            isSelectingForCampaign = false
                                             navController.navigate(Screen.SelectTroupe.route)
                                         },
                                         onSelectTroupeForManual = { manualPlayerId ->
                                             targetManualPlayerId = manualPlayerId
+                                            isSelectingForCampaign = false
                                             navController.navigate(Screen.SelectTroupe.route)
                                         },
                                         onBeginTournament = {
@@ -462,6 +544,70 @@ class MainActivity : ComponentActivity() {
                                         state = state,
                                         viewModel = viewModel,
                                         onNavigateBack = { navController.safePopBackStack() }
+                                    )
+                                }
+                                composable(Screen.CampaignManagement.route) {
+                                    CampaignManagementScreen(
+                                        state = state,
+                                        viewModel = viewModel,
+                                        onNavigateBack = { navController.safePopBackStack() },
+                                        onNavigateToDetails = { campaignId ->
+                                            navController.navigate(Screen.CampaignDetails.createRoute(campaignId))
+                                        },
+                                        onNavigateToAddCampaign = {
+                                            viewModel.resetNewCampaignFields()
+                                            navController.navigate(Screen.AddEditCampaign.route)
+                                        }
+                                    )
+                                }
+                                composable(Screen.AddEditCampaign.route) {
+                                    AddEditCampaignScreen(
+                                        viewModel = viewModel,
+                                        state = state,
+                                        onNavigateBack = { 
+                                            navController.safePopBackStack() 
+                                            isSelectingForCampaign = false
+                                        },
+                                        onSelectTroupeForPlayer = { playerId ->
+                                            targetManualPlayerId = playerId
+                                            isSelectingForCampaign = true
+                                            navController.navigate(Screen.SelectTroupe.route)
+                                        }
+                                    )
+                                }
+                                composable(
+                                    route = Screen.EditCampaign.route,
+                                    arguments = listOf(navArgument("campaignId") { type = NavType.IntType })
+                                ) { backStackEntry ->
+                                    val campaignId = backStackEntry.arguments?.getInt("campaignId") ?: return@composable
+                                    EditCampaignScreen(
+                                        campaignId = campaignId,
+                                        viewModel = viewModel,
+                                        state = state,
+                                        onNavigateBack = { 
+                                            navController.safePopBackStack() 
+                                            isSelectingForCampaign = false
+                                        },
+                                        onSelectTroupeForPlayer = { playerId ->
+                                            targetManualPlayerId = playerId
+                                            isSelectingForCampaign = true
+                                            navController.navigate(Screen.SelectTroupe.route)
+                                        }
+                                    )
+                                }
+                                composable(
+                                    route = Screen.CampaignDetails.route,
+                                    arguments = listOf(navArgument("campaignId") { type = NavType.IntType })
+                                ) { backStackEntry ->
+                                    val campaignId = backStackEntry.arguments?.getInt("campaignId") ?: return@composable
+                                    CampaignDetailsScreen(
+                                        campaignId = campaignId,
+                                        state = state,
+                                        viewModel = viewModel,
+                                        onNavigateBack = { navController.safePopBackStack() },
+                                        onNavigateToSettings = { campaignId ->
+                                            navController.navigate(Screen.EditCampaign.createRoute(campaignId))
+                                        }
                                     )
                                 }
                             }

@@ -33,15 +33,16 @@ fun StatsScreen(
     viewModel: CharacterViewModel
 ) {
     val results by viewModel.gameResults.collectAsState()
+    val theme = LocalAppThemeProperties.current
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+    Column(modifier = Modifier.fillMaxSize().padding(theme.screenPadding)) {
         if (results.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("No games played yet!", color = MaterialTheme.colorScheme.outline)
             }
         } else {
             LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                verticalArrangement = Arrangement.spacedBy(theme.verticalSpacing),
                 contentPadding = PaddingValues(bottom = 100.dp)
             ) {
                 items(results) { result ->
@@ -87,11 +88,12 @@ fun GameResultBanner(result: GameResult) {
 
 @Composable
 private fun ScoreCircle(playerStats: List<PlayerStat>, modifier: Modifier = Modifier) {
+    val theme = LocalAppThemeProperties.current
     Box(
         modifier = modifier
             .size(80.dp)
             .clip(CircleShape)
-            .background(Color(0xFF1976D2)) // Blue Circle
+            .background(theme.scoreCircleColor)
             .border(2.dp, Color.White, CircleShape),
         contentAlignment = Alignment.Center
     ) {
@@ -144,7 +146,7 @@ fun PlayerQuadrant(stat: PlayerStat, isWinner: Boolean, modifier: Modifier) {
         modifier = modifier
             .background(getFactionColor(stat.faction))
             .then(
-                if (isWinner) Modifier.border(2.dp, Color(0xFFFFD700))
+                if (isWinner) Modifier.border(2.dp, theme.rankingGoldColor)
                 else Modifier.border(1.dp, Color.White)
             )
     ) {
