@@ -59,15 +59,17 @@ fun MoonstonecompanionTheme(
         AppTheme.DEFAULT -> DefaultTypography
     }
 
-    val themeProperties = getThemeProperties(appTheme, layoutDensity)
-
-    CompositionLocalProvider(
-        LocalAppTheme provides appTheme,
-        LocalAppThemeProperties provides themeProperties
+    // themeProperties must be computed INSIDE MaterialTheme so that
+    // MaterialTheme.colorScheme.* and MaterialTheme.typography.* resolve
+    // to the correct (Moonstone/Default) values, not the outer default scheme.
+    MaterialTheme(
+        colorScheme = colorScheme,
+        typography = typography
     ) {
-        MaterialTheme(
-            colorScheme = colorScheme,
-            typography = typography,
+        val themeProperties = getThemeProperties(appTheme, layoutDensity)
+        CompositionLocalProvider(
+            LocalAppTheme provides appTheme,
+            LocalAppThemeProperties provides themeProperties,
             content = content
         )
     }

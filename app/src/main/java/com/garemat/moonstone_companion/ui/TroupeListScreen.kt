@@ -86,22 +86,27 @@ fun TroupeListScreen(
                             troupe.isTournamentList && troupe.characterIds.size == req
                         } else true
 
+                        val troupeCharacters = if (selectionMode) {
+                            state.characters.filter { it.id in troupe.characterIds }
+                        } else null
+
                         TroupeListItem(
                             troupe = troupe,
-                            onClick = { 
+                            onClick = {
                                 if (selectionMode) {
                                     if (isValid) onTroupeSelected(troupe)
                                     else { viewModel.onEvent(CharacterEvent.EditTroupe(troupe)); onEditTroupe() }
                                 } else if (troupe.id != -1) { viewModel.onEvent(CharacterEvent.EditTroupe(troupe)); onEditTroupe() }
                             },
                             onDelete = { if (troupe.id != -1) troupeToDelete = troupe },
-                            onShare = { 
+                            onShare = {
                                 val code = if (troupe.id != -1) viewModel.generateFullShareCode(troupe, state.characters) else "DUMMY_CODE"
                                 shareTroupe(context, troupe.troupeName, code)
                             },
                             onEdit = { viewModel.onEvent(CharacterEvent.EditTroupe(troupe)); onEditTroupe() },
                             isDimmed = selectionMode && !isValid,
                             selectionMode = selectionMode,
+                            characters = troupeCharacters,
                             onPositioned = onTargetPositioned
                         )
                     }
@@ -132,6 +137,8 @@ fun TroupeListItem(
     onEdit: () -> Unit,
     isDimmed: Boolean = false,
     selectionMode: Boolean = false,
+    showDelete: Boolean = true,
+    characters: List<Character>? = null,
     onPositioned: (String, LayoutCoordinates) -> Unit = { _, _ -> }
 ) {
     val theme = LocalAppThemeProperties.current
@@ -141,37 +148,57 @@ fun TroupeListItem(
         elevation = CardDefaults.cardElevation(defaultElevation = theme.surfaceElevation),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
-        Row(modifier = Modifier.padding(theme.cardContentPadding), verticalAlignment = Alignment.CenterVertically) {
-            Box(modifier = Modifier.size(32.dp).clip(CircleShape).background(getFactionColor(troupe.faction)), contentAlignment = Alignment.Center) {
-                FactionSymbol(faction = troupe.faction, modifier = Modifier.fillMaxSize().padding(4.dp), tint = Color.White)
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = troupe.troupeName, 
-                        style = theme.titleStyle.copy(fontSize = 18.sp, lineHeight = 22.sp), 
-                        maxLines = 1, 
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                    )
-                    if (troupe.isTournamentList) {
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Icon(Icons.Default.EmojiEvents, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
+        Column(modifier = Modifier.padding(theme.cardContentPadding)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(modifier = Modifier.size(32.dp).clip(CircleShape).background(getFactionColor(troupe.faction)), contentAlignment = Alignment.Center) {
+                    FactionSymbol(faction = troupe.faction, modifier = Modifier.fillMaxSize().padding(4.dp), tint = Color.White)
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = troupe.troupeName,
+                            style = theme.titleStyle.copy(fontSize = 18.sp, lineHeight = 22.sp),
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        )
+                        if (troupe.isTournamentList) {
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Icon(Icons.Default.EmojiEvents, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
+                        }
+                        if (troupe.isCampaignTroupe) {
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Icon(Icons.Default.HistoryEdu, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.secondary)
+                        }
                     }
-                    if (troupe.isCampaignTroupe) {
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Icon(Icons.Default.HistoryEdu, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.secondary)
+                    Text(
+                        text = "${troupe.characterIds.size} Characters",
+                        style = MaterialTheme.typography.bodySmall.copy(lineHeight = 16.sp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (selectionMode) IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) { Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(20.dp)) }
+                else IconButton(onClick = onShare, modifier = Modifier.size(36.dp).onGloballyPositioned { onPositioned("ShareTroupe", it) }) { Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(20.dp)) }
+                if (showDelete) IconButton(onClick = onDelete, modifier = Modifier.size(36.dp).onGloballyPositioned { onPositioned("DeleteTroupe", it) }) { Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.error) }
+            }
+            if (!characters.isNullOrEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                Spacer(modifier = Modifier.height(6.dp))
+                characters.forEach { character ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(vertical = 2.dp)
+                    ) {
+                        Text("·", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(16.dp))
+                        Text(
+                            text = character.name,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
                     }
                 }
-                Text(
-                    text = "${troupe.characterIds.size} Characters", 
-                    style = MaterialTheme.typography.bodySmall.copy(lineHeight = 16.sp), 
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
-            if (selectionMode) IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) { Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(20.dp)) }
-            else IconButton(onClick = onShare, modifier = Modifier.size(36.dp).onGloballyPositioned { onPositioned("ShareTroupe", it) }) { Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(20.dp)) }
-            IconButton(onClick = onDelete, modifier = Modifier.size(36.dp).onGloballyPositioned { onPositioned("DeleteTroupe", it) }) { Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.error) }
         }
     }
 }

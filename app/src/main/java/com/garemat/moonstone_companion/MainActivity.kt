@@ -93,6 +93,7 @@ class MainActivity : ComponentActivity() {
                         Screen.Troupes.route,
                         Screen.AddEditTroupe.route,
                         Screen.GameSetup.route,
+                        Screen.SoloTroupeSelect.route,
                         Screen.CampaignManagement.route,
                         Screen.AddEditCampaign.route,
                         "edit_campaign",
@@ -275,16 +276,24 @@ class MainActivity : ComponentActivity() {
                                     containerColor = if (state.theme == AppTheme.MOONSTONE) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceVariant,
                                     tonalElevation = theme.navigationBarElevation
                                 ) {
+                                    val playRoute = if (state.useLocalModeByDefault && state.useSinglePlayerMode)
+                                        Screen.SoloTroupeSelect.route else Screen.GameSetup.route
                                     val items = listOf(
                                         BottomNavItem("Home", Screen.Home.route, Icons.Default.Home),
                                         BottomNavItem("Compendium", Screen.Compendium.route, Icons.Default.MenuBook),
-                                        BottomNavItem("Play", Screen.GameSetup.route, Icons.Default.PlayArrow),
+                                        BottomNavItem("Play", playRoute, Icons.Default.PlayArrow),
                                         BottomNavItem("Troupes", Screen.Troupes.route, Icons.Default.Groups),
                                         BottomNavItem("Campaigns", Screen.CampaignManagement.route, Icons.Default.HistoryEdu)
                                     )
                                     items.forEach { item ->
-                                        val isSelected = currentDestination?.hierarchy?.any { it.route == item.route } == true
                                         val isPlayButton = item.label == "Play"
+                                        val isSelected = if (isPlayButton) {
+                                            currentDestination?.hierarchy?.any {
+                                                it.route == Screen.GameSetup.route || it.route == Screen.SoloTroupeSelect.route
+                                            } == true
+                                        } else {
+                                            currentDestination?.hierarchy?.any { it.route == item.route } == true
+                                        }
                                         
                                         NavigationBarItem(
                                             modifier = Modifier.onGloballyPositioned { 
@@ -447,6 +456,18 @@ class MainActivity : ComponentActivity() {
                                         onNavigateBack = { navController.safePopBackStack() },
                                         currentTutorialStep = currentTutorialStep,
                                         onTargetPositioned = { name, coords -> tutorialCoords[name] = coords }
+                                    )
+                                }
+                                composable(Screen.SoloTroupeSelect.route) {
+                                    SoloTroupeSelectScreen(
+                                        state = state,
+                                        viewModel = viewModel,
+                                        onTroupeSelected = {
+                                            navController.navigate(Screen.ActiveGame.route)
+                                        },
+                                        onEditTroupe = {
+                                            navController.navigate(Screen.AddEditTroupe.route)
+                                        }
                                     )
                                 }
                                 composable(Screen.GameSetup.route) {

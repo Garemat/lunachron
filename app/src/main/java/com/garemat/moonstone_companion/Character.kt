@@ -114,7 +114,15 @@ data class Character(
 
     // Future-proofing for character-specific interactions
     val isUnselectableInTroupe: Boolean = false,
-    val summonsCharacterIds: List<Int> = emptyList()
+    val summonsCharacterIds: List<Int> = emptyList(),
+    val poolResources: List<PoolResourceDefinition> = emptyList()
+)
+
+@Serializable
+data class PoolResourceDefinition(
+    val name: String,
+    val maxInPool: Int = 1,
+    val maxPerCharacter: Int = 1
 )
 
 @Serializable

@@ -92,4 +92,10 @@ class Converters {
     @TypeConverter
     fun toMachinationDraft(value: String): Map<String, PlayerMachinationDraft>? =
         if (value.isEmpty()) null else json.decodeFromString(value)
+
+    @TypeConverter
+    fun fromPoolResourceDefinitionList(value: List<PoolResourceDefinition>) = json.encodeToString(value)
+
+    @TypeConverter
+    fun toPoolResourceDefinitionList(value: String) = json.decodeFromString<List<PoolResourceDefinition>>(value)
 }

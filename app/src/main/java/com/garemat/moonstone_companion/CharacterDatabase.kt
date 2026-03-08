@@ -12,7 +12,7 @@ import kotlinx.coroutines.launch
 
 @Database(
     entities = [Character::class, Troupe::class, GameResult::class, UpgradeCard::class, CampaignCard::class, Campaign::class],
-    version = 7,
+    version = 8,
     exportSchema = false
 )
 @TypeConverters(Converters::class)

@@ -12,6 +12,18 @@ enum class LayoutDensity {
 }
 
 @Serializable
+enum class GameTrackingMode { LOW_DETAIL, FULL_TRACKING }
+
+@Serializable
+enum class GameLayoutMode { COMPACT_GRID, DETAILED_LIST }
+
+@Serializable
+data class SummonEntry(
+    val characterId: Int,
+    val summonedByCharacterId: Int? = null
+)
+
+@Serializable
 data class NewsItem(
     val title: String,
     val url: String,
@@ -85,6 +97,7 @@ data class CharacterState(
     val theme: AppTheme = AppTheme.MOONSTONE,
     val layoutDensity: LayoutDensity = LayoutDensity.COZY,
     val useLocalModeByDefault: Boolean = false,
+    val useSinglePlayerMode: Boolean = false,
     val isAddingCharacter: Boolean = false,
     val isAddingTroupe: Boolean = false,
     val sortType: SortType = SortType.NAME,
@@ -108,6 +121,9 @@ data class CharacterState(
     val currentTournamentRound: TournamentRound? = null,
     val tournamentHistory: List<TournamentRound> = emptyList(),
 
+    val gameTrackingMode: GameTrackingMode = GameTrackingMode.LOW_DETAIL,
+    val gameLayoutMode: GameLayoutMode = GameLayoutMode.COMPACT_GRID,
+
     // Active Game Play State
     val currentTurn: Int = 1,
     // Key: "playerIndex_characterIndex"
@@ -115,6 +131,10 @@ data class CharacterState(
     val activeTroupes: List<Troupe> = emptyList(),
     // History for rewind: List of (TurnNumber, characterPlayStates)
     val turnHistory: List<Map<String, CharacterPlayState>> = emptyList(),
+    // playerIndex -> list of active summons (ordered)
+    val activeSummons: Map<Int, List<SummonEntry>> = emptyMap(),
+    // playerIndex -> (resourceName -> currentCount in pool)
+    val poolResourceCounts: Map<Int, Map<String, Int>> = emptyMap(),
 
     // Ready states for multi-player actions
     val readyForNextTurn: Set<String> = emptySet(),
@@ -135,7 +155,8 @@ data class CharacterPlayState(
     val moonstones: Int = 0,
     val usedAbilities: Map<String, Boolean> = emptyMap(),
     val isFlipped: Boolean = false,
-    val isExpanded: Boolean = false
+    val isExpanded: Boolean = false,
+    val heldPoolResources: Map<String, Int> = emptyMap()
 )
 
 @Serializable
