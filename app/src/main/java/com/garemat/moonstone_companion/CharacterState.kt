@@ -15,6 +15,9 @@ enum class LayoutDensity {
 enum class GameTrackingMode { LOW_DETAIL, FULL_TRACKING }
 
 @Serializable
+enum class GameLayoutMode { COMPACT_GRID, DETAILED_LIST }
+
+@Serializable
 data class SummonEntry(
     val characterId: Int,
     val summonedByCharacterId: Int? = null
@@ -118,6 +121,7 @@ data class CharacterState(
     val tournamentHistory: List<TournamentRound> = emptyList(),
 
     val gameTrackingMode: GameTrackingMode = GameTrackingMode.LOW_DETAIL,
+    val gameLayoutMode: GameLayoutMode = GameLayoutMode.COMPACT_GRID,
 
     // Active Game Play State
     val currentTurn: Int = 1,

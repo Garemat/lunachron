@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.sp
 import com.garemat.moonstone_companion.AppTheme
 import com.garemat.moonstone_companion.CharacterEvent
 import com.garemat.moonstone_companion.CharacterState
+import com.garemat.moonstone_companion.GameLayoutMode
 import com.garemat.moonstone_companion.GameTrackingMode
 import com.garemat.moonstone_companion.LayoutDensity
 import com.garemat.moonstone_companion.ui.theme.LocalAppThemeProperties
@@ -133,11 +134,11 @@ fun SettingsScreen(
 
             Column {
                 SelectionOption(
-                    title = "Low Detail",
+                    title = "No tracking",
                     selected = state.gameTrackingMode == GameTrackingMode.LOW_DETAIL,
                     onSelect = { onEvent(CharacterEvent.ChangeGameTrackingMode(GameTrackingMode.LOW_DETAIL)) },
                     theme = theme,
-                    subtitle = "Stats at a glance, no resource tracking"
+                    subtitle = "Stats at a glance, track resources physically"
                 )
                 SelectionOption(
                     title = "Track Resources in App",
@@ -145,6 +146,30 @@ fun SettingsScreen(
                     onSelect = { onEvent(CharacterEvent.ChangeGameTrackingMode(GameTrackingMode.FULL_TRACKING)) },
                     theme = theme,
                     subtitle = "Energy, moonstones, and ability used markers"
+                )
+            }
+
+            Spacer(modifier = Modifier.height(theme.verticalSpacing))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Spacer(modifier = Modifier.height(theme.verticalSpacing))
+
+            Text("Game Layout", style = theme.titleStyle.copy(fontSize = 20.sp), color = MaterialTheme.colorScheme.primary)
+            Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
+
+            Column {
+                SelectionOption(
+                    title = "Low Detail",
+                    selected = state.gameLayoutMode == GameLayoutMode.COMPACT_GRID,
+                    onSelect = { onEvent(CharacterEvent.ChangeGameLayoutMode(GameLayoutMode.COMPACT_GRID)) },
+                    theme = theme,
+                    subtitle = "2-column grid, quick overview of all characters"
+                )
+                SelectionOption(
+                    title = "Detailed",
+                    selected = state.gameLayoutMode == GameLayoutMode.DETAILED_LIST,
+                    onSelect = { onEvent(CharacterEvent.ChangeGameLayoutMode(GameLayoutMode.DETAILED_LIST)) },
+                    theme = theme,
+                    subtitle = "Single column, expandable cards with full stats"
                 )
             }
 

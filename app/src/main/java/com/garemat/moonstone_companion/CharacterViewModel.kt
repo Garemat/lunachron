@@ -58,6 +58,7 @@ class CharacterViewModel(
         useLocalModeByDefault = prefs.getBoolean("use_local_mode_by_default", false),
         hasSeenGlobalTutorial = prefs.getBoolean("has_seen_global_tutorial", false),
         gameTrackingMode = GameTrackingMode.valueOf(prefs.getString("game_tracking_mode", GameTrackingMode.LOW_DETAIL.name) ?: GameTrackingMode.LOW_DETAIL.name),
+        gameLayoutMode = GameLayoutMode.valueOf(prefs.getString("game_layout_mode", GameLayoutMode.COMPACT_GRID.name) ?: GameLayoutMode.COMPACT_GRID.name),
         newsItems = loadCachedNews()
     ))
     
@@ -254,6 +255,10 @@ class CharacterViewModel(
             is CharacterEvent.ChangeGameTrackingMode -> {
                 _state.update { it.copy(gameTrackingMode = event.mode) }
                 prefs.edit().putString("game_tracking_mode", event.mode.name).apply()
+            }
+            is CharacterEvent.ChangeGameLayoutMode -> {
+                _state.update { it.copy(gameLayoutMode = event.mode) }
+                prefs.edit().putString("game_layout_mode", event.mode.name).apply()
             }
             is CharacterEvent.AddSummonedCharacter -> {
                 _state.update { cur ->

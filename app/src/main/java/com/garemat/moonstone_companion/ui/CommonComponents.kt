@@ -48,6 +48,28 @@ import com.garemat.moonstone_companion.ui.theme.LocalAppThemeProperties
 
 // --- Base Utilities ---
 
+/**
+ * A Card that automatically applies the current theme's shape and background color.
+ * Use this instead of Card directly so all cards stay consistent with the active theme.
+ * Pass [containerColor] only when you need to override (e.g. a "dead" character state).
+ */
+@Composable
+fun ThemedCard(
+    modifier: Modifier = Modifier,
+    containerColor: Color? = null,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    val theme = LocalAppThemeProperties.current
+    Card(
+        shape = theme.cardShape,
+        colors = CardDefaults.cardColors(containerColor = containerColor ?: theme.cardBackground),
+        elevation = CardDefaults.cardElevation(defaultElevation = theme.surfaceElevation),
+        modifier = modifier,
+        content = content
+    )
+}
+
+
 @Composable
 fun NullSymbol(modifier: Modifier = Modifier, size: Dp = 24.dp) {
     val appTheme = LocalAppTheme.current
@@ -227,14 +249,7 @@ fun SetupOptionCard(
     modifier: Modifier = Modifier
 ) {
     val theme = LocalAppThemeProperties.current
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable { onClick() },
-        shape = theme.cardShape,
-        elevation = CardDefaults.cardElevation(defaultElevation = theme.surfaceElevation),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-    ) {
+    ThemedCard(modifier = modifier.fillMaxWidth().clickable { onClick() }) {
         Row(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -379,7 +394,7 @@ fun CommonCharacterCard(character: Character, searchQuery: String, isExpanded: B
     val context = LocalContext.current; val appTheme = LocalAppTheme.current
     val theme = LocalAppThemeProperties.current
     val imageRes = remember(character.imageName) { if (character.imageName != null) context.resources.getIdentifier(character.imageName.substringBeforeLast("."), "drawable", context.packageName) else 0 }
-    Card(modifier = modifier.fillMaxWidth().animateContentSize().onGloballyPositioned { onPositioned(cardTargetName, it) }, shape = theme.cardShape, elevation = CardDefaults.cardElevation(defaultElevation = theme.surfaceElevation), colors = CardDefaults.cardColors(containerColor = if (appTheme == AppTheme.MOONSTONE) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface)) {
+    ThemedCard(modifier = modifier.fillMaxWidth().animateContentSize().onGloballyPositioned { onPositioned(cardTargetName, it) }) {
         Column {
             Row(modifier = Modifier.fillMaxWidth().clickable { onExpandClick() }.padding(theme.cardContentPadding), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 if (selectionControl != null) { selectionControl(); Spacer(modifier = Modifier.width(4.dp)) }
@@ -412,12 +427,7 @@ fun CommonCharacterCard(character: Character, searchQuery: String, isExpanded: B
 fun UpgradeCardUI(card: UpgradeCard, searchQuery: String, isExpanded: Boolean, onExpandClick: () -> Unit, modifier: Modifier = Modifier) {
     val theme = LocalAppThemeProperties.current
     val appTheme = LocalAppTheme.current
-    Card(
-        modifier = modifier.fillMaxWidth().animateContentSize(),
-        shape = theme.cardShape,
-        elevation = CardDefaults.cardElevation(defaultElevation = theme.surfaceElevation),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-    ) {
+    ThemedCard(modifier = modifier.fillMaxWidth().animateContentSize()) {
         Column {
             Row(
                 modifier = Modifier.fillMaxWidth().clickable { onExpandClick() }.padding(theme.cardContentPadding),
@@ -447,12 +457,7 @@ fun UpgradeCardUI(card: UpgradeCard, searchQuery: String, isExpanded: Boolean, o
 @Composable
 fun CampaignCardUI(card: CampaignCard, searchQuery: String, isExpanded: Boolean, onExpandClick: () -> Unit, modifier: Modifier = Modifier) {
     val theme = LocalAppThemeProperties.current
-    Card(
-        modifier = modifier.fillMaxWidth().animateContentSize(),
-        shape = theme.cardShape,
-        elevation = CardDefaults.cardElevation(defaultElevation = theme.surfaceElevation),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-    ) {
+    ThemedCard(modifier = modifier.fillMaxWidth().animateContentSize()) {
         Column {
             Row(
                 modifier = Modifier.fillMaxWidth().clickable { onExpandClick() }.padding(theme.cardContentPadding),
@@ -592,6 +597,65 @@ fun HealthTracker(totalHealth: Int, currentHealth: Int, energyTrack: List<Int>, 
             }
         }
     }
+}
+
+@Composable
+fun HealthPipsChunked(
+    total: Int,
+    current: Int,
+    energyTrack: List<Int>,
+    compact: Boolean,
+    isEditable: Boolean,
+    onHealthChange: (Int) -> Unit
+) {
+    val theme = LocalAppThemeProperties.current
+    val pipSize = if (compact) 9.dp else 13.dp
+    val rowChunks = (1..total).toList().chunked(10)
+    Column(modifier = Modifier.padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        rowChunks.forEach { rowPips ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                val firstFive = rowPips.take(5)
+                val secondFive = rowPips.drop(5)
+                firstFive.forEach { pip ->
+                    HealthPip(pip, current, energyTrack, pipSize, isEditable, theme, onHealthChange)
+                    Spacer(Modifier.width(2.dp))
+                }
+                if (secondFive.isNotEmpty()) {
+                    Text("|", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, modifier = Modifier.padding(horizontal = 2.dp))
+                    secondFive.forEach { pip ->
+                        HealthPip(pip, current, energyTrack, pipSize, isEditable, theme, onHealthChange)
+                        Spacer(Modifier.width(2.dp))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun HealthPip(
+    pip: Int,
+    current: Int,
+    energyTrack: List<Int>,
+    size: Dp,
+    isEditable: Boolean,
+    theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties,
+    onHealthChange: (Int) -> Unit
+) {
+    val isEnergy = energyTrack.contains(pip)
+    val isAlive = pip <= current
+    val color = when {
+        isEnergy && isAlive -> theme.moonstoneColor
+        isAlive -> theme.positiveColor
+        else -> MaterialTheme.colorScheme.outlineVariant
+    }
+    Box(
+        modifier = Modifier
+            .size(size)
+            .clip(CircleShape)
+            .background(color)
+            .then(if (isEditable) Modifier.clickable { onHealthChange(if (pip <= current) pip - 1 else pip) } else Modifier)
+    )
 }
 
 @Composable

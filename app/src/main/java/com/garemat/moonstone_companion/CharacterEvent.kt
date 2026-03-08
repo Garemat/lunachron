@@ -54,6 +54,7 @@ sealed interface CharacterEvent {
 
     // Game View / Tracking
     data class ChangeGameTrackingMode(val mode: GameTrackingMode) : CharacterEvent
+    data class ChangeGameLayoutMode(val mode: GameLayoutMode) : CharacterEvent
     data class AddSummonedCharacter(val playerIndex: Int, val characterId: Int, val summonedByCharacterId: Int?) : CharacterEvent
     data class RemoveSummonedCharacter(val playerIndex: Int, val characterId: Int) : CharacterEvent
     data class UpdatePoolResource(val playerIndex: Int, val resourceName: String, val count: Int) : CharacterEvent
