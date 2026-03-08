@@ -17,6 +17,7 @@ import com.garemat.moonstone_companion.CharacterEvent
 import com.garemat.moonstone_companion.CharacterState
 import com.garemat.moonstone_companion.GameLayoutMode
 import com.garemat.moonstone_companion.GameTrackingMode
+import com.garemat.moonstone_companion.ImageDownloadPreference
 import com.garemat.moonstone_companion.LayoutDensity
 import com.garemat.moonstone_companion.ui.theme.LocalAppThemeProperties
 
@@ -192,8 +193,76 @@ fun SettingsScreen(
                 )
             }
 
+            Spacer(modifier = Modifier.height(theme.verticalSpacing))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Spacer(modifier = Modifier.height(theme.verticalSpacing))
+
+            Text("Data Updates", style = theme.titleStyle.copy(fontSize = 20.sp), color = MaterialTheme.colorScheme.primary)
+            Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onEvent(CharacterEvent.SetAutoCheckDataUpdates(!state.autoCheckDataUpdates)) }
+                    .padding(vertical = theme.verticalSpacing / 4),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Auto-check for updates", style = theme.headerStyle.copy(fontSize = 18.sp))
+                    Text("Check for new game data on startup.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(checked = state.autoCheckDataUpdates, onCheckedChange = { onEvent(CharacterEvent.SetAutoCheckDataUpdates(it)) })
+            }
+
+            Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
+
+            OutlinedButton(
+                onClick = { onEvent(CharacterEvent.CheckForDataUpdate) },
+                modifier = Modifier.fillMaxWidth(),
+                shape = theme.cardShape
+            ) {
+                Text("Check for updates now", style = theme.buttonTextStyle)
+            }
+
+            Spacer(modifier = Modifier.height(theme.verticalSpacing))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        val newPref = if (state.imageDownloadPreference == ImageDownloadPreference.ENABLED)
+                            ImageDownloadPreference.DISABLED else ImageDownloadPreference.ENABLED
+                        onEvent(CharacterEvent.SetImageDownloadPreference(newPref))
+                    }
+                    .padding(vertical = theme.verticalSpacing / 4),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Download character portraits", style = theme.headerStyle.copy(fontSize = 18.sp))
+                    Text("Automatically check for new portrait images.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(
+                    checked = state.imageDownloadPreference == ImageDownloadPreference.ENABLED,
+                    onCheckedChange = { enabled ->
+                        onEvent(CharacterEvent.SetImageDownloadPreference(if (enabled) ImageDownloadPreference.ENABLED else ImageDownloadPreference.DISABLED))
+                    }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
+
+            OutlinedButton(
+                onClick = { onEvent(CharacterEvent.DownloadCharacterImages) },
+                modifier = Modifier.fillMaxWidth(),
+                shape = theme.cardShape
+            ) {
+                Text("Download portraits now", style = theme.buttonTextStyle)
+            }
+
             Spacer(modifier = Modifier.height(theme.verticalSpacing * 2))
-            
+
             Button(
                 onClick = { onEvent(CharacterEvent.UpdateUserName(name)); onNavigateBack() },
                 modifier = Modifier.fillMaxWidth().height(56.dp),

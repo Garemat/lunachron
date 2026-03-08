@@ -31,7 +31,8 @@ import java.util.UUID
 
 class CharacterViewModel(
     application: Application,
-    private val repository: CharacterRepository
+    private val repository: CharacterRepository,
+    private val dataUpdateRepository: DataUpdateRepository
 ) : AndroidViewModel(application) {
 
     private val prefs = application.getSharedPreferences("moonstone_prefs", Context.MODE_PRIVATE)
@@ -60,7 +61,9 @@ class CharacterViewModel(
         hasSeenGlobalTutorial = prefs.getBoolean("has_seen_global_tutorial", false),
         gameTrackingMode = GameTrackingMode.valueOf(prefs.getString("game_tracking_mode", GameTrackingMode.LOW_DETAIL.name) ?: GameTrackingMode.LOW_DETAIL.name),
         gameLayoutMode = GameLayoutMode.valueOf(prefs.getString("game_layout_mode", GameLayoutMode.COMPACT_GRID.name) ?: GameLayoutMode.COMPACT_GRID.name),
-        newsItems = loadCachedNews()
+        newsItems = loadCachedNews(),
+        autoCheckDataUpdates = dataUpdateRepository.loadAutoCheck(),
+        imageDownloadPreference = dataUpdateRepository.loadImagePreference()
     ))
     
     private val _characters = repository.getCharacters()
@@ -108,7 +111,32 @@ class CharacterViewModel(
     init {
         loadRules()
         fetchNews()
+        checkForUpdatesOnStartup()
         nearbyManager.setPayloadListener { endpointId, message -> handleSessionMessage(endpointId, message) }
+    }
+
+    private fun checkForUpdatesOnStartup() {
+        viewModelScope.launch(Dispatchers.IO) {
+            // Data update check
+            if (_state.value.autoCheckDataUpdates) {
+                dataUpdateRepository.checkForDataUpdate()
+                    ?.let { release -> _state.update { it.copy(pendingDataUpdate = release) } }
+            }
+
+            // Image update check
+            when (_state.value.imageDownloadPreference) {
+                ImageDownloadPreference.PROMPT -> {
+                    if (dataUpdateRepository.isFirstImageLaunch()) {
+                        _state.update { it.copy(pendingImageUpdate = "FIRST_LAUNCH") }
+                    }
+                }
+                ImageDownloadPreference.ENABLED -> {
+                    dataUpdateRepository.checkForImageUpdate()
+                        ?.let { tag -> _state.update { it.copy(pendingImageUpdate = tag) } }
+                }
+                ImageDownloadPreference.DISABLED -> { /* no-op */ }
+            }
+        }
     }
 
     private fun loadRules() {
@@ -332,6 +360,69 @@ class CharacterViewModel(
             }
             CharacterEvent.EndGame -> handleReadyAction(GameAction.NEXT_TURN, forceEnd = true)
             is CharacterEvent.CreateTournament -> startHostingTournament(event.tournamentName, event.troupeSize, event.timer, event.hostParticipating, event.passcode, event.hostMode)
+
+            // Data update events
+            is CharacterEvent.SetAutoCheckDataUpdates -> {
+                _state.update { it.copy(autoCheckDataUpdates = event.enabled) }
+                dataUpdateRepository.persistAutoCheck(event.enabled)
+            }
+            CharacterEvent.CheckForDataUpdate -> {
+                viewModelScope.launch(Dispatchers.IO) {
+                    dataUpdateRepository.checkForDataUpdate()
+                        ?.let { release -> _state.update { it.copy(pendingDataUpdate = release) } }
+                }
+            }
+            is CharacterEvent.SkipDataVersion -> {
+                dataUpdateRepository.markDataVersionSkipped(event.tag)
+                _state.update { it.copy(pendingDataUpdate = null) }
+            }
+            CharacterEvent.DismissDataUpdate -> _state.update { it.copy(pendingDataUpdate = null) }
+            is CharacterEvent.InstallDataUpdate -> {
+                viewModelScope.launch(Dispatchers.IO) {
+                    _state.update { it.copy(isInstallingDataUpdate = true) }
+                    try {
+                        dataUpdateRepository.applyDataUpdate(event.release)
+                        _state.update { it.copy(pendingDataUpdate = null) }
+                    } catch (e: Exception) {
+                        _state.update { it.copy(errorMessage = "Data update failed: ${e.message}") }
+                    } finally {
+                        _state.update { it.copy(isInstallingDataUpdate = false) }
+                    }
+                }
+            }
+
+            // Image download events
+            is CharacterEvent.SetImageDownloadPreference -> {
+                _state.update { it.copy(imageDownloadPreference = event.pref) }
+                dataUpdateRepository.persistImagePreference(event.pref)
+            }
+            CharacterEvent.DownloadCharacterImages -> {
+                viewModelScope.launch(Dispatchers.IO) {
+                    _state.update { it.copy(isDownloadingImages = true) }
+                    try {
+                        val tag = _state.value.pendingImageUpdate?.takeIf { it != "FIRST_LAUNCH" }
+                            ?: dataUpdateRepository.checkForImageUpdate()
+                            ?: run {
+                                // fallback: use latest release tag
+                                dataUpdateRepository.checkForDataUpdate()?.tagName
+                            }
+                        if (tag != null) {
+                            dataUpdateRepository.downloadImages(tag)
+                        }
+                        _state.update { it.copy(pendingImageUpdate = null) }
+                    } catch (e: Exception) {
+                        _state.update { it.copy(errorMessage = "Image download failed: ${e.message}") }
+                    } finally {
+                        _state.update { it.copy(isDownloadingImages = false) }
+                    }
+                }
+            }
+            is CharacterEvent.SkipImageVersion -> {
+                dataUpdateRepository.markImageVersionSkipped(event.tag)
+                _state.update { it.copy(pendingImageUpdate = null) }
+            }
+            CharacterEvent.DismissImageUpdate -> _state.update { it.copy(pendingImageUpdate = null) }
+
             else -> {}
         }
     }

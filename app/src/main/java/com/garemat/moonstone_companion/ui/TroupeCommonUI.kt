@@ -21,8 +21,6 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -235,14 +233,7 @@ fun SelectionCharacterCard(
     onExpandClick: () -> Unit
 ) {
     var isFlipped by remember { mutableStateOf(false) }
-    val context = LocalContext.current
     val isMoonstone = LocalAppTheme.current == AppTheme.MOONSTONE
-    val imageRes = remember(character.imageName) {
-        if (character.imageName != null) {
-            val cleanName = character.imageName.substringBeforeLast(".")
-            context.resources.getIdentifier(cleanName, "drawable", context.packageName)
-        } else 0
-    }
 
     Card(
         modifier = Modifier.fillMaxWidth().animateContentSize(),
@@ -264,16 +255,7 @@ fun SelectionCharacterCard(
                     modifier = Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surface),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (imageRes != 0) {
-                        Image(
-                            painter = painterResource(id = imageRes),
-                            contentDescription = character.name,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
-                        )
-                    } else {
-                        Text(text = character.name.take(1), style = MaterialTheme.typography.titleMedium)
-                    }
+                    CharacterPortrait(character = character, size = 40.dp)
                 }
 
                 Spacer(modifier = Modifier.width(12.dp))
