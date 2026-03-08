@@ -56,6 +56,7 @@ class CharacterViewModel(
         theme = AppTheme.valueOf(prefs.getString("app_theme", AppTheme.MOONSTONE.name) ?: AppTheme.DEFAULT.name),
         layoutDensity = LayoutDensity.valueOf(prefs.getString("layout_density", LayoutDensity.COZY.name) ?: LayoutDensity.COZY.name),
         useLocalModeByDefault = prefs.getBoolean("use_local_mode_by_default", false),
+        useSinglePlayerMode = prefs.getBoolean("use_single_player_mode", false),
         hasSeenGlobalTutorial = prefs.getBoolean("has_seen_global_tutorial", false),
         gameTrackingMode = GameTrackingMode.valueOf(prefs.getString("game_tracking_mode", GameTrackingMode.LOW_DETAIL.name) ?: GameTrackingMode.LOW_DETAIL.name),
         gameLayoutMode = GameLayoutMode.valueOf(prefs.getString("game_layout_mode", GameLayoutMode.COMPACT_GRID.name) ?: GameLayoutMode.COMPACT_GRID.name),
@@ -229,6 +230,10 @@ class CharacterViewModel(
             is CharacterEvent.SetLocalModeDefault -> {
                 _state.update { it.copy(useLocalModeByDefault = event.useLocal) }
                 prefs.edit().putBoolean("use_local_mode_by_default", event.useLocal).apply()
+            }
+            is CharacterEvent.SetSinglePlayerMode -> {
+                _state.update { it.copy(useSinglePlayerMode = event.enabled) }
+                prefs.edit().putBoolean("use_single_player_mode", event.enabled).apply()
             }
             is CharacterEvent.SetHasSeenTutorial -> {
                 if (event.tutorialKey == "global") _state.update { it.copy(hasSeenGlobalTutorial = event.seen) }

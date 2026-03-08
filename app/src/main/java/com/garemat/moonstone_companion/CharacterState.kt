@@ -97,6 +97,7 @@ data class CharacterState(
     val theme: AppTheme = AppTheme.MOONSTONE,
     val layoutDensity: LayoutDensity = LayoutDensity.COZY,
     val useLocalModeByDefault: Boolean = false,
+    val useSinglePlayerMode: Boolean = false,
     val isAddingCharacter: Boolean = false,
     val isAddingTroupe: Boolean = false,
     val sortType: SortType = SortType.NAME,

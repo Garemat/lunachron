@@ -125,6 +125,25 @@ fun SettingsScreen(
                 Switch(checked = state.useLocalModeByDefault, onCheckedChange = { onEvent(CharacterEvent.SetLocalModeDefault(it)) })
             }
 
+            if (state.useLocalModeByDefault) {
+                Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onEvent(CharacterEvent.SetSinglePlayerMode(!state.useSinglePlayerMode)) }
+                        .padding(vertical = theme.verticalSpacing / 4)
+                        .padding(start = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Only track 1 player", style = theme.headerStyle.copy(fontSize = 18.sp))
+                        Text("Skip setup and pick a troupe directly for a solo session.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Switch(checked = state.useSinglePlayerMode, onCheckedChange = { onEvent(CharacterEvent.SetSinglePlayerMode(it)) })
+                }
+            }
+
             Spacer(modifier = Modifier.height(theme.verticalSpacing))
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Spacer(modifier = Modifier.height(theme.verticalSpacing))

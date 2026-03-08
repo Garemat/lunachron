@@ -28,6 +28,7 @@ sealed interface CharacterEvent {
     data class ChangeTheme(val theme: AppTheme) : CharacterEvent
     data class ChangeLayoutDensity(val density: LayoutDensity) : CharacterEvent
     data class SetLocalModeDefault(val useLocal: Boolean) : CharacterEvent
+    data class SetSinglePlayerMode(val enabled: Boolean) : CharacterEvent
     
     // Tutorial
     data class SetHasSeenTutorial(val tutorialKey: String, val seen: Boolean) : CharacterEvent

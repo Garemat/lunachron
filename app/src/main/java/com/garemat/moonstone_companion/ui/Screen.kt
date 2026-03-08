@@ -8,6 +8,7 @@ sealed class Screen(val route: String) {
     data object CampaignCards : Screen("campaign_cards")
     data object Troupes : Screen("troupes")
     data object SelectTroupe : Screen("select_troupe")
+    data object SoloTroupeSelect : Screen("solo_troupe_select")
     data object AddEditTroupe : Screen("add_edit_troupe")
     data object GameSetup : Screen("game_setup")
     data object ActiveGame : Screen("active_game")
