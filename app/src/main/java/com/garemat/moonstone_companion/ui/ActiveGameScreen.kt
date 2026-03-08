@@ -39,10 +39,13 @@ import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -214,6 +217,7 @@ fun ActiveGameScreen(
                                                 ) draggingStoneIndex else -1,
                                                 onHealthChange = { viewModel.onEvent(CharacterEvent.UpdateCharacterHealth(pageIndex, charIndex, it)) },
                                                 onEnergyChange = { viewModel.onEvent(CharacterEvent.UpdateCharacterEnergy(pageIndex, charIndex, it)) },
+                                                onAbilityToggle = { name, used -> viewModel.onEvent(CharacterEvent.ToggleAbilityUsed(pageIndex, charIndex, name, used)) },
                                                 onFlippedChange = { viewModel.onEvent(CharacterEvent.ToggleCharacterFlipped(pageIndex, charIndex, it)) },
                                                 onTap = { selectedChar = character to playState },
                                                 onStoneDragStart = { index, pos ->
@@ -565,6 +569,7 @@ private fun GameCharacterGridCard(
     draggingStoneInfo: Int,
     onHealthChange: (Int) -> Unit,
     onEnergyChange: (Int) -> Unit,
+    onAbilityToggle: (String, Boolean) -> Unit,
     onFlippedChange: (Boolean) -> Unit,
     onTap: () -> Unit,
     onStoneDragStart: (Int, Offset) -> Unit,
@@ -576,33 +581,77 @@ private fun GameCharacterGridCard(
     val isDead = playState.currentHealth <= 0
     val stoneCoords = remember { mutableStateMapOf<Int, LayoutCoordinates>() }
 
+    val sigName = remember(character) {
+        if (character.signatureMove.upgradeFrom.isNotEmpty()) character.signatureMove.upgradeFrom else character.signatureMove.name
+    }
+    val trackableAbilities = remember(character) {
+        (character.activeAbilities.filter { it.oncePerTurn || it.oncePerGame }.map { it.name } +
+         character.arcaneAbilities.filter { it.oncePerTurn || it.oncePerGame }.map { it.name })
+    }
+
     ThemedCard(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onTap),
         containerColor = if (isDead) Color.DarkGray else null
     ) {
         Column(modifier = Modifier.padding(theme.cardContentPadding)) {
-            Text(character.name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelMedium)
+            // Name + signature move
+            Text(
+                text = buildAnnotatedString {
+                    append(character.name)
+                    if (sigName.isNotEmpty()) {
+                        append(" - ")
+                        withStyle(SpanStyle(fontStyle = FontStyle.Italic)) { append(sigName) }
+                    }
+                },
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.labelMedium
+            )
+            // Portrait + stats/damage row
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-                // Portrait
                 CharacterPortrait(character, 52.dp)
                 Spacer(modifier = Modifier.width(6.dp))
-                // Stats + damage modifiers
                 Column(modifier = Modifier.weight(1f)) {
                     Text("⚔ ${character.melee} | ${character.meleeRange}\"", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
                     Text("Evade ${character.evade}", style = MaterialTheme.typography.bodySmall)
                     ModifierDisplay(character, isOffense = true)
                     ModifierDisplay(character, isOffense = false)
                 }
-                // Energy column — only shown in full tracking mode
-                if (isFullTracking) {
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        IconButton(onClick = { if (playState.currentEnergy > 0) onEnergyChange(playState.currentEnergy - 1) }, modifier = Modifier.size(24.dp), enabled = isEditable) {
-                            Icon(Icons.Default.Remove, contentDescription = null, modifier = Modifier.size(14.dp))
-                        }
-                        Text("E:${playState.currentEnergy}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-                        IconButton(onClick = { onEnergyChange(playState.currentEnergy + 1) }, modifier = Modifier.size(24.dp), enabled = isEditable) {
-                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp))
+            }
+            // Trackable resources row: energy + once-per-turn/game ability toggles
+            if (isFullTracking) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(top = 4.dp)
+                ) {
+                    IconButton(onClick = { if (playState.currentEnergy > 0) onEnergyChange(playState.currentEnergy - 1) }, modifier = Modifier.size(24.dp), enabled = isEditable) {
+                        Icon(Icons.Default.Remove, contentDescription = null, modifier = Modifier.size(14.dp))
+                    }
+                    Text("E:${playState.currentEnergy}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                    IconButton(onClick = { onEnergyChange(playState.currentEnergy + 1) }, modifier = Modifier.size(24.dp), enabled = isEditable) {
+                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp))
+                    }
+                    trackableAbilities.forEach { abilityName ->
+                        val isUsed = playState.usedAbilities[abilityName] ?: false
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            abilityName,
+                            style = MaterialTheme.typography.labelSmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false).widthIn(max = 64.dp)
+                        )
+                        Spacer(Modifier.width(2.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(12.dp)
+                                .clip(CircleShape)
+                                .background(if (isUsed) MaterialTheme.colorScheme.onSurfaceVariant else Color.Transparent)
+                                .border(1.dp, if (isEditable) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, CircleShape)
+                                .then(if (isEditable) Modifier.clickable { onAbilityToggle(abilityName, !isUsed) } else Modifier),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (isUsed) Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(8.dp), tint = Color.White)
                         }
                     }
                 }
