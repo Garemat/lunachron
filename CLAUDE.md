@@ -109,11 +109,26 @@ ThemedCard(containerColor = Color.DarkGray, modifier = ...) { ... }            /
 
 **`SummonerIndicator`** (`ui/ActiveGameScreen.kt`) — shared composable for displaying which character summoned whom. Used by both `COMPACT_GRID` and `DETAILED_LIST` layouts.
 
+**`TroupeListItem`** (`ui/TroupeListScreen.kt`) — canonical troupe card used in all troupe selection contexts (solo, campaign, tournament). Key params:
+- `selectionMode = true` — shows edit button instead of share; also pass `characters` to display the character list below the header
+- `showDelete = false` — hides the delete button (used in solo troupe select)
+- `characters: List<Character>?` — when non-null, renders a name list below the card header; omit faction suffix (redundant — all members share the troupe faction)
+
+`TroupeListScreen` automatically passes `characters` to `TroupeListItem` when `selectionMode = true`, so campaign and tournament selection get the character list for free. `SoloTroupeSelectScreen` calls `TroupeListItem` directly with `showDelete = false`.
+
 ### Active Game Screen
 
 `ActiveGameScreen.kt` supports two layout modes controlled by `GameLayoutMode` (persisted in SharedPreferences):
-- `COMPACT_GRID` — 2-column `LazyVerticalGrid` with `GameCharacterGridCard`; shows `ViewToggleBar` (Stats/Damage) in bottom bar
-- `DETAILED_LIST` — single-column `LazyColumn` with `FrontSide` (full card); no view toggle
+- `COMPACT_GRID` — 2-column `LazyVerticalGrid` with `GameCharacterGridCard`
+- `DETAILED_LIST` — single-column `LazyColumn` with `FrontSide` (full card)
+
+`GameCharacterGridCard` layout (top to bottom):
+1. Character name + signature move in italics (`Name - *Signature Move*`)
+2. Portrait | stats (melee/evade/damage modifiers) — side by side
+3. Trackable resources row (FULL_TRACKING only): energy `−/E:n/+` then compact circle toggles for each `oncePerTurn`/`oncePerGame` ability
+4. Moonstones
+5. `HealthPipsChunked`
+6. `SummonerIndicator`
 
 Two tracking modes controlled by `GameTrackingMode` (persisted in SharedPreferences):
 - `LOW_DETAIL` — health pips only; energy/moonstones/abilities tracked physically
