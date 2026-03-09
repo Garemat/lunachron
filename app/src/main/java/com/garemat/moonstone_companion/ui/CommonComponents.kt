@@ -41,12 +41,62 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.garemat.moonstone_companion.*
 import com.garemat.moonstone_companion.ui.theme.LocalAppTheme
 import com.garemat.moonstone_companion.R
 import com.garemat.moonstone_companion.ui.theme.LocalAppThemeProperties
+import java.io.File
 
 // --- Base Utilities ---
+
+/**
+ * Circular character portrait. Loads from internal storage (downloaded images) first,
+ * falls back to bundled drawable resources, then shows first initial.
+ */
+@Composable
+fun CharacterPortrait(character: Character, size: Dp, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val imageFile = remember(character.imageName) {
+        character.imageName?.let { name ->
+            val dir = File(context.filesDir, "images")
+            listOf("", ".jpg", ".png", ".webp").firstNotNullOfOrNull { ext ->
+                File(dir, "$name$ext").takeIf { it.exists() }
+            }
+        }
+    }
+    val drawableRes = remember(character.imageName) {
+        if (imageFile == null && character.imageName != null)
+            context.resources.getIdentifier(
+                character.imageName.substringBeforeLast("."), "drawable", context.packageName
+            )
+        else 0
+    }
+    Box(
+        modifier = modifier.size(size).clip(CircleShape),
+        contentAlignment = Alignment.Center
+    ) {
+        when {
+            imageFile != null -> AsyncImage(
+                model = imageFile,
+                contentDescription = character.name,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+            drawableRes != 0 -> Image(
+                painter = painterResource(id = drawableRes),
+                contentDescription = character.name,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+            else -> Text(
+                text = character.name.take(1),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+    }
+}
 
 /**
  * A Card that automatically applies the current theme's shape and background color.
@@ -393,14 +443,25 @@ fun CommonCharacterCard(character: Character, searchQuery: String, isExpanded: B
     var isFlippedState by remember { mutableStateOf(false) }; val isFlipped = forceFlipped ?: isFlippedState
     val context = LocalContext.current; val appTheme = LocalAppTheme.current
     val theme = LocalAppThemeProperties.current
-    val imageRes = remember(character.imageName) { if (character.imageName != null) context.resources.getIdentifier(character.imageName.substringBeforeLast("."), "drawable", context.packageName) else 0 }
+    val bgImageFile = remember(character.imageName) {
+        character.imageName?.let { name ->
+            val dir = File(context.filesDir, "images")
+            listOf("", ".jpg", ".png", ".webp").firstNotNullOfOrNull { ext ->
+                File(dir, "$name$ext").takeIf { it.exists() }
+            }
+        }
+    }
+    val bgDrawableRes = remember(character.imageName) {
+        if (bgImageFile == null && character.imageName != null)
+            context.resources.getIdentifier(character.imageName.substringBeforeLast("."), "drawable", context.packageName)
+        else 0
+    }
     ThemedCard(modifier = modifier.fillMaxWidth().animateContentSize().onGloballyPositioned { onPositioned(cardTargetName, it) }) {
         Column {
             Row(modifier = Modifier.fillMaxWidth().clickable { onExpandClick() }.padding(theme.cardContentPadding), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 if (selectionControl != null) { selectionControl(); Spacer(modifier = Modifier.width(4.dp)) }
                 Box(modifier = Modifier.size(if (selectionControl != null) 40.dp else 56.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
-                    if (imageRes != 0) Image(painter = painterResource(id = imageRes), contentDescription = character.name, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                    else Text(text = character.name.take(1), style = if (selectionControl != null) MaterialTheme.typography.titleMedium else MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary)
+                    CharacterPortrait(character = character, size = if (selectionControl != null) 40.dp else 56.dp)
                 }
                 Spacer(modifier = Modifier.width(if (selectionControl != null) 12.dp else 16.dp))
                 Column(modifier = Modifier.weight(1f)) {
@@ -412,7 +473,12 @@ fun CommonCharacterCard(character: Character, searchQuery: String, isExpanded: B
             if (isExpanded) {
                 if (appTheme != AppTheme.MOONSTONE) HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                 Box(modifier = Modifier.fillMaxWidth()) {
-                    if (appTheme == AppTheme.MOONSTONE && imageRes != 0) Image(painter = painterResource(id = imageRes), contentDescription = null, modifier = Modifier.matchParentSize().alpha(0.25f), contentScale = ContentScale.Crop)
+                    if (appTheme == AppTheme.MOONSTONE) {
+                        when {
+                            bgImageFile != null -> AsyncImage(model = bgImageFile, contentDescription = null, modifier = Modifier.matchParentSize().alpha(0.25f), contentScale = ContentScale.Crop)
+                            bgDrawableRes != 0 -> Image(painter = painterResource(id = bgDrawableRes), contentDescription = null, modifier = Modifier.matchParentSize().alpha(0.25f), contentScale = ContentScale.Crop)
+                        }
+                    }
                     Box(modifier = Modifier.padding(theme.cardContentPadding)) {
                         if (!isFlipped) CharacterFront(character = character, searchQuery = searchQuery, onFlip = { isFlippedState = true }, onFlipPositioned = { onPositioned("FlipButton", it) })
                         else CharacterBack(character = character, searchQuery = searchQuery, onFlip = { isFlippedState = false }, onFlipPositioned = { onPositioned("FlipButton", it) })

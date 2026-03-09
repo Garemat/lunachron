@@ -33,12 +33,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
@@ -707,20 +704,7 @@ private fun GameCharacterGridCard(
 
 
 
-@Composable
-private fun CharacterPortrait(character: Character, size: Dp) {
-    val context = LocalContext.current
-    val imageRes = remember(character.imageName) {
-        if (character.imageName != null) context.resources.getIdentifier(character.imageName.substringBeforeLast("."), "drawable", context.packageName) else 0
-    }
-    Box(modifier = Modifier.size(size).clip(CircleShape), contentAlignment = Alignment.Center) {
-        if (imageRes != 0) {
-            Image(painter = painterResource(id = imageRes), contentDescription = character.name, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-        } else {
-            Text(text = character.name.take(1), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
-        }
-    }
-}
+// CharacterPortrait is defined in CommonComponents.kt
 
 @Composable
 private fun SummonerIndicator(summoner: Character?) {
@@ -874,11 +858,15 @@ private fun GameEndDialogs(state: CharacterState, viewModel: CharacterViewModel,
 
 @Composable
 fun CharacterPortraitJump(character: Character, onClick: () -> Unit) {
-    val context = LocalContext.current
-    val imageRes = remember(character.imageName) { if (character.imageName != null) context.resources.getIdentifier(character.imageName.substringBeforeLast("."), "drawable", context.packageName) else 0 }
-    Box(modifier = Modifier.size(50.dp).clip(CircleShape).border(2.dp, MaterialTheme.colorScheme.primary, CircleShape).clickable { onClick() }, contentAlignment = Alignment.Center) {
-        if (imageRes != 0) Image(painter = painterResource(id = imageRes), contentDescription = character.name, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-        else Text(text = character.name.take(1), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+    Box(
+        modifier = Modifier
+            .size(50.dp)
+            .clip(CircleShape)
+            .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center
+    ) {
+        CharacterPortrait(character = character, size = 50.dp)
     }
 }
 

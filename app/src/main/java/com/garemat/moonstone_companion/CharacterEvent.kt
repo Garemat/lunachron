@@ -61,6 +61,19 @@ sealed interface CharacterEvent {
     data class UpdatePoolResource(val playerIndex: Int, val resourceName: String, val count: Int) : CharacterEvent
     data class UpdateCharacterPoolResource(val playerIndex: Int, val charIndex: Int, val resourceName: String, val count: Int) : CharacterEvent
 
+    // Data update events
+    data class SetAutoCheckDataUpdates(val enabled: Boolean) : CharacterEvent
+    data object CheckForDataUpdate : CharacterEvent
+    data class SkipDataVersion(val tag: String) : CharacterEvent
+    data object DismissDataUpdate : CharacterEvent
+    data class InstallDataUpdate(val release: GitHubRelease) : CharacterEvent
+
+    // Image download events
+    data class SetImageDownloadPreference(val pref: ImageDownloadPreference) : CharacterEvent
+    data object DownloadCharacterImages : CharacterEvent
+    data class SkipImageVersion(val tag: String) : CharacterEvent
+    data object DismissImageUpdate : CharacterEvent
+
     // Tournament Events
     data class CreateTournament(val tournamentName: String, val troupeSize: TroupeSizeSetting, val timer: Int, val hostParticipating: Boolean, val passcode: String, val hostMode: HostMode = HostMode.WIFI_NSD) : CharacterEvent
     data class JoinTournament(val sessionId: String) : CharacterEvent

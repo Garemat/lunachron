@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.garemat.moonstone_companion.ui.theme.AppThemeProperties
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.dp
@@ -47,8 +48,10 @@ class MainActivity : ComponentActivity() {
         factoryProducer = {
             object : ViewModelProvider.Factory {
                 override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                    val repo = LocalCharacterRepository(db.dao)
+                    val dataUpdateRepo = DataUpdateRepository(applicationContext, repo)
                     @Suppress("UNCHECKED_CAST")
-                    return CharacterViewModel(application, LocalCharacterRepository(db.dao)) as T
+                    return CharacterViewModel(application, repo, dataUpdateRepo) as T
                 }
             }
         }
@@ -117,6 +120,9 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
+
+                // Data update dialogs
+                DataUpdateDialogs(state = state, onEvent = viewModel::onEvent, theme = theme)
 
                 ModalNavigationDrawer(
                     drawerState = drawerState,
@@ -656,6 +662,89 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun DataUpdateDialogs(
+    state: CharacterState,
+    onEvent: (CharacterEvent) -> Unit,
+    theme: AppThemeProperties
+) {
+    // First-launch image download prompt
+    if (state.pendingImageUpdate == "FIRST_LAUNCH") {
+        AlertDialog(
+            onDismissRequest = { onEvent(CharacterEvent.DismissImageUpdate) },
+            title = { Text("Download Character Portraits?") },
+            text = {
+                Text("Portrait images enhance the Compendium and game screen. They're optional — the app works fully without them.")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onEvent(CharacterEvent.SetImageDownloadPreference(ImageDownloadPreference.ENABLED))
+                        onEvent(CharacterEvent.DownloadCharacterImages)
+                    },
+                    shape = theme.cardShape
+                ) { Text("Download") }
+            },
+            dismissButton = {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = {
+                        onEvent(CharacterEvent.SetImageDownloadPreference(ImageDownloadPreference.DISABLED))
+                        onEvent(CharacterEvent.DismissImageUpdate)
+                    }) { Text("Never") }
+                    TextButton(onClick = { onEvent(CharacterEvent.DismissImageUpdate) }) { Text("Not Now") }
+                }
+            },
+            shape = theme.cardShape
+        )
+    }
+
+    // Image version update prompt
+    val imgTag = state.pendingImageUpdate
+    if (imgTag != null && imgTag != "FIRST_LAUNCH") {
+        AlertDialog(
+            onDismissRequest = { onEvent(CharacterEvent.DismissImageUpdate) },
+            title = { Text("Character Portrait Update Available") },
+            text = { Text("Version $imgTag includes updated or new character portraits.") },
+            confirmButton = {
+                Button(
+                    onClick = { onEvent(CharacterEvent.DownloadCharacterImages) },
+                    shape = theme.cardShape
+                ) { Text("Download") }
+            },
+            dismissButton = {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = { onEvent(CharacterEvent.SkipImageVersion(imgTag)) }) { Text("Skip Version") }
+                    TextButton(onClick = { onEvent(CharacterEvent.DismissImageUpdate) }) { Text("Later") }
+                }
+            },
+            shape = theme.cardShape
+        )
+    }
+
+    // Data update prompt
+    val dataRelease = state.pendingDataUpdate
+    if (dataRelease != null) {
+        AlertDialog(
+            onDismissRequest = { onEvent(CharacterEvent.DismissDataUpdate) },
+            title = { Text("Game Data Update Available") },
+            text = { Text("Version ${dataRelease.tagName} includes updated game data (characters, upgrades, campaign cards).") },
+            confirmButton = {
+                Button(
+                    onClick = { onEvent(CharacterEvent.InstallDataUpdate(dataRelease)) },
+                    shape = theme.cardShape
+                ) { Text("Install Now") }
+            },
+            dismissButton = {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = { onEvent(CharacterEvent.SkipDataVersion(dataRelease.tagName)) }) { Text("Skip Version") }
+                    TextButton(onClick = { onEvent(CharacterEvent.DismissDataUpdate) }) { Text("Later") }
+                }
+            },
+            shape = theme.cardShape
+        )
     }
 }
 

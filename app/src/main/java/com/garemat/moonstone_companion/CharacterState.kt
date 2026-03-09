@@ -18,6 +18,21 @@ enum class GameTrackingMode { LOW_DETAIL, FULL_TRACKING }
 enum class GameLayoutMode { COMPACT_GRID, DETAILED_LIST }
 
 @Serializable
+enum class ImageDownloadPreference { PROMPT, ENABLED, DISABLED }
+
+@Serializable
+data class GitHubRelease(
+    val tagName: String,
+    val assets: List<GitHubAsset> = emptyList()
+)
+
+@Serializable
+data class GitHubAsset(
+    val name: String,
+    val browserDownloadUrl: String
+)
+
+@Serializable
 data class SummonEntry(
     val characterId: Int,
     val summonedByCharacterId: Int? = null
@@ -145,7 +160,15 @@ data class CharacterState(
     val isTie: Boolean = false,
 
     // Campaign Management State
-    val activeCampaign: Campaign? = null
+    val activeCampaign: Campaign? = null,
+
+    // Data / image update state
+    val autoCheckDataUpdates: Boolean = true,
+    val pendingDataUpdate: GitHubRelease? = null,
+    val isInstallingDataUpdate: Boolean = false,
+    val imageDownloadPreference: ImageDownloadPreference = ImageDownloadPreference.PROMPT,
+    val pendingImageUpdate: String? = null,
+    val isDownloadingImages: Boolean = false
 )
 
 @Serializable
