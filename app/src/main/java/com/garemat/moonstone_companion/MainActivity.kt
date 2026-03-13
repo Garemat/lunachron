@@ -330,11 +330,13 @@ class MainActivity : ComponentActivity() {
                                                     Icon(item.icon, contentDescription = item.label)
                                                 }
                                             },
-                                            label = { 
+                                            label = {
                                                 Text(
                                                     text = item.label,
-                                                    style = theme.labelStyle
-                                                ) 
+                                                    style = theme.labelStyle,
+                                                    maxLines = 1,
+                                                    softWrap = false
+                                                )
                                             },
                                             selected = isSelected,
                                             onClick = {

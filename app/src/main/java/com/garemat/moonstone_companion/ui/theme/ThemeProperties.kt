@@ -104,7 +104,7 @@ fun getThemeProperties(appTheme: AppTheme, density: LayoutDensity): AppThemeProp
             navItemShape = CircleShape,
             titleStyle = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
             headerStyle = MaterialTheme.typography.headlineMedium,
-            labelStyle = TextStyle.Default,
+            labelStyle = MaterialTheme.typography.labelSmall,
             buttonTextStyle = MaterialTheme.typography.labelLarge,
             secondaryColor = MaterialTheme.colorScheme.primary,
             unselectedNavColor = MaterialTheme.colorScheme.onSurfaceVariant,
