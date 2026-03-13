@@ -509,8 +509,12 @@ fun UpgradeCardUI(card: UpgradeCard, searchQuery: String, isExpanded: Boolean, o
             if (isExpanded) {
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                 Column(modifier = Modifier.padding(theme.cardContentPadding)) {
-                    card.tags?.let { tags ->
-                        Text(text = "Restrictions: ${tags.joinToString(", ")}", style = MaterialTheme.typography.bodySmall, fontStyle = FontStyle.Italic)
+                    val restriction = buildList {
+                        if (card.allowedKeywords.isNotEmpty()) add(card.allowedKeywords.joinToString(", "))
+                        if (card.restrictedKeywords.isNotEmpty()) add("Not: " + card.restrictedKeywords.joinToString(", "))
+                    }.joinToString(" · ")
+                    if (restriction.isNotEmpty()) {
+                        Text(text = "Restrictions: $restriction", style = MaterialTheme.typography.bodySmall, fontStyle = FontStyle.Italic)
                         Spacer(modifier = Modifier.height(8.dp))
                     }
                     card.abilities.forEach { CommonAbilityItem(it.name, it.description, searchQuery) }
@@ -725,7 +729,7 @@ fun HealthPip(
 }
 
 @Composable
-fun CharacterFilterHeader(searchQuery: String, onSearchQueryChange: (String) -> Unit, selectedFactions: Set<Faction>, onFactionsChange: (Set<Faction>) -> Unit, selectedTags: Set<String>, onTagsChange: (Set<String>) -> Unit, availableTags: List<String>, modifier: Modifier = Modifier, isFactionFixed: Boolean = false, showCollapseAll: Boolean = false, onCollapseAll: () -> Unit = {}, onClearAll: () -> Unit = {}, onTargetPositioned: (String, LayoutCoordinates) -> Unit = { _, _ -> }) {
+fun CharacterFilterHeader(searchQuery: String, onSearchQueryChange: (String) -> Unit, selectedFactions: Set<Faction>, onFactionsChange: (Set<Faction>) -> Unit, selectedTags: Set<String>, onTagsChange: (Set<String>) -> Unit, availableTags: List<String>, modifier: Modifier = Modifier, isFactionFixed: Boolean = false, showCollapseAll: Boolean = false, onCollapseAll: () -> Unit = {}, onClearAll: () -> Unit = {}, onTargetPositioned: (String, LayoutCoordinates) -> Unit = { _, _ -> }) { // showCollapseAll retained for API compat but no longer rendered
     val theme = LocalAppThemeProperties.current
     Column(modifier = modifier.padding(theme.screenPadding)) {
         OutlinedTextField(value = searchQuery, onValueChange = onSearchQueryChange, modifier = Modifier.fillMaxWidth().onGloballyPositioned { onTargetPositioned("SearchField", it) }, placeholder = { Text("Search name or abilities...") }, leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) }, trailingIcon = { if (searchQuery.isNotEmpty()) IconButton(onClick = { onSearchQueryChange("") }) { Icon(Icons.Default.Clear, contentDescription = "Clear") } }, singleLine = true, shape = theme.cardShape)
@@ -741,7 +745,6 @@ fun CharacterFilterHeader(searchQuery: String, onSearchQueryChange: (String) -> 
             }
         }
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-            if (showCollapseAll) TextButton(onClick = onCollapseAll) { Icon(Icons.Default.UnfoldLess, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(modifier = Modifier.width(4.dp)); Text("Collapse All") }
             if (searchQuery.isNotEmpty() || selectedFactions.isNotEmpty() || selectedTags.isNotEmpty()) TextButton(onClick = onClearAll) { Text("Clear All") }
         }
     }

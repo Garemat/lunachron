@@ -1,3 +1,6 @@
+import groovy.json.JsonSlurper
+import java.net.URI
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -59,6 +62,57 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+}
+
+// ---------------------------------------------------------------------------
+// Task: download the latest moonstone-companion-data release JSON files into
+// app/src/main/assets/ so the bundled seed is always up-to-date at build time.
+// The assets/ folder is gitignored — these files are never committed.
+// ---------------------------------------------------------------------------
+val dataAssetsDir = file("src/main/assets")
+val dataArtifacts = listOf("characters.json", "upgrades.json", "campaign.json")
+val dataApiUrl = "https://api.github.com/repos/garemat/moonstone-companion-data/releases/latest"
+
+tasks.register("downloadDataAssets") {
+    description = "Downloads the latest data release JSON files from moonstone-companion-data."
+    group = "moonstone"
+
+    outputs.files(dataArtifacts.map { file("${dataAssetsDir}/$it") })
+
+    onlyIf("data assets already present") {
+        dataArtifacts.any { !file("${dataAssetsDir}/$it").exists() }
+    }
+
+    doLast {
+        dataAssetsDir.mkdirs()
+
+        logger.lifecycle("Fetching latest data release from GitHub...")
+        @Suppress("UNCHECKED_CAST")
+        val release = JsonSlurper().parseText(
+            URI(dataApiUrl).toURL().openStream().bufferedReader().readText()
+        ) as Map<String, Any>
+
+        val tag = release["tag_name"] as String
+        @Suppress("UNCHECKED_CAST")
+        val assets = release["assets"] as List<Map<String, Any>>
+
+        dataArtifacts.forEach { artifact ->
+            val asset = assets.firstOrNull { it["name"] == artifact }
+                ?: error("Asset '$artifact' not found in release $tag")
+            val downloadUrl = asset["browser_download_url"] as String
+            val outFile = file("${dataAssetsDir}/$artifact")
+            logger.lifecycle("  Downloading $artifact from $tag...")
+            URI(downloadUrl).toURL().openStream().use { input ->
+                outFile.outputStream().use { output -> input.copyTo(output) }
+            }
+        }
+
+        logger.lifecycle("Data assets downloaded (release $tag).")
+    }
+}
+
+tasks.named("preBuild") {
+    dependsOn("downloadDataAssets")
 }
 
 dependencies {

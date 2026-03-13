@@ -392,7 +392,11 @@ private fun UpgradeSelectionStage(
                     Spacer(modifier = Modifier.width(8.dp))
                     Column {
                         Text(upgrade.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
-                        upgrade.tags?.let { Text(it.joinToString(", "), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                        val restriction = buildList {
+                            if (upgrade.allowedKeywords.isNotEmpty()) add(upgrade.allowedKeywords.joinToString(", "))
+                            if (upgrade.restrictedKeywords.isNotEmpty()) add("Not: " + upgrade.restrictedKeywords.joinToString(", "))
+                        }.joinToString(" · ")
+                        if (restriction.isNotEmpty()) Text(restriction, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }

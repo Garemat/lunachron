@@ -2,6 +2,7 @@ package com.garemat.moonstone_companion
 
 import android.app.Application
 import android.content.Context
+import android.util.Log
 import android.util.Base64
 import android.widget.Toast
 import androidx.compose.runtime.getValue
@@ -382,11 +383,11 @@ class CharacterViewModel(
                     _state.update { it.copy(isInstallingDataUpdate = true) }
                     try {
                         dataUpdateRepository.applyDataUpdate(event.release)
-                        _state.update { it.copy(pendingDataUpdate = null) }
                     } catch (e: Exception) {
+                        Log.e("CharacterViewModel", "Data update failed", e)
                         _state.update { it.copy(errorMessage = "Data update failed: ${e.message}") }
                     } finally {
-                        _state.update { it.copy(isInstallingDataUpdate = false) }
+                        _state.update { it.copy(isInstallingDataUpdate = false, pendingDataUpdate = null) }
                     }
                 }
             }

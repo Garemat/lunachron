@@ -140,7 +140,8 @@ data class UpgradeCard(
     val id: Int = 0,
     val name: String,
     val factions: List<Faction>? = null, // null means applies to all
-    val tags: List<String>? = null, // null means applies to all
+    val allowedKeywords: List<String> = emptyList(),
+    val restrictedKeywords: List<String> = emptyList(),
     val abilities: List<PassiveAbility>,
     val shareCode: String,
     val imageName: String? = null

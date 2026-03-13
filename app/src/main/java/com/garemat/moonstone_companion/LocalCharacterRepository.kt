@@ -74,9 +74,9 @@ class LocalCharacterRepository(
      * needed in the ViewModel or domain models.
      */
     suspend fun seedFromAssets(context: Context) {
-        CharacterData.getCharactersFromAssets(context).forEach { dao.upsertCharacter(it) }
-        CharacterData.getUpgradesFromAssets(context).forEach { dao.upsertUpgradeCard(it) }
-        CharacterData.getCampaignCardsFromAssets(context).forEach { dao.upsertCampaignCard(it) }
+        dao.upsertCharacters(CharacterData.getCharactersFromAssets(context))
+        dao.upsertUpgradeCards(CharacterData.getUpgradesFromAssets(context))
+        dao.upsertCampaignCards(CharacterData.getCampaignCardsFromAssets(context))
     }
 
     /**
@@ -91,8 +91,8 @@ class LocalCharacterRepository(
             ?.let { json.decodeFromString<List<UpgradeCard>>(it) } ?: emptyList()
         val campaign = dir.resolve("campaign.json").takeIf { it.exists() }?.readText()
             ?.let { json.decodeFromString<List<CampaignCard>>(it) } ?: emptyList()
-        chars.forEach { dao.upsertCharacter(it) }
-        upgrades.forEach { dao.upsertUpgradeCard(it) }
-        campaign.forEach { dao.upsertCampaignCard(it) }
+        dao.upsertCharacters(chars)
+        dao.upsertUpgradeCards(upgrades)
+        dao.upsertCampaignCards(campaign)
     }
 }

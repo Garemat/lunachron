@@ -13,6 +13,9 @@ interface CharacterDAO {
     @Upsert
     suspend fun upsertCharacter(character: Character)
 
+    @Upsert
+    suspend fun upsertCharacters(characters: List<Character>)
+
     @Delete
     suspend fun deleteCharacter(character: Character)
 
@@ -26,6 +29,9 @@ interface CharacterDAO {
     @Upsert
     suspend fun upsertUpgradeCard(card: UpgradeCard)
 
+    @Upsert
+    suspend fun upsertUpgradeCards(cards: List<UpgradeCard>)
+
     @Query("SELECT * FROM upgradecard ORDER BY name ASC")
     fun getUpgradeCards(): Flow<List<UpgradeCard>>
 
@@ -35,6 +41,9 @@ interface CharacterDAO {
     // Campaign Card Operations
     @Upsert
     suspend fun upsertCampaignCard(card: CampaignCard)
+
+    @Upsert
+    suspend fun upsertCampaignCards(cards: List<CampaignCard>)
 
     @Query("SELECT * FROM campaigncard ORDER BY name ASC")
     fun getCampaignCards(): Flow<List<CampaignCard>>

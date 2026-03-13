@@ -674,7 +674,7 @@ private fun DataUpdateDialogs(
     // First-launch image download prompt
     if (state.pendingImageUpdate == "FIRST_LAUNCH") {
         AlertDialog(
-            onDismissRequest = { onEvent(CharacterEvent.DismissImageUpdate) },
+            onDismissRequest = { if (!state.isDownloadingImages) onEvent(CharacterEvent.DismissImageUpdate) },
             title = { Text("Download Character Portraits?") },
             text = {
                 Text("Portrait images enhance the Compendium and game screen. They're optional — the app works fully without them.")
@@ -685,16 +685,25 @@ private fun DataUpdateDialogs(
                         onEvent(CharacterEvent.SetImageDownloadPreference(ImageDownloadPreference.ENABLED))
                         onEvent(CharacterEvent.DownloadCharacterImages)
                     },
+                    enabled = !state.isDownloadingImages,
                     shape = theme.cardShape
-                ) { Text("Download") }
+                ) {
+                    if (state.isDownloadingImages) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                    } else {
+                        Text("Download")
+                    }
+                }
             },
             dismissButton = {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(onClick = {
-                        onEvent(CharacterEvent.SetImageDownloadPreference(ImageDownloadPreference.DISABLED))
-                        onEvent(CharacterEvent.DismissImageUpdate)
-                    }) { Text("Never") }
-                    TextButton(onClick = { onEvent(CharacterEvent.DismissImageUpdate) }) { Text("Not Now") }
+                if (!state.isDownloadingImages) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(onClick = {
+                            onEvent(CharacterEvent.SetImageDownloadPreference(ImageDownloadPreference.DISABLED))
+                            onEvent(CharacterEvent.DismissImageUpdate)
+                        }) { Text("Never") }
+                        TextButton(onClick = { onEvent(CharacterEvent.DismissImageUpdate) }) { Text("Not Now") }
+                    }
                 }
             },
             shape = theme.cardShape
@@ -705,19 +714,28 @@ private fun DataUpdateDialogs(
     val imgTag = state.pendingImageUpdate
     if (imgTag != null && imgTag != "FIRST_LAUNCH") {
         AlertDialog(
-            onDismissRequest = { onEvent(CharacterEvent.DismissImageUpdate) },
+            onDismissRequest = { if (!state.isDownloadingImages) onEvent(CharacterEvent.DismissImageUpdate) },
             title = { Text("Character Portrait Update Available") },
             text = { Text("Version $imgTag includes updated or new character portraits.") },
             confirmButton = {
                 Button(
                     onClick = { onEvent(CharacterEvent.DownloadCharacterImages) },
+                    enabled = !state.isDownloadingImages,
                     shape = theme.cardShape
-                ) { Text("Download") }
+                ) {
+                    if (state.isDownloadingImages) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                    } else {
+                        Text("Download")
+                    }
+                }
             },
             dismissButton = {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(onClick = { onEvent(CharacterEvent.SkipImageVersion(imgTag)) }) { Text("Skip Version") }
-                    TextButton(onClick = { onEvent(CharacterEvent.DismissImageUpdate) }) { Text("Later") }
+                if (!state.isDownloadingImages) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(onClick = { onEvent(CharacterEvent.SkipImageVersion(imgTag)) }) { Text("Skip Version") }
+                        TextButton(onClick = { onEvent(CharacterEvent.DismissImageUpdate) }) { Text("Later") }
+                    }
                 }
             },
             shape = theme.cardShape
@@ -728,19 +746,32 @@ private fun DataUpdateDialogs(
     val dataRelease = state.pendingDataUpdate
     if (dataRelease != null) {
         AlertDialog(
-            onDismissRequest = { onEvent(CharacterEvent.DismissDataUpdate) },
+            onDismissRequest = { if (!state.isInstallingDataUpdate) onEvent(CharacterEvent.DismissDataUpdate) },
             title = { Text("Game Data Update Available") },
             text = { Text("Version ${dataRelease.tagName} includes updated game data (characters, upgrades, campaign cards).") },
             confirmButton = {
                 Button(
                     onClick = { onEvent(CharacterEvent.InstallDataUpdate(dataRelease)) },
+                    enabled = !state.isInstallingDataUpdate,
                     shape = theme.cardShape
-                ) { Text("Install Now") }
+                ) {
+                    if (state.isInstallingDataUpdate) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                    } else {
+                        Text("Install Now")
+                    }
+                }
             },
             dismissButton = {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(onClick = { onEvent(CharacterEvent.SkipDataVersion(dataRelease.tagName)) }) { Text("Skip Version") }
-                    TextButton(onClick = { onEvent(CharacterEvent.DismissDataUpdate) }) { Text("Later") }
+                if (!state.isInstallingDataUpdate) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(onClick = { onEvent(CharacterEvent.SkipDataVersion(dataRelease.tagName)) }) { Text("Skip Version") }
+                        TextButton(onClick = { onEvent(CharacterEvent.DismissDataUpdate) }) { Text("Later") }
+                    }
                 }
             },
             shape = theme.cardShape

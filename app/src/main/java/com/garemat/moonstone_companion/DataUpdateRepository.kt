@@ -79,19 +79,28 @@ class DataUpdateRepository(
     }
 
     suspend fun applyDataUpdate(release: GitHubRelease) {
+        Log.d(TAG, "applyDataUpdate: starting for ${release.tagName}, ${release.assets.size} assets")
         val dataDir = File(context.filesDir, "data").also { it.mkdirs() }
         listOf("characters.json", "upgrades.json", "campaign.json").forEach { name ->
-            val asset = release.assets.firstOrNull { it.name == name } ?: return@forEach
+            val asset = release.assets.firstOrNull { it.name == name }
+            if (asset == null) {
+                Log.w(TAG, "applyDataUpdate: asset '$name' not found in release, skipping")
+                return@forEach
+            }
+            Log.d(TAG, "applyDataUpdate: downloading $name from ${asset.browserDownloadUrl}")
             try {
                 val bytes = client.get(asset.browserDownloadUrl).readBytes()
                 File(dataDir, name).writeBytes(bytes)
+                Log.d(TAG, "applyDataUpdate: saved $name (${bytes.size} bytes)")
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to download $name", e)
+                Log.e(TAG, "applyDataUpdate: failed to download $name", e)
                 throw e
             }
         }
+        Log.d(TAG, "applyDataUpdate: seeding database from $dataDir")
         repository.seedFromFiles(dataDir)
         prefs.edit().putString(KEY_DATA_VERSION, release.tagName).apply()
+        Log.d(TAG, "applyDataUpdate: complete, version set to ${release.tagName}")
     }
 
     suspend fun downloadImages(releaseTag: String) {
