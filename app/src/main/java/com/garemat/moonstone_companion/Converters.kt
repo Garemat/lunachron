@@ -20,32 +20,28 @@ class Converters {
     fun toStringList(value: String) = json.decodeFromString<List<String>>(value)
 
     @TypeConverter
-    fun fromActiveAbilityList(value: List<ActiveAbility>) = json.encodeToString(value)
+    fun fromAbilityList(value: List<Ability>) = json.encodeToString(value)
 
     @TypeConverter
-    fun toActiveAbilityList(value: String) = json.decodeFromString<List<ActiveAbility>>(value)
+    fun toAbilityList(value: String) = json.decodeFromString<List<Ability>>(value)
 
     @TypeConverter
-    fun fromArcaneAbilityList(value: List<ArcaneAbility>) = json.encodeToString(value)
+    fun fromSignatureMove(value: SignatureMove?): String =
+        if (value == null) "" else json.encodeToString(value)
 
     @TypeConverter
-    fun toArcaneAbilityList(value: String) = json.decodeFromString<List<ArcaneAbility>>(value)
-
-    @TypeConverter
-    fun fromSignatureMove(value: SignatureMove) = json.encodeToString(value)
-
-    @TypeConverter
-    fun toSignatureMove(value: String) = json.decodeFromString<SignatureMove>(value)
+    fun toSignatureMove(value: String): SignatureMove? =
+        if (value.isEmpty()) null else json.decodeFromString(value)
 
     @TypeConverter
     fun fromIntList(value: List<Int>) = json.encodeToString(value)
 
     @TypeConverter
     fun toIntList(value: String) = json.decodeFromString<List<Int>>(value)
-    
+
     @TypeConverter
     fun fromFaction(value: Faction) = value.name
-    
+
     @TypeConverter
     fun toFaction(value: String) = Faction.valueOf(value)
 

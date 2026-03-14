@@ -747,37 +747,51 @@ private fun DataUpdateDialogs(
     // Data update prompt
     val dataRelease = state.pendingDataUpdate
     if (dataRelease != null) {
-        AlertDialog(
-            onDismissRequest = { if (!state.isInstallingDataUpdate) onEvent(CharacterEvent.DismissDataUpdate) },
-            title = { Text("Game Data Update Available") },
-            text = { Text("Version ${dataRelease.tagName} includes updated game data (characters, upgrades, campaign cards).") },
-            confirmButton = {
-                Button(
-                    onClick = { onEvent(CharacterEvent.InstallDataUpdate(dataRelease)) },
-                    enabled = !state.isInstallingDataUpdate,
-                    shape = theme.cardShape
-                ) {
-                    if (state.isInstallingDataUpdate) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.onPrimary
-                        )
-                    } else {
-                        Text("Install Now")
+        if (dataRelease.schemaIncompatible) {
+            AlertDialog(
+                onDismissRequest = { onEvent(CharacterEvent.DismissDataUpdate) },
+                title = { Text("App Update Required") },
+                text = { Text("Data version ${dataRelease.tagName} requires a newer version of the app. Please update Moonstone Companion to access the latest game data.") },
+                confirmButton = {
+                    Button(onClick = { onEvent(CharacterEvent.DismissDataUpdate) }, shape = theme.cardShape) {
+                        Text("OK")
                     }
-                }
-            },
-            dismissButton = {
-                if (!state.isInstallingDataUpdate) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        TextButton(onClick = { onEvent(CharacterEvent.SkipDataVersion(dataRelease.tagName)) }) { Text("Skip Version") }
-                        TextButton(onClick = { onEvent(CharacterEvent.DismissDataUpdate) }) { Text("Later") }
+                },
+                shape = theme.cardShape
+            )
+        } else {
+            AlertDialog(
+                onDismissRequest = { if (!state.isInstallingDataUpdate) onEvent(CharacterEvent.DismissDataUpdate) },
+                title = { Text("Game Data Update Available") },
+                text = { Text("Version ${dataRelease.tagName} includes updated game data (characters, upgrades, campaign cards).") },
+                confirmButton = {
+                    Button(
+                        onClick = { onEvent(CharacterEvent.InstallDataUpdate(dataRelease)) },
+                        enabled = !state.isInstallingDataUpdate,
+                        shape = theme.cardShape
+                    ) {
+                        if (state.isInstallingDataUpdate) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onPrimary
+                            )
+                        } else {
+                            Text("Install Now")
+                        }
                     }
-                }
-            },
-            shape = theme.cardShape
-        )
+                },
+                dismissButton = {
+                    if (!state.isInstallingDataUpdate) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            TextButton(onClick = { onEvent(CharacterEvent.SkipDataVersion(dataRelease.tagName)) }) { Text("Skip Version") }
+                            TextButton(onClick = { onEvent(CharacterEvent.DismissDataUpdate) }) { Text("Later") }
+                        }
+                    }
+                },
+                shape = theme.cardShape
+            )
+        }
     }
 }
 

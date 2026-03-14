@@ -23,7 +23,8 @@ enum class ImageDownloadPreference { PROMPT, ENABLED, DISABLED }
 @Serializable
 data class GitHubRelease(
     val tagName: String,
-    val assets: List<GitHubAsset> = emptyList()
+    val assets: List<GitHubAsset> = emptyList(),
+    val schemaIncompatible: Boolean = false
 )
 
 @Serializable

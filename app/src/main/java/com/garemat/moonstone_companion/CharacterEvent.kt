@@ -60,6 +60,7 @@ sealed interface CharacterEvent {
     data class RemoveSummonedCharacter(val playerIndex: Int, val characterId: Int) : CharacterEvent
     data class UpdatePoolResource(val playerIndex: Int, val resourceName: String, val count: Int) : CharacterEvent
     data class UpdateCharacterPoolResource(val playerIndex: Int, val charIndex: Int, val resourceName: String, val count: Int) : CharacterEvent
+    data class TransformCharacter(val playerIndex: Int, val charIndex: Int, val targetCharacterId: Int) : CharacterEvent
 
     // Data update events
     data class SetAutoCheckDataUpdates(val enabled: Boolean) : CharacterEvent

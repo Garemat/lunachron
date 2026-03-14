@@ -17,7 +17,6 @@ import java.util.zip.ZipInputStream
 private const val TAG = "DataUpdateRepository"
 private const val DATA_REPO = "garemat/moonstone-companion-data"
 private const val PREFS_NAME = "moonstone_prefs"
-private const val KEY_DATA_VERSION = "data_version"
 private const val KEY_IMAGE_VERSION = "image_version"
 private const val KEY_SKIP_DATA_VERSION = "skip_data_version"
 private const val KEY_SKIP_IMAGE_VERSION = "skip_image_version"
@@ -49,18 +48,29 @@ class DataUpdateRepository(
     private val json = Json { ignoreUnknownKeys = true; coerceInputValues = true }
     private val apiBase = "https://api.github.com/repos/$DATA_REPO/releases/latest"
 
-    /** Returns latest release if data JSON is newer than installed and not skipped. */
+    /**
+     * Returns the latest release if it is strictly newer than the installed compendium
+     * and not skipped by the user.
+     *
+     * If the latest release has an incompatible schema (major version > SUPPORTED_SCHEMA)
+     * the returned [GitHubRelease] will have [GitHubRelease.schemaIncompatible] = true so
+     * the UI can prompt the user to update the app instead of offering a data download.
+     */
     suspend fun checkForDataUpdate(): GitHubRelease? = try {
         val body = client.get(apiBase).bodyAsText()
         val release = json.decodeFromString<ApiRelease>(body)
-        val installed = prefs.getString(KEY_DATA_VERSION, null)
+        val installed = CharacterData.getInstalledVersion(context)
         val skipped = prefs.getString(KEY_SKIP_DATA_VERSION, null)
-        if (release.tagName != installed && release.tagName != skipped) {
-            GitHubRelease(
+        when {
+            !CharacterData.isNewer(release.tagName, installed) -> null
+            release.tagName == skipped -> null
+            !CharacterData.isSchemaCompatible(release.tagName) ->
+                GitHubRelease(tagName = release.tagName, schemaIncompatible = true)
+            else -> GitHubRelease(
                 tagName = release.tagName,
                 assets = release.assets.map { GitHubAsset(it.name, it.browserDownloadUrl) }
             )
-        } else null
+        }
     } catch (e: Exception) {
         Log.w(TAG, "checkForDataUpdate failed", e)
         null
@@ -79,28 +89,16 @@ class DataUpdateRepository(
     }
 
     suspend fun applyDataUpdate(release: GitHubRelease) {
-        Log.d(TAG, "applyDataUpdate: starting for ${release.tagName}, ${release.assets.size} assets")
+        Log.d(TAG, "applyDataUpdate: starting for ${release.tagName}")
         val dataDir = File(context.filesDir, "data").also { it.mkdirs() }
-        listOf("characters.json", "upgrades.json", "campaign.json").forEach { name ->
-            val asset = release.assets.firstOrNull { it.name == name }
-            if (asset == null) {
-                Log.w(TAG, "applyDataUpdate: asset '$name' not found in release, skipping")
-                return@forEach
-            }
-            Log.d(TAG, "applyDataUpdate: downloading $name from ${asset.browserDownloadUrl}")
-            try {
-                val bytes = client.get(asset.browserDownloadUrl).readBytes()
-                File(dataDir, name).writeBytes(bytes)
-                Log.d(TAG, "applyDataUpdate: saved $name (${bytes.size} bytes)")
-            } catch (e: Exception) {
-                Log.e(TAG, "applyDataUpdate: failed to download $name", e)
-                throw e
-            }
-        }
-        Log.d(TAG, "applyDataUpdate: seeding database from $dataDir")
+        val asset = release.assets.firstOrNull { it.name == "compendium.json" }
+            ?: throw IllegalStateException("compendium.json not found in release ${release.tagName}")
+        Log.d(TAG, "applyDataUpdate: downloading compendium.json from ${asset.browserDownloadUrl}")
+        val bytes = client.get(asset.browserDownloadUrl).readBytes()
+        File(dataDir, "compendium.json").writeBytes(bytes)
+        Log.d(TAG, "applyDataUpdate: saved compendium.json (${bytes.size} bytes)")
         repository.seedFromFiles(dataDir)
-        prefs.edit().putString(KEY_DATA_VERSION, release.tagName).apply()
-        Log.d(TAG, "applyDataUpdate: complete, version set to ${release.tagName}")
+        Log.d(TAG, "applyDataUpdate: complete, version now ${release.tagName}")
     }
 
     suspend fun downloadImages(releaseTag: String) {

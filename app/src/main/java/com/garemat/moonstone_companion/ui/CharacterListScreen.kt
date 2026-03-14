@@ -33,7 +33,7 @@ fun CharacterListScreen(
     val availableTags = remember(state.characters, selectedFactions) {
         state.characters
             .filter { char -> selectedFactions.isEmpty() || char.factions.any { it in selectedFactions } }
-            .flatMap { it.tags }
+            .flatMap { it.keywords }
             .distinct()
             .sorted()
     }
@@ -47,9 +47,7 @@ fun CharacterListScreen(
         } else {
             val matchingIds = state.characters.filter { character ->
                 character.name.contains(searchQuery, ignoreCase = true) ||
-                character.passiveAbilities.any { it.name.contains(searchQuery, ignoreCase = true) || it.description.contains(searchQuery, ignoreCase = true) } ||
-                character.activeAbilities.any { it.name.contains(searchQuery, ignoreCase = true) || it.description.contains(searchQuery, ignoreCase = true) } ||
-                character.arcaneAbilities.any { it.name.contains(searchQuery, ignoreCase = true) || it.description.contains(searchQuery, ignoreCase = true) }
+                character.abilities.any { it.name.contains(searchQuery, ignoreCase = true) || it.description.contains(searchQuery, ignoreCase = true) }
             }.map { it.id }.toSet()
             if (matchingIds.size in 1..3) expandedCharacterIds = matchingIds
         }
@@ -64,12 +62,10 @@ fun CharacterListScreen(
     val filteredCharacters = remember(state.characters, searchQuery, selectedFactions, selectedTags) {
         state.characters.filter { character ->
             val matchesFaction = selectedFactions.isEmpty() || character.factions.any { it in selectedFactions }
-            val matchesTags = selectedTags.isEmpty() || character.tags.containsAll(selectedTags)
-            val matchesSearch = searchQuery.isEmpty() || 
+            val matchesTags = selectedTags.isEmpty() || character.keywords.containsAll(selectedTags)
+            val matchesSearch = searchQuery.isEmpty() ||
                 character.name.contains(searchQuery, ignoreCase = true) ||
-                character.passiveAbilities.any { it.name.contains(searchQuery, ignoreCase = true) || it.description.contains(searchQuery, ignoreCase = true) } ||
-                character.activeAbilities.any { it.name.contains(searchQuery, ignoreCase = true) || it.description.contains(searchQuery, ignoreCase = true) } ||
-                character.arcaneAbilities.any { it.name.contains(searchQuery, ignoreCase = true) || it.description.contains(searchQuery, ignoreCase = true) }
+                character.abilities.any { it.name.contains(searchQuery, ignoreCase = true) || it.description.contains(searchQuery, ignoreCase = true) }
             matchesFaction && matchesTags && matchesSearch
         }
     }

@@ -333,6 +333,23 @@ class CharacterViewModel(
                     } else cur
                 }
             }
+            is CharacterEvent.TransformCharacter -> {
+                _state.update { cur ->
+                    val troupe = cur.activeTroupes.getOrNull(event.playerIndex) ?: return@update cur
+                    val newIds = troupe.characterIds.toMutableList()
+                    if (event.charIndex !in newIds.indices) return@update cur
+                    newIds[event.charIndex] = event.targetCharacterId
+                    val newTroupes = cur.activeTroupes.toMutableList()
+                    newTroupes[event.playerIndex] = troupe.copy(characterIds = newIds)
+                    val targetChar = cur.characters.find { it.id == event.targetCharacterId }
+                    val newPlayStates = cur.characterPlayStates.toMutableMap()
+                    if (targetChar != null) {
+                        val key = "${event.playerIndex}_${event.charIndex}"
+                        newPlayStates[key] = CharacterPlayState(targetChar.health, calculateReplenishedEnergy(targetChar, targetChar.health))
+                    }
+                    cur.copy(activeTroupes = newTroupes, characterPlayStates = newPlayStates)
+                }
+            }
             is CharacterEvent.UpdatePoolResource -> {
                 _state.update { cur ->
                     val pools = cur.poolResourceCounts.toMutableMap()

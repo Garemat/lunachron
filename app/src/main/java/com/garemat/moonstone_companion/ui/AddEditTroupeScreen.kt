@@ -103,7 +103,7 @@ fun AddEditTroupeScreen(
     val availableTags = remember(state.characters, viewModel.selectedTroupeFaction) {
         state.characters
             .filter { it.factions.contains(viewModel.selectedTroupeFaction) }
-            .flatMap { it.tags }.distinct().sorted()
+            .flatMap { it.keywords }.distinct().sorted()
     }
     val selectedTags = remember { mutableStateListOf<String>() }
 
@@ -451,8 +451,8 @@ private fun CampaignCardSelectionStage(
 private fun CharacterSelectionStage(state: CharacterState, theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties, searchQuery: String, onSearchQueryChange: (String) -> Unit, selectedTags: MutableList<String>, availableTags: List<String>, selectedIds: Set<Int>, onSelectionChange: (Set<Int>) -> Unit, expandedCharacterId: Int?, onExpandClick: (Int) -> Unit, onTargetPositioned: (String, LayoutCoordinates) -> Unit, selectedTroupeFaction: Faction) {
     val factionCharacters = remember(state.characters, selectedTroupeFaction, searchQuery, selectedTags.toList()) {
         state.characters.filter { it.factions.contains(selectedTroupeFaction) }.filter { char ->
-            val matchesSearch = searchQuery.isEmpty() || char.name.contains(searchQuery, ignoreCase = true) || char.tags.any { it.contains(searchQuery, ignoreCase = true) }
-            val matchesTags = selectedTags.isEmpty() || selectedTags.all { it in char.tags }
+            val matchesSearch = searchQuery.isEmpty() || char.name.contains(searchQuery, ignoreCase = true) || char.keywords.any { it.contains(searchQuery, ignoreCase = true) }
+            val matchesTags = selectedTags.isEmpty() || selectedTags.all { it in char.keywords }
             matchesSearch && matchesTags
         }
     }
