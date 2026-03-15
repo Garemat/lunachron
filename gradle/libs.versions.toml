@@ -15,7 +15,7 @@ navigationCompose = "2.8.4"
 zxing = "3.5.3"
 cameraX = "1.4.1"
 playServicesMlKitBarcode = "18.3.1"
-jsoup = "1.18.3"
+jsoup = "1.22.1"
 ktor = "3.0.1"
 coil = "2.7.0"
 
