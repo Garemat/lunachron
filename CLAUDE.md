@@ -20,7 +20,7 @@ This is an Android project. Use Gradle wrapper from the project root:
 ./gradlew connectedAndroidTest
 
 # Run a single test class
-./gradlew test --tests "com.garemat.moonstone_companion.ExampleUnitTest"
+./gradlew test --tests "io.github.garemat.lunachron.ExampleUnitTest"
 
 # Clean build
 ./gradlew clean
@@ -60,7 +60,7 @@ Campaign screens: CampaignManagement → CampaignDetails / AddEditCampaign / Edi
 
 ### Data / Assets
 
-Game data (characters, upgrades, campaign cards) is sourced from `moonstone-companion-data` repo and bundled as consolidated JSON files in `app/src/main/assets/`:
+Game data (characters, upgrades, campaign cards) is sourced from the `lunachron-data` repo and bundled as consolidated JSON files in `app/src/main/assets/`:
 - `characters.json` — All characters (aggregated from data repo)
 - `upgrades.json` — All upgrade cards
 - `campaign.json` — All campaign cards
