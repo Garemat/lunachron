@@ -20,6 +20,13 @@ enum class GameLayoutMode { COMPACT_GRID, DETAILED_LIST }
 @Serializable
 enum class ImageDownloadPreference { PROMPT, ENABLED, DISABLED }
 
+enum class InstallerSource { FDROID, DIRECT }
+
+data class AppRelease(
+    val tagName: String,
+    val htmlUrl: String
+)
+
 @Serializable
 data class GitHubRelease(
     val tagName: String,
@@ -170,7 +177,12 @@ data class CharacterState(
     val isInstallingDataUpdate: Boolean = false,
     val imageDownloadPreference: ImageDownloadPreference = ImageDownloadPreference.PROMPT,
     val pendingImageUpdate: String? = null,
-    val isDownloadingImages: Boolean = false
+    val isDownloadingImages: Boolean = false,
+
+    // App update state (opt-in, off by default — F-Droid manages updates for F-Droid installs)
+    val autoCheckAppUpdates: Boolean = false,
+    val pendingAppUpdate: AppRelease? = null,
+    val installerSource: InstallerSource = InstallerSource.DIRECT
 )
 
 @Serializable

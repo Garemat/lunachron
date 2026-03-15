@@ -2,7 +2,9 @@ package io.github.garemat.lunachron
 
 import android.content.Context
 import android.content.Context.MODE_PRIVATE
+import android.os.Build
 import android.util.Log
+import androidx.core.content.pm.PackageInfoCompat
 import io.ktor.client.*
 import io.ktor.client.engine.android.Android
 import io.ktor.client.plugins.HttpTimeout
@@ -16,6 +18,7 @@ import java.util.zip.ZipInputStream
 
 private const val TAG = "DataUpdateRepository"
 private const val DATA_REPO = "garemat/lunachron-data"
+private const val APP_REPO  = "garemat/lunachron"
 private const val PREFS_NAME = "lunachron_prefs"
 private const val KEY_IMAGE_VERSION = "image_version"
 private const val KEY_SKIP_DATA_VERSION = "skip_data_version"
@@ -24,6 +27,7 @@ private const val KEY_SKIP_IMAGE_VERSION = "skip_image_version"
 @Serializable
 private data class ApiRelease(
     @SerialName("tag_name") val tagName: String,
+    @SerialName("html_url") val htmlUrl: String = "",
     val assets: List<ApiAsset> = emptyList()
 )
 
@@ -148,4 +152,62 @@ class DataUpdateRepository(
     }
 
     fun loadAutoCheck(): Boolean = prefs.getBoolean("auto_check_data_updates", true)
+
+    /**
+     * Checks GitHub releases for a newer app version than the one currently installed.
+     * Returns an [AppRelease] to display to the user if a newer tag exists, or null otherwise.
+     *
+     * Intentionally does NOT download or install anything — the action is opening a URL
+     * in the browser (GitHub releases page or F-Droid), keeping us compliant with F-Droid's
+     * inclusion policy (no self-updating APK, no REQUEST_INSTALL_PACKAGES permission).
+     */
+    suspend fun checkForAppUpdate(): AppRelease? = try {
+        val pInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+        val currentVersion = pInfo.versionName ?: return null
+
+        val body = client.get("https://api.github.com/repos/$APP_REPO/releases/latest").bodyAsText()
+        val release = json.decodeFromString<ApiRelease>(body)
+
+        if (isNewerVersion(release.tagName.trimStart('v'), currentVersion.trimStart('v'))) {
+            AppRelease(tagName = release.tagName, htmlUrl = release.htmlUrl)
+        } else null
+    } catch (e: Exception) {
+        Log.w(TAG, "checkForAppUpdate failed", e)
+        null
+    }
+
+    /** Returns whether the app was installed via F-Droid or a direct APK download. */
+    fun getInstallerSource(): InstallerSource {
+        val installer = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            runCatching {
+                context.packageManager.getInstallSourceInfo(context.packageName).installingPackageName
+            }.getOrNull()
+        } else {
+            @Suppress("DEPRECATION")
+            context.packageManager.getInstallerPackageName(context.packageName)
+        }
+        return if (installer == "org.fdroid.fdroid" || installer == "org.fdroid.fdroid.privileged.ota")
+            InstallerSource.FDROID else InstallerSource.DIRECT
+    }
+
+    fun persistAutoCheckApp(enabled: Boolean) {
+        prefs.edit().putBoolean("auto_check_app_updates", enabled).apply()
+    }
+
+    fun loadAutoCheckApp(): Boolean = prefs.getBoolean("auto_check_app_updates", false)
+
+    companion object {
+        /** Simple semver comparison: returns true if [latest] > [current]. */
+        fun isNewerVersion(latest: String, current: String): Boolean {
+            val l = latest.split(".").mapNotNull { it.toIntOrNull() }
+            val c = current.split(".").mapNotNull { it.toIntOrNull() }
+            for (i in 0 until maxOf(l.size, c.size)) {
+                val lv = l.getOrElse(i) { 0 }
+                val cv = c.getOrElse(i) { 0 }
+                if (lv > cv) return true
+                if (lv < cv) return false
+            }
+            return false
+        }
+    }
 }

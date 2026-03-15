@@ -18,6 +18,7 @@ import io.github.garemat.lunachron.CharacterState
 import io.github.garemat.lunachron.GameLayoutMode
 import io.github.garemat.lunachron.GameTrackingMode
 import io.github.garemat.lunachron.ImageDownloadPreference
+import io.github.garemat.lunachron.InstallerSource
 import io.github.garemat.lunachron.LayoutDensity
 import io.github.garemat.lunachron.ui.theme.LocalAppThemeProperties
 
@@ -191,6 +192,43 @@ fun SettingsScreen(
                     theme = theme,
                     subtitle = "Single column, expandable cards with full stats"
                 )
+            }
+
+            Spacer(modifier = Modifier.height(theme.verticalSpacing))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Spacer(modifier = Modifier.height(theme.verticalSpacing))
+
+            Text("App Updates", style = theme.titleStyle.copy(fontSize = 20.sp), color = MaterialTheme.colorScheme.primary)
+            Spacer(modifier = Modifier.height(theme.verticalSpacing / 4))
+            if (state.installerSource == InstallerSource.FDROID) {
+                Text(
+                    text = "Installed via F-Droid — updates are managed by the F-Droid client.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onEvent(CharacterEvent.SetAutoCheckAppUpdates(!state.autoCheckAppUpdates)) }
+                        .padding(vertical = theme.verticalSpacing / 4),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Auto-check for app updates", style = theme.headerStyle.copy(fontSize = 18.sp))
+                        Text("Check for a new version of Lunachron on startup.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Switch(checked = state.autoCheckAppUpdates, onCheckedChange = { onEvent(CharacterEvent.SetAutoCheckAppUpdates(it)) })
+                }
+                Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
+                OutlinedButton(
+                    onClick = { onEvent(CharacterEvent.CheckForAppUpdate) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = theme.cardShape
+                ) {
+                    Text("Check for app update now", style = theme.buttonTextStyle)
+                }
             }
 
             Spacer(modifier = Modifier.height(theme.verticalSpacing))
