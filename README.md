@@ -1,5 +1,8 @@
 # Lunachron
 
+[![F-Droid](https://img.shields.io/f-droid/v/io.github.garemat.lunachron.svg?logo=F-Droid)](https://f-droid.org/packages/io.github.garemat.lunachron/)
+[![GitHub Release](https://img.shields.io/github/release/garemat/lunachron.svg?logo=github)](https://github.com/Garemat/lunachron/releases)
+
 An unofficial companion app for the [Moonstone](https://goblinkinggames.com) tabletop miniatures game by Goblin King Games.
 
 ## Features
@@ -48,31 +51,3 @@ the Apache 2.0 license.
 Lunachron is an unofficial fan-created app and is not affiliated with or endorsed by
 Goblin King Games.
 
-## Faction share codes
-
-| Code | Factions |
-|------|----------|
-| A | Commonwealth |
-| B | Dominion |
-| C | Leshavult |
-| D | Shades |
-| E | Commonwealth + Dominion |
-| F | Commonwealth + Leshavult |
-| G | Commonwealth + Shades |
-| H | Dominion + Leshavult |
-| I | Dominion + Shades |
-| J | Leshavult + Shades |
-
-## Character JSON reference
-
-```json
-"slicingDamageBuff": 1,
-"piercingDamageBuff": 1,
-"impactDamageBuff": 1,
-
-"piercingDamageMitigation": 1,
-"impactDamageMitigation": 1,
-"slicingDamageMitigation": 1,
-
-"allDamageMitigation": 1
-```
