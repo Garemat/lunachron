@@ -1,4 +1,4 @@
-package com.garemat.moonstone_companion.ui
+package io.github.garemat.lunachron.ui
 
 import android.app.Activity
 import android.widget.Toast
@@ -19,10 +19,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.garemat.moonstone_companion.CharacterEvent
-import com.garemat.moonstone_companion.CharacterState
-import com.garemat.moonstone_companion.NewsItem
-import com.garemat.moonstone_companion.ui.theme.LocalAppThemeProperties
+import io.github.garemat.lunachron.CharacterEvent
+import io.github.garemat.lunachron.CharacterState
+import io.github.garemat.lunachron.NewsItem
+import io.github.garemat.lunachron.ui.theme.LocalAppThemeProperties
 import androidx.compose.ui.layout.ContentScale
 
 @Composable

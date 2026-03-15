@@ -1,4 +1,4 @@
-package com.garemat.moonstone_companion.ui
+package io.github.garemat.lunachron.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -21,8 +21,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.garemat.moonstone_companion.*
-import com.garemat.moonstone_companion.ui.theme.LocalAppThemeProperties
+import io.github.garemat.lunachron.*
+import io.github.garemat.lunachron.ui.theme.LocalAppThemeProperties
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -137,7 +137,7 @@ fun MyPairingCard(
     players: List<TournamentPlayer>,
     settings: TournamentSettings,
     allCharacters: List<Character>,
-    theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties,
+    theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties,
     isHost: Boolean,
     deviceId: String,
     onConfirmSelection: (List<Int>, String?) -> Unit,
@@ -252,7 +252,7 @@ private fun SelectionView(
     allCharacters: List<Character>,
     selectedIds: List<Int>,
     expandedCharacterId: Int?,
-    theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties,
+    theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties,
     isHost: Boolean,
     onSelectionChange: (List<Int>) -> Unit,
     onExpandChange: (Int?) -> Unit,
@@ -367,7 +367,7 @@ private fun DeploymentView(
     allCharacters: List<Character>,
     isHost: Boolean,
     deviceId: String,
-    theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties,
+    theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties,
     myDeploymentReady: Boolean,
     opponentDeploymentReady: Boolean,
     onConfirmInitiative: (String) -> Unit,
@@ -522,7 +522,7 @@ private fun DeploymentView(
 fun PairingListItem(
     pairing: TournamentPairing,
     players: List<TournamentPlayer>,
-    theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties,
+    theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties,
     isMyPairing: Boolean
 ) {
     val p1 = players.find { it.deviceId == pairing.player1Id }

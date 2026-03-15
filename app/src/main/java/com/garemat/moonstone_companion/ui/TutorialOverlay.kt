@@ -1,4 +1,4 @@
-package com.garemat.moonstone_companion.ui
+package io.github.garemat.lunachron.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -38,7 +38,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
-import com.garemat.moonstone_companion.R
+import io.github.garemat.lunachron.R
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin

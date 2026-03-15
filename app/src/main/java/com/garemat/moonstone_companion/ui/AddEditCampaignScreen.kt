@@ -1,4 +1,4 @@
-package com.garemat.moonstone_companion.ui
+package io.github.garemat.lunachron.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
@@ -12,8 +12,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.garemat.moonstone_companion.*
-import com.garemat.moonstone_companion.ui.theme.LocalAppThemeProperties
+import io.github.garemat.lunachron.*
+import io.github.garemat.lunachron.ui.theme.LocalAppThemeProperties
 import kotlinx.coroutines.launch
 import java.util.UUID
 

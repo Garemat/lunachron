@@ -1,0 +1,12 @@
+Initial release of Lunachron (formerly Moonstone Companion).
+
+• Full character compendium for all four factions
+• Troupe builder with QR code import/export
+• Active game screen with health, energy, and moonstone tracking
+• Compact grid and detailed list layout modes
+• Local multiplayer over Wi-Fi (NSD + TCP, no Google Play Services required)
+• Solo play mode
+• Campaign management and tracking
+• Local tournament bracket support
+• Optional character portrait downloads
+• Automatic game data updates with user prompt

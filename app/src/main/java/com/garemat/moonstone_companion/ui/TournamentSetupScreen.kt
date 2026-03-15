@@ -1,4 +1,4 @@
-package com.garemat.moonstone_companion.ui
+package io.github.garemat.lunachron.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
@@ -13,10 +13,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.garemat.moonstone_companion.CharacterState
-import com.garemat.moonstone_companion.HostMode
-import com.garemat.moonstone_companion.TroupeSizeSetting
-import com.garemat.moonstone_companion.ui.theme.LocalAppThemeProperties
+import io.github.garemat.lunachron.CharacterState
+import io.github.garemat.lunachron.HostMode
+import io.github.garemat.lunachron.TroupeSizeSetting
+import io.github.garemat.lunachron.ui.theme.LocalAppThemeProperties
 import kotlin.random.Random
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -270,7 +270,7 @@ fun TroupeSizeOption(
     description: String,
     selected: Boolean,
     onSelect: () -> Unit,
-    theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties
+    theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties
 ) {
     Card(
         onClick = onSelect,

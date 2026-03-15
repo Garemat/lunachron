@@ -1,4 +1,4 @@
-package com.garemat.moonstone_companion.ui
+package io.github.garemat.lunachron.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandHorizontally
@@ -48,10 +48,10 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
-import com.garemat.moonstone_companion.*
-import com.garemat.moonstone_companion.R
-import com.garemat.moonstone_companion.ui.theme.LocalAppTheme
-import com.garemat.moonstone_companion.ui.theme.LocalAppThemeProperties
+import io.github.garemat.lunachron.*
+import io.github.garemat.lunachron.R
+import io.github.garemat.lunachron.ui.theme.LocalAppTheme
+import io.github.garemat.lunachron.ui.theme.LocalAppThemeProperties
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 

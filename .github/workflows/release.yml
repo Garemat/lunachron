@@ -31,6 +31,17 @@ jobs:
           echo "type=none" >> $GITHUB_OUTPUT
         fi
 
+    - name: Pin latest lunachron-data release
+      if: steps.bump_type.outputs.type != 'none'
+      id: pin_data
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        DATA_TAG=$(gh api repos/garemat/lunachron-data/releases/latest --jq '.tag_name')
+        echo "data_tag=$DATA_TAG" >> $GITHUB_OUTPUT
+        echo "$DATA_TAG" > data.version
+        echo "Pinned data release: $DATA_TAG"
+
     - name: Create Tag
       if: steps.bump_type.outputs.type != 'none'
       id: tag_version
@@ -76,3 +87,12 @@ jobs:
         generate_release_notes: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Commit pinned data.version to main
+      if: steps.bump_type.outputs.type != 'none'
+      run: |
+        git config user.name  "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git add data.version
+        git commit -m "chore: pin data.version to ${{ steps.pin_data.outputs.data_tag }} for release ${{ steps.tag_version.outputs.new_tag }} [skip ci]"
+        git push origin HEAD:main

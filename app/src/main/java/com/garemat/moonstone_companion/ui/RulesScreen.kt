@@ -1,4 +1,4 @@
-package com.garemat.moonstone_companion.ui
+package io.github.garemat.lunachron.ui
 
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
@@ -21,9 +21,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.garemat.moonstone_companion.CharacterViewModel
-import com.garemat.moonstone_companion.RuleSection
-import com.garemat.moonstone_companion.ui.theme.LocalAppThemeProperties
+import io.github.garemat.lunachron.CharacterViewModel
+import io.github.garemat.lunachron.RuleSection
+import io.github.garemat.lunachron.ui.theme.LocalAppThemeProperties
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

@@ -1,4 +1,4 @@
-package com.garemat.moonstone_companion.ui
+package io.github.garemat.lunachron.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
@@ -22,8 +22,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.garemat.moonstone_companion.*
-import com.garemat.moonstone_companion.ui.theme.LocalAppThemeProperties
+import io.github.garemat.lunachron.*
+import io.github.garemat.lunachron.ui.theme.LocalAppThemeProperties
 
 @Composable
 fun CampaignDetailsScreen(
@@ -110,7 +110,7 @@ fun CampaignDetailsScreen(
 }
 
 @Composable
-fun RankingsTab(campaign: Campaign, state: CharacterState, theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties) {
+fun RankingsTab(campaign: Campaign, state: CharacterState, theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties) {
     // power = VP + MP, used for tier calculation and sort order
     data class PlayerEntry(val player: CampaignPlayer, val vp: Int, val power: Int)
 
@@ -216,7 +216,7 @@ private fun RankingPlayerCard(
     tierColor: Color,
     rowIndex: Int,
     campaign: Campaign,
-    theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties
+    theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties
 ) {
     val bgAlpha = if (rowIndex % 2 == 0) 0.07f else 0.13f
     Card(
@@ -279,7 +279,7 @@ fun GamesTab(
     campaign: Campaign,
     state: CharacterState,
     viewModel: CharacterViewModel,
-    theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties
+    theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties
 ) {
     val currentRound = campaign.rounds.find { it.roundNumber == campaign.currentRound }
     val games = currentRound?.games ?: emptyList()
@@ -419,7 +419,7 @@ fun GameMatchCard(
     game: CampaignGame,
     campaign: Campaign,
     isEditing: Boolean,
-    theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties,
+    theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties,
     onRecordResult: (String?) -> Unit,
     onEditClick: () -> Unit
 ) {
@@ -532,7 +532,7 @@ private fun PlayerSelectCard(
     isClickable: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties
+    theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties
 ) {
     val containerColor = when {
         isWinner -> MaterialTheme.colorScheme.primaryContainer
@@ -576,7 +576,7 @@ fun SchedulingPanel(
     campaign: Campaign,
     initialPlayersPerGame: Int,
     initialAssignments: Map<String, Int>,
-    theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties,
+    theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties,
     onConfirm: (List<CampaignGame>, List<String>) -> Unit,
     onCancel: (() -> Unit)?
 ) {
@@ -794,7 +794,7 @@ fun MachinationsTab(
     campaign: Campaign,
     state: CharacterState,
     viewModel: CharacterViewModel,
-    theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties
+    theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties
 ) {
     var isAdding by remember { mutableStateOf(false) }
     val currentRoundMachinations = campaign.rounds.find { it.roundNumber == campaign.currentRound }?.machinations ?: emptyList()
@@ -876,7 +876,7 @@ fun MachinationsTab(
 private fun MachinationCard(
     mach: CampaignMachination,
     campaign: Campaign,
-    theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties,
+    theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties,
     onDelete: () -> Unit
 ) {
     val source = campaign.players.find { it.id == mach.sourcePlayerId }
@@ -925,7 +925,7 @@ private fun MachinationCard(
 @Composable
 private fun AddMachinationPanel(
     campaign: Campaign,
-    theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties,
+    theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties,
     onConfirm: (String, String, MachinationType) -> Unit,
     onCancel: () -> Unit
 ) {
@@ -1018,7 +1018,7 @@ fun AttacksTab(
     campaign: Campaign,
     state: CharacterState,
     viewModel: CharacterViewModel,
-    theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties
+    theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties
 ) {
     var isAdding by remember { mutableStateOf(false) }
     val currentRoundAttacks = campaign.rounds.find { it.roundNumber == campaign.currentRound }?.attacks ?: emptyList()
@@ -1103,7 +1103,7 @@ private fun AttackCard(
     attack: CampaignAttack,
     campaign: Campaign,
     state: CharacterState,
-    theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties,
+    theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties,
     onDelete: () -> Unit
 ) {
     val source = campaign.players.find { it.id == attack.sourcePlayerId }
@@ -1157,7 +1157,7 @@ private fun AttackCard(
 private fun AddAttackPanel(
     campaign: Campaign,
     state: CharacterState,
-    theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties,
+    theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties,
     onConfirm: (String, String, Int, AttackType) -> Unit,
     onCancel: () -> Unit
 ) {
@@ -1337,7 +1337,7 @@ fun PlayerDropdown(players: List<CampaignPlayer>, selectedId: String, onSelected
 }
 
 @Composable
-fun HistoryTab(campaign: Campaign, state: CharacterState, theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties) {
+fun HistoryTab(campaign: Campaign, state: CharacterState, theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties) {
     val rounds = campaign.rounds.reversed()
 
     if (rounds.isEmpty()) {
@@ -1559,7 +1559,7 @@ private fun MachinationPhasePanel(
     state: CharacterState,
     currentRound: CampaignRound?,
     viewModel: CharacterViewModel,
-    theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties,
+    theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties,
     onConfirm: (List<CampaignMachination>, List<CampaignAttack>) -> Unit,
     onSaveDraft: () -> Unit
 ) {
@@ -1692,7 +1692,7 @@ private fun PlayerMachinationCard(
     onAttackTargetCharChange: (Int) -> Unit,
     allPlayers: List<CampaignPlayer>,
     state: CharacterState,
-    theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties
+    theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties
 ) {
     val attackTargetTroupe = state.troupes.find { it.id == allPlayers.find { p -> p.id == attackTargetPlayer }?.troupeId }
     val attackTargetCharacters = attackTargetTroupe?.characterIds?.mapNotNull { id -> state.characters.find { it.id == id } } ?: emptyList()

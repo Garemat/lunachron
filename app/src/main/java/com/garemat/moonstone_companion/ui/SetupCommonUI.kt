@@ -1,4 +1,4 @@
-package com.garemat.moonstone_companion.ui
+package io.github.garemat.lunachron.ui
 
 import androidx.compose.animation.*
 import androidx.compose.foundation.Image
@@ -21,10 +21,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.garemat.moonstone_companion.AppTheme
-import com.garemat.moonstone_companion.HostMode
-import com.garemat.moonstone_companion.ui.theme.LocalAppTheme
-import com.garemat.moonstone_companion.ui.theme.LocalAppThemeProperties
+import io.github.garemat.lunachron.AppTheme
+import io.github.garemat.lunachron.HostMode
+import io.github.garemat.lunachron.ui.theme.LocalAppTheme
+import io.github.garemat.lunachron.ui.theme.LocalAppThemeProperties
 
 @Composable
 fun SetupModeSelection(

@@ -1,4 +1,4 @@
-package com.garemat.moonstone_companion
+package io.github.garemat.lunachron
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey

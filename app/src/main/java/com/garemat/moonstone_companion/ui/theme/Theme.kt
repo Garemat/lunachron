@@ -1,4 +1,4 @@
-package com.garemat.moonstone_companion.ui.theme
+package io.github.garemat.lunachron.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
@@ -8,8 +8,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
-import com.garemat.moonstone_companion.AppTheme
-import com.garemat.moonstone_companion.LayoutDensity
+import io.github.garemat.lunachron.AppTheme
+import io.github.garemat.lunachron.LayoutDensity
 
 val LocalAppTheme = staticCompositionLocalOf { AppTheme.DEFAULT }
 
@@ -43,7 +43,7 @@ private val LightColorScheme = lightColorScheme(
 )
 
 @Composable
-fun MoonstonecompanionTheme(
+fun LunachronTheme(
     appTheme: AppTheme = AppTheme.DEFAULT,
     layoutDensity: LayoutDensity = LayoutDensity.COZY,
     darkTheme: Boolean = isSystemInDarkTheme(),

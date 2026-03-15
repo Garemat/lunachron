@@ -10,11 +10,11 @@ plugins {
 }
 
 android {
-    namespace = "com.garemat.moonstone_companion"
+    namespace = "io.github.garemat.lunachron"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.garemat.moonstone_companion"
+        applicationId = "io.github.garemat.lunachron"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
@@ -67,17 +67,23 @@ android {
 }
 
 // ---------------------------------------------------------------------------
-// Task: download the latest moonstone-companion-data release compendium.json
-// into app/src/main/assets/ so the bundled seed is always up-to-date at build
-// time. The assets/ folder is gitignored — these files are never committed.
+// Task: download the pinned lunachron-data release assets into
+// app/src/main/assets/ so the bundled seed is deterministic at build time.
+// The pinned tag is read from data.version in the repo root — this file is
+// committed and updated by CI on each app release, giving F-Droid and local
+// builds a reproducible, auditable data snapshot.
+// The assets/ folder is gitignored — these files are never committed.
 // ---------------------------------------------------------------------------
 val dataAssetsDir = file("src/main/assets")
 val compendiumAsset = "compendium.json"
-val dataApiUrl = "https://api.github.com/repos/garemat/moonstone-companion-data/releases/latest"
+val dataRepo = "garemat/lunachron-data"
+// Read pinned version from data.version in the repo root.
+val dataVersionFile = rootProject.file("data.version")
+val pinnedDataTag = if (dataVersionFile.exists()) dataVersionFile.readText().trim() else "v0.1.0"
 
 tasks.register("downloadDataAssets") {
-    description = "Downloads the latest compendium.json from moonstone-companion-data."
-    group = "moonstone"
+    description = "Downloads compendium.json from the pinned lunachron-data release (tag in data.version)."
+    group = "lunachron"
 
     outputs.files(file("${dataAssetsDir}/$compendiumAsset"))
 
@@ -88,10 +94,11 @@ tasks.register("downloadDataAssets") {
     doLast {
         dataAssetsDir.mkdirs()
 
-        logger.lifecycle("Fetching latest data release from GitHub...")
+        val tagUrl = "https://api.github.com/repos/$dataRepo/releases/tags/$pinnedDataTag"
+        logger.lifecycle("Fetching data release $pinnedDataTag from $dataRepo...")
         @Suppress("UNCHECKED_CAST")
         val release = JsonSlurper().parseText(
-            URI(dataApiUrl).toURL().openStream().bufferedReader().readText()
+            URI(tagUrl).toURL().openStream().bufferedReader().readText()
         ) as Map<String, Any>
 
         val tag = release["tag_name"] as String
@@ -154,7 +161,7 @@ dependencies {
     implementation(libs.androidx.camera.camera2)
     implementation(libs.androidx.camera.lifecycle)
     implementation(libs.androidx.camera.view)
-    implementation(libs.play.services.mlkit.barcode.scanning)
+    implementation(libs.mlkit.barcode.scanning)
 
     implementation(libs.jsoup)
     implementation(libs.ktor.client.core)

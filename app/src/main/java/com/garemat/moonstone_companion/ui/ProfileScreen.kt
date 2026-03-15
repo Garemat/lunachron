@@ -1,4 +1,4 @@
-package com.garemat.moonstone_companion.ui
+package io.github.garemat.lunachron.ui
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -7,8 +7,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.garemat.moonstone_companion.CharacterEvent
-import com.garemat.moonstone_companion.CharacterState
+import io.github.garemat.lunachron.CharacterEvent
+import io.github.garemat.lunachron.CharacterState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

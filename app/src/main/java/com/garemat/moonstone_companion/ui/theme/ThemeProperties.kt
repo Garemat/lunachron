@@ -1,4 +1,4 @@
-package com.garemat.moonstone_companion.ui.theme
+package io.github.garemat.lunachron.ui.theme
 
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -15,8 +15,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.garemat.moonstone_companion.AppTheme
-import com.garemat.moonstone_companion.LayoutDensity
+import io.github.garemat.lunachron.AppTheme
+import io.github.garemat.lunachron.LayoutDensity
 
 @Immutable
 data class AppThemeProperties(

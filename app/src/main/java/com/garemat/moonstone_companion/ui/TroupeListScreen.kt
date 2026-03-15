@@ -1,4 +1,4 @@
-package com.garemat.moonstone_companion.ui
+package io.github.garemat.lunachron.ui
 
 import android.content.Context
 import android.content.Intent
@@ -22,8 +22,8 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.garemat.moonstone_companion.*
-import com.garemat.moonstone_companion.ui.theme.LocalAppThemeProperties
+import io.github.garemat.lunachron.*
+import io.github.garemat.lunachron.ui.theme.LocalAppThemeProperties
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

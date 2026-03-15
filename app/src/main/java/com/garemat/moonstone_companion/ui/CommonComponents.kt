@@ -1,4 +1,4 @@
-package com.garemat.moonstone_companion.ui
+package io.github.garemat.lunachron.ui
 
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.Canvas
@@ -42,10 +42,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.garemat.moonstone_companion.*
-import com.garemat.moonstone_companion.ui.theme.LocalAppTheme
-import com.garemat.moonstone_companion.R
-import com.garemat.moonstone_companion.ui.theme.LocalAppThemeProperties
+import io.github.garemat.lunachron.*
+import io.github.garemat.lunachron.ui.theme.LocalAppTheme
+import io.github.garemat.lunachron.R
+import io.github.garemat.lunachron.ui.theme.LocalAppThemeProperties
 import java.io.File
 
 // --- Base Utilities ---
@@ -724,7 +724,7 @@ fun HealthPip(
     energyTrack: List<Int>,
     size: Dp,
     isEditable: Boolean,
-    theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties,
+    theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties,
     onHealthChange: (Int) -> Unit
 ) {
     val isEnergy = energyTrack.contains(pip)

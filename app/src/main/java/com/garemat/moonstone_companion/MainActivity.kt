@@ -1,4 +1,4 @@
-package com.garemat.moonstone_companion
+package io.github.garemat.lunachron
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -17,7 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import com.garemat.moonstone_companion.ui.theme.AppThemeProperties
+import io.github.garemat.lunachron.ui.theme.AppThemeProperties
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.dp
@@ -33,9 +33,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.garemat.moonstone_companion.ui.*
-import com.garemat.moonstone_companion.ui.theme.LocalAppThemeProperties
-import com.garemat.moonstone_companion.ui.theme.MoonstonecompanionTheme
+import io.github.garemat.lunachron.ui.*
+import io.github.garemat.lunachron.ui.theme.LocalAppThemeProperties
+import io.github.garemat.lunachron.ui.theme.LunachronTheme
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -73,7 +73,7 @@ class MainActivity : ComponentActivity() {
             var targetManualPlayerId by remember { mutableStateOf<String?>(null) }
             var isSelectingForCampaign by remember { mutableStateOf(false) }
 
-            MoonstonecompanionTheme(
+            LunachronTheme(
                 appTheme = state.theme,
                 layoutDensity = state.layoutDensity
             ) {

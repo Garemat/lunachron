@@ -1,4 +1,4 @@
-package com.garemat.moonstone_companion.ui
+package io.github.garemat.lunachron.ui
 
 sealed class Screen(val route: String) {
     data object Home : Screen("home")

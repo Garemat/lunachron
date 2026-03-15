@@ -1,4 +1,4 @@
-package com.garemat.moonstone_companion
+package io.github.garemat.lunachron
 
 import android.content.Context
 import android.content.Context.MODE_PRIVATE
@@ -15,8 +15,8 @@ import java.io.File
 import java.util.zip.ZipInputStream
 
 private const val TAG = "DataUpdateRepository"
-private const val DATA_REPO = "garemat/moonstone-companion-data"
-private const val PREFS_NAME = "moonstone_prefs"
+private const val DATA_REPO = "garemat/lunachron-data"
+private const val PREFS_NAME = "lunachron_prefs"
 private const val KEY_IMAGE_VERSION = "image_version"
 private const val KEY_SKIP_DATA_VERSION = "skip_data_version"
 private const val KEY_SKIP_IMAGE_VERSION = "skip_image_version"

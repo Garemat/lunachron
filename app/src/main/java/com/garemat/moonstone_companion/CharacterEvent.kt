@@ -1,4 +1,4 @@
-package com.garemat.moonstone_companion
+package io.github.garemat.lunachron
 
 sealed interface CharacterEvent {
     data object SaveCharacter : CharacterEvent

@@ -1,4 +1,4 @@
-package com.garemat.moonstone_companion
+package io.github.garemat.lunachron
 
 import android.app.Application
 import android.content.Context
@@ -13,7 +13,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.garemat.moonstone_companion.ui.CampaignSubScreen
+import io.github.garemat.lunachron.ui.CampaignSubScreen
 import io.ktor.client.*
 import io.ktor.client.engine.android.*
 import io.ktor.client.plugins.HttpTimeout
@@ -36,7 +36,27 @@ class CharacterViewModel(
     private val dataUpdateRepository: DataUpdateRepository
 ) : AndroidViewModel(application) {
 
-    private val prefs = application.getSharedPreferences("moonstone_prefs", Context.MODE_PRIVATE)
+    private val prefs = run {
+        // One-time migration from legacy "moonstone_prefs" key to "lunachron_prefs".
+        val oldPrefs = application.getSharedPreferences("moonstone_prefs", Context.MODE_PRIVATE)
+        val newPrefs = application.getSharedPreferences("lunachron_prefs", Context.MODE_PRIVATE)
+        if (oldPrefs.all.isNotEmpty() && newPrefs.all.isEmpty()) {
+            val editor = newPrefs.edit()
+            @Suppress("UNCHECKED_CAST")
+            oldPrefs.all.forEach { (key, value) ->
+                when (value) {
+                    is String  -> editor.putString(key, value)
+                    is Int     -> editor.putInt(key, value)
+                    is Boolean -> editor.putBoolean(key, value)
+                    is Float   -> editor.putFloat(key, value)
+                    is Long    -> editor.putLong(key, value)
+                }
+            }
+            editor.apply()
+            oldPrefs.edit().clear().apply()
+        }
+        newPrefs
+    }
     private val nearbyManager = NearbyManager(application)
     private val client = HttpClient(Android) {
         install(HttpTimeout) {

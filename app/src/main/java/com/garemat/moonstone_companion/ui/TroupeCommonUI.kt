@@ -1,4 +1,4 @@
-package com.garemat.moonstone_companion.ui
+package io.github.garemat.lunachron.ui
 
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.Image
@@ -28,8 +28,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.garemat.moonstone_companion.*
-import com.garemat.moonstone_companion.ui.theme.LocalAppTheme
+import io.github.garemat.lunachron.*
+import io.github.garemat.lunachron.ui.theme.LocalAppTheme
 
 @Composable
 fun TroupeSelector(

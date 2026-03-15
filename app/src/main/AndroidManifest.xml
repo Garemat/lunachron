@@ -23,12 +23,12 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Moonstonecompanion">
+        android:theme="@style/Theme.Lunachron">
         <activity
-            android:name="com.garemat.moonstone_companion.MainActivity"
+            android:name="io.github.garemat.lunachron.MainActivity"
             android:exported="true"
             android:label="@string/app_name"
-            android:theme="@style/Theme.Moonstonecompanion">
+            android:theme="@style/Theme.Lunachron">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

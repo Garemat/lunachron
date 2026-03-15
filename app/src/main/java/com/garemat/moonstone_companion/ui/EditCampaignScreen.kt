@@ -1,7 +1,7 @@
-package com.garemat.moonstone_companion.ui
+package io.github.garemat.lunachron.ui
 
 import androidx.compose.runtime.*
-import com.garemat.moonstone_companion.*
+import io.github.garemat.lunachron.*
 
 @Composable
 fun EditCampaignScreen(

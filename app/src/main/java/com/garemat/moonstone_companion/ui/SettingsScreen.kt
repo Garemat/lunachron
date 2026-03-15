@@ -1,4 +1,4 @@
-package com.garemat.moonstone_companion.ui
+package io.github.garemat.lunachron.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -12,14 +12,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.garemat.moonstone_companion.AppTheme
-import com.garemat.moonstone_companion.CharacterEvent
-import com.garemat.moonstone_companion.CharacterState
-import com.garemat.moonstone_companion.GameLayoutMode
-import com.garemat.moonstone_companion.GameTrackingMode
-import com.garemat.moonstone_companion.ImageDownloadPreference
-import com.garemat.moonstone_companion.LayoutDensity
-import com.garemat.moonstone_companion.ui.theme.LocalAppThemeProperties
+import io.github.garemat.lunachron.AppTheme
+import io.github.garemat.lunachron.CharacterEvent
+import io.github.garemat.lunachron.CharacterState
+import io.github.garemat.lunachron.GameLayoutMode
+import io.github.garemat.lunachron.GameTrackingMode
+import io.github.garemat.lunachron.ImageDownloadPreference
+import io.github.garemat.lunachron.LayoutDensity
+import io.github.garemat.lunachron.ui.theme.LocalAppThemeProperties
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -284,7 +284,7 @@ fun SettingsScreen(
 }
 
 @Composable
-fun SelectionOption(title: String, selected: Boolean, onSelect: () -> Unit, theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties, subtitle: String? = null) {
+fun SelectionOption(title: String, selected: Boolean, onSelect: () -> Unit, theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties, subtitle: String? = null) {
     Row(
         modifier = Modifier.fillMaxWidth().clickable { onSelect() }.padding(vertical = theme.verticalSpacing / 4),
         verticalAlignment = Alignment.CenterVertically
@@ -299,9 +299,9 @@ fun SelectionOption(title: String, selected: Boolean, onSelect: () -> Unit, them
 
 // Aliases kept for backward compatibility within this file
 @Composable
-fun ThemeOption(title: String, selected: Boolean, onSelect: () -> Unit, theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties) =
+fun ThemeOption(title: String, selected: Boolean, onSelect: () -> Unit, theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties) =
     SelectionOption(title, selected, onSelect, theme)
 
 @Composable
-fun DensityOption(title: String, selected: Boolean, onSelect: () -> Unit, theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties) =
+fun DensityOption(title: String, selected: Boolean, onSelect: () -> Unit, theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties) =
     SelectionOption(title, selected, onSelect, theme)

@@ -1,4 +1,4 @@
-package com.garemat.moonstone_companion.ui.theme
+package io.github.garemat.lunachron.ui.theme
 
 import androidx.compose.ui.graphics.Color
 

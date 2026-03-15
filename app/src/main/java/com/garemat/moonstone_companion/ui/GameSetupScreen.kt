@@ -1,4 +1,4 @@
-package com.garemat.moonstone_companion.ui
+package io.github.garemat.lunachron.ui
 
 import android.Manifest
 import android.content.pm.PackageManager
@@ -24,7 +24,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import com.garemat.moonstone_companion.*
+import io.github.garemat.lunachron.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -212,7 +212,7 @@ fun GameSetupScreen(
                 HostModeDialog(
                     onSelectMode = { mode ->
                         showHostModeDialog = false
-                        if (mode == com.garemat.moonstone_companion.HostMode.WIFI_DIRECT) {
+                        if (mode == io.github.garemat.lunachron.HostMode.WIFI_DIRECT) {
                             checkAndRunNearbyAction {
                                 viewModel.startHosting(state.name.ifEmpty { "Host" }, mode)
                             }

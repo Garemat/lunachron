@@ -1,4 +1,4 @@
-package com.garemat.moonstone_companion.ui
+package io.github.garemat.lunachron.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
@@ -29,8 +29,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.garemat.moonstone_companion.*
-import com.garemat.moonstone_companion.ui.theme.LocalAppThemeProperties
+import io.github.garemat.lunachron.*
+import io.github.garemat.lunachron.ui.theme.LocalAppThemeProperties
 import kotlinx.coroutines.launch
 
 enum class TroupeEditStage {
@@ -238,7 +238,7 @@ fun AddEditTroupeScreen(
 private fun SetupStage(
     viewModel: CharacterViewModel,
     state: CharacterState,
-    theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties,
+    theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties,
     isNameError: Boolean,
     onNameChange: (String) -> Unit,
     onNext: () -> Unit,
@@ -275,7 +275,7 @@ private fun SetupStage(
 @Composable
 private fun CreateTroupeTab(
     viewModel: CharacterViewModel,
-    theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties,
+    theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties,
     isNameError: Boolean,
     onNameChange: (String) -> Unit,
     onNext: () -> Unit,
@@ -310,7 +310,7 @@ private fun CreateTroupeTab(
 private fun ImportTroupeTab(
     viewModel: CharacterViewModel,
     state: CharacterState,
-    theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties,
+    theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties,
     onBack: () -> Unit,
     onImportSuccess: () -> Unit
 ) {
@@ -388,7 +388,7 @@ private fun ImportTroupeTab(
 private fun DashboardStage(
     viewModel: CharacterViewModel,
     state: CharacterState,
-    theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties,
+    theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties,
     expandedCharacterId: Int?,
     onExpandClick: (Int) -> Unit,
     onTargetPositioned: (String, LayoutCoordinates) -> Unit,
@@ -495,7 +495,7 @@ private fun DashboardStage(
 @Composable
 private fun UpgradeSelectionStage(
     state: CharacterState,
-    theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties,
+    theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties,
     searchQuery: String,
     onSearchQueryChange: (String) -> Unit,
     selectedIds: Set<Int>,
@@ -541,7 +541,7 @@ private fun UpgradeSelectionStage(
 @Composable
 private fun CampaignCardSelectionStage(
     state: CharacterState,
-    theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties,
+    theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties,
     searchQuery: String,
     onSearchQueryChange: (String) -> Unit,
     selectedIds: Set<Int>,
@@ -582,7 +582,7 @@ private fun CampaignCardSelectionStage(
 }
 
 @Composable
-private fun CharacterSelectionStage(state: CharacterState, theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties, searchQuery: String, onSearchQueryChange: (String) -> Unit, selectedTags: MutableList<String>, availableTags: List<String>, selectedIds: Set<Int>, onSelectionChange: (Set<Int>) -> Unit, expandedCharacterId: Int?, onExpandClick: (Int) -> Unit, onTargetPositioned: (String, LayoutCoordinates) -> Unit, selectedTroupeFaction: Faction) {
+private fun CharacterSelectionStage(state: CharacterState, theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties, searchQuery: String, onSearchQueryChange: (String) -> Unit, selectedTags: MutableList<String>, availableTags: List<String>, selectedIds: Set<Int>, onSelectionChange: (Set<Int>) -> Unit, expandedCharacterId: Int?, onExpandClick: (Int) -> Unit, onTargetPositioned: (String, LayoutCoordinates) -> Unit, selectedTroupeFaction: Faction) {
     val factionCharacters = remember(state.characters, selectedTroupeFaction, searchQuery, selectedTags.toList()) {
         state.characters.filter { it.factions.contains(selectedTroupeFaction) }.filter { char ->
             val matchesSearch = searchQuery.isEmpty() || char.name.contains(searchQuery, ignoreCase = true) || char.keywords.any { it.contains(searchQuery, ignoreCase = true) }
@@ -616,12 +616,12 @@ private fun CharacterSelectionStage(state: CharacterState, theme: com.garemat.mo
 }
 
 @Composable
-private fun DiscardConfirmationDialog(theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties, title: String = "Discard Changes?", onDismiss: () -> Unit, onConfirm: () -> Unit) {
+private fun DiscardConfirmationDialog(theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties, title: String = "Discard Changes?", onDismiss: () -> Unit, onConfirm: () -> Unit) {
     AlertDialog(onDismissRequest = onDismiss, shape = theme.cardShape, title = { Text(title) }, text = { Text("Unsaved changes will be discarded. Are you sure you want to go back?") }, confirmButton = { TextButton(onClick = onConfirm) { Text("Discard", color = MaterialTheme.colorScheme.error) } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } })
 }
 
 @Composable
-private fun DashboardFabColumn(viewModel: CharacterViewModel, theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties, onAddCharacters: () -> Unit, onShowSettings: () -> Unit, onSave: () -> Unit, onTargetPositioned: (String, LayoutCoordinates) -> Unit) {
+private fun DashboardFabColumn(viewModel: CharacterViewModel, theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties, onAddCharacters: () -> Unit, onShowSettings: () -> Unit, onSave: () -> Unit, onTargetPositioned: (String, LayoutCoordinates) -> Unit) {
     Box(modifier = Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.BottomEnd) {
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(12.dp)) {
             SmallFloatingActionButton(onClick = onAddCharacters, shape = theme.navItemShape, modifier = Modifier.onGloballyPositioned { onTargetPositioned("AddCharactersButton", it) }) { Icon(Icons.Default.PersonAdd, contentDescription = null) }
@@ -632,7 +632,7 @@ private fun DashboardFabColumn(viewModel: CharacterViewModel, theme: com.garemat
 }
 
 @Composable
-private fun SettingsOverlay(viewModel: CharacterViewModel, theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties, isTutorialActive: Boolean, onClose: () -> Unit, onTargetPositioned: (String, LayoutCoordinates) -> Unit) {
+private fun SettingsOverlay(viewModel: CharacterViewModel, theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties, isTutorialActive: Boolean, onClose: () -> Unit, onTargetPositioned: (String, LayoutCoordinates) -> Unit) {
     Box(modifier = Modifier.fillMaxSize().clickable(enabled = !isTutorialActive) { onClose() }, contentAlignment = Alignment.Center) {
         Surface(modifier = Modifier.fillMaxWidth(0.9f).padding(16.dp).clickable(enabled = false) { }, shape = theme.cardShape, color = MaterialTheme.colorScheme.surface, tonalElevation = 6.dp, shadowElevation = theme.surfaceElevation) {
             Column(modifier = Modifier.padding(24.dp)) {
@@ -653,7 +653,7 @@ private fun SettingsOverlay(viewModel: CharacterViewModel, theme: com.garemat.mo
 }
 
 @Composable
-private fun SaveValidationDialog(viewModel: CharacterViewModel, theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+private fun SaveValidationDialog(viewModel: CharacterViewModel, theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties, onDismiss: () -> Unit, onConfirm: () -> Unit) {
     val count = viewModel.selectedCharacterIds.size
     AlertDialog(onDismissRequest = { onDismiss() }, shape = theme.cardShape, title = { Text("Save Troupe") }, text = {
         Column {
