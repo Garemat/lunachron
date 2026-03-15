@@ -14,7 +14,7 @@ serialization = "1.10.0"
 navigationCompose = "2.9.7"
 zxing = "3.5.4"
 cameraX = "1.5.3"
-playServicesMlKitBarcode = "18.3.1"
+mlkitBarcodeScanning = "17.3.0"
 jsoup = "1.22.1"
 ktor = "3.0.1"
 coil = "2.7.0"
@@ -44,7 +44,7 @@ androidx-camera-core = { group = "androidx.camera", name = "camera-core", versio
 androidx-camera-camera2 = { group = "androidx.camera", name = "camera-camera2", version.ref = "cameraX" }
 androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "cameraX" }
 androidx-camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "cameraX" }
-play-services-mlkit-barcode-scanning = { group = "com.google.android.gms", name = "play-services-mlkit-barcode-scanning", version.ref = "playServicesMlKitBarcode" }
+mlkit-barcode-scanning = { group = "com.google.mlkit", name = "barcode-scanning", version.ref = "mlkitBarcodeScanning" }
 jsoup = { group = "org.jsoup", name = "jsoup", version.ref = "jsoup" }
 ktor-client-core = { group = "io.ktor", name = "ktor-client-core", version.ref = "ktor" }
 ktor-client-android = { group = "io.ktor", name = "ktor-client-android", version.ref = "ktor" }

@@ -26,5 +26,5 @@ local.properties
 
 /app/src/main/assets/
 
-/app/src/androidTest/java/com/garemat/moonstone_companion/ExampleInstrumentedTest.kt
-/app/src/test/java/com/garemat/moonstone_companion/ExampleUnitTest.kt
+/app/src/androidTest/java/io/github/garemat/lunachron/ExampleInstrumentedTest.kt
+/app/src/test/java/io/github/garemat/lunachron/ExampleUnitTest.kt

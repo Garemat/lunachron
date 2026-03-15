@@ -1,0 +1,28 @@
+Lunachron is a free, open-source companion app for the Moonstone tabletop miniatures game by Goblin King Games.
+
+Track everything during a game:
+• Health pips with chunked groups for fast reading
+• Energy counters, moonstone tallies, and once-per-turn ability markers
+• Two layout modes — compact grid for a quick overview, detailed list for full card info
+• Low-detail mode for players who prefer to track resources physically
+
+Build and manage your collection:
+• Full character compendium with stats, abilities, and faction info
+• Upgrade card library with search and filtering
+• Troupe builder with QR code sharing — scan a code to instantly import a friend's roster
+• Campaign cards reference
+
+Play modes:
+• Solo mode for only tracking a single troupe
+• Casual local multiplayer over Wi-Fi (no internet or cloud account required) to auto sync troupes
+• Local tournament bracket management
+
+Campaigns:
+• Track ongoing campaign progress, standings, and game history
+
+All game data is bundled with the app and works fully offline. Optional portrait images and data updates can be downloaded from the open data repository — you are always prompted before any download.
+
+No accounts, no ads, no tracking, no proprietary services required.
+
+Source code: https://github.com/Garemat/lunachron
+Game data: https://github.com/Garemat/lunachron-data
