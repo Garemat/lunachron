@@ -64,6 +64,7 @@ class CharacterViewModel(
         gameLayoutMode = GameLayoutMode.valueOf(prefs.getString("game_layout_mode", GameLayoutMode.COMPACT_GRID.name) ?: GameLayoutMode.COMPACT_GRID.name),
         newsItems = loadCachedNews(),
         autoCheckDataUpdates = dataUpdateRepository.loadAutoCheck(),
+        installedDataVersion = CharacterData.getInstalledVersion(application),
         imageDownloadPreference = dataUpdateRepository.loadImagePreference()
     ))
     
