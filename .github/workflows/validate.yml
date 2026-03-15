@@ -8,6 +8,11 @@ on:
         type: string
         required: false
         default: ''
+      skip_pr_validation:
+        description: "Skip PR template validation (Dependabot only)"
+        type: boolean
+        required: false
+        default: false
 
 jobs:
   validate:
@@ -17,7 +22,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Validate PR Template
-        if: inputs.pr_body != ''
+        if: '!inputs.skip_pr_validation'
         env:
           PR_BODY: ${{ inputs.pr_body }}
         run: |

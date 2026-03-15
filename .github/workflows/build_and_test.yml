@@ -9,3 +9,6 @@ jobs:
     uses: garemat/moonstone-companion/.github/workflows/validate.yml@main
     with:
       pr_body: ${{ github.event.pull_request.body }}
+      # Dependabot generates its own PR body and cannot fill in the checklist.
+      # All other actors must pass validation — a blank body will fail the grep.
+      skip_pr_validation: ${{ github.actor == 'dependabot[bot]' }}
