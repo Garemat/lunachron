@@ -40,10 +40,12 @@ This is a single-`Activity` Android app using Jetpack Compose with a unidirectio
 - `CharacterState.kt` — Single immutable state object holding all UI state (characters, troupes, campaigns, tournament state, active game state, etc.)
 - `CharacterViewModel.kt` — Central ViewModel; processes events, manages `NearbyManager`, Ktor HTTP client (for news/rules), and exposes `state: StateFlow<CharacterState>`
 - `Character.kt` — All domain model data classes (`Character`, `Troupe`, `Campaign`, `GameResult`, `UpgradeCard`, `CampaignCard`, etc.)
-- `CharacterDatabase.kt` — Room database singleton; auto-populates from assets on create/open
-- `CharacterDAO.kt` — Room DAO with Flow-returning queries
+- `GameDatabase.kt` — Room database for game data (Character, UpgradeCard, CampaignCard); uses `fallbackToDestructiveMigration()`, always reseedable from compendium
+- `UserDatabase.kt` — Room database for user data (Troupe, Campaign, GameResult); **never** uses `fallbackToDestructiveMigration()` — all schema changes require explicit `Migration` objects to preserve user data
+- `GameDataDAO.kt` — DAO for game data entities
+- `UserDataDAO.kt` — DAO for user data entities
 - `CharacterData.kt` — Parses JSON assets into domain objects
-- `NearbyManager.kt` — Wraps Google Play Services Nearby Connections API (P2P_STAR strategy) for multiplayer
+- `NearbyManager.kt` — P2P multiplayer via Android NSD (mDNS) + TCP sockets; supports `WIFI_NSD` (same router) and `WIFI_DIRECT` (no router) host modes
 - `Converters.kt` — Room TypeConverters for serializing complex types (lists, maps, enums) as JSON strings
 - `MainActivity.kt` — Sets up NavHost with all routes, bottom nav bar (Home/Compendium/Play/Troupes/Campaigns), and side drawer (Rules/Tutorial/Settings/Tournament/Stats)
 - `ui/Screen.kt` — Sealed class defining all navigation routes
@@ -58,14 +60,18 @@ Campaign screens: CampaignManagement → CampaignDetails / AddEditCampaign / Edi
 
 ### Data / Assets
 
-Game data (characters, upgrades, campaign cards) lives in `app/src/main/assets/`:
-- `characters/` — One JSON file per character (named `{id}_{name}.json`)
-- `upgrades/` — One JSON file per upgrade card
-- `campaign/` — One JSON file per campaign card
+Game data (characters, upgrades, campaign cards) is sourced from `moonstone-companion-data` repo and bundled as consolidated JSON files in `app/src/main/assets/`:
+- `characters.json` — All characters (aggregated from data repo)
+- `upgrades.json` — All upgrade cards
+- `campaign.json` — All campaign cards
 - `rules.json` — Rules reference data
 - `moonstone-data.json` — Additional game data
 
-The database uses `fallbackToDestructiveMigration()` — incrementing `version` in `CharacterDatabase.kt` will wipe and recreate the DB.
+`CharacterData.kt` reads from `filesDir/data/` first (downloaded updates), falling back to bundled assets. This means the app always works offline with bundled data, and updates are applied transparently when downloaded.
+
+**Database migration rules:**
+- `GameDatabase` uses `fallbackToDestructiveMigration()` — incrementing `version` in `GameDatabase.kt` will wipe and recreate game data, which is fine because it is always reseedable from the compendium.
+- `UserDatabase` must **never** use `fallbackToDestructiveMigration()` — incrementing `version` in `UserDatabase.kt` **requires** an explicit `Migration(from, to)` object with the SQL changes. Room will crash on launch rather than silently wipe user data if a migration is missing.
 
 `IntOrStringSerializer` in `Character.kt` handles JSON fields that may be either int or string.
 
@@ -80,7 +86,15 @@ The ViewModel processes JSON payloads from Nearby via `SessionMessages.kt` messa
 ### Factions
 
 Four factions: COMMONWEALTH, DOMINION, LESHAVULT, SHADES
-Characters can belong to multiple factions; the `shareCode` field on `Character` encodes faction combination (A=Commonwealth only, B=Dominion only, etc. — see README.md).
+Characters can belong to multiple factions.
+
+**Share codes** — every compendium item has a `shareCode` field (5 chars): `[type][faction][id0][id1][id2]`
+- Type: `A` = character, `B` = upgrade card, `C` = campaign card
+- Faction: `A`=Commonwealth, `B`=Dominion, `C`=Leshavult, `D`=Shades, `E`=Commonwealth+Dominion, `F`=Commonwealth+Leshavult, `G`=Commonwealth+Shades, `H`=Dominion+Leshavult, `I`=Dominion+Shades, `J`=Leshavult+Shades, `K`=All four factions (also used for items with no faction — upgrades/campaign cards)
+- ID digits: each digit encoded `A`=0 … `J`=9 (e.g. ID 42 → `EC`)
+- Share codes are stored directly in source JSON files in the data repo and validated by `scripts/lint_data.py`
+
+**Troupe share string** — `base64(faction_letter + char_code + upgrade_codes... + char_code + upgrade_codes...)` where items are concatenated in order with no delimiter (each code is always 5 chars).
 
 ### Theme
 
