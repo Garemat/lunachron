@@ -69,6 +69,11 @@ sealed interface CharacterEvent {
     data object DismissDataUpdate : CharacterEvent
     data class InstallDataUpdate(val release: GitHubRelease) : CharacterEvent
 
+    // App update events (opt-in; action opens browser, never installs APK in-app)
+    data class SetAutoCheckAppUpdates(val enabled: Boolean) : CharacterEvent
+    data object CheckForAppUpdate : CharacterEvent
+    data object DismissAppUpdate : CharacterEvent
+
     // Image download events
     data class SetImageDownloadPreference(val pref: ImageDownloadPreference) : CharacterEvent
     data object DownloadCharacterImages : CharacterEvent

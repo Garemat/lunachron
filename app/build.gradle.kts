@@ -135,6 +135,10 @@ configurations.all {
             group == "org.bitbucket.b_c"   && name == "jose4j"          -> useVersion("0.9.6")
             group == "org.jdom"            && name == "jdom2"            -> useVersion("2.0.6.1")
             group == "org.apache.commons"  && name == "commons-compress" -> useVersion("1.26.0")
+            // Compose BOM 2024.12.01 pins concurrent-futures strictly to 1.1.0, but
+            // espresso-core:3.7.0 and junit:1.3.0 require 1.2.0 — override the strict constraint.
+            group == "androidx.concurrent" && name == "concurrent-futures"     -> useVersion("1.2.0")
+            group == "androidx.concurrent" && name == "concurrent-futures-ktx" -> useVersion("1.2.0")
         }
     }
 }

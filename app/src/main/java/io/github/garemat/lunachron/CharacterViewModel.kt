@@ -85,7 +85,9 @@ class CharacterViewModel(
         newsItems = loadCachedNews(),
         autoCheckDataUpdates = dataUpdateRepository.loadAutoCheck(),
         installedDataVersion = CharacterData.getInstalledVersion(application),
-        imageDownloadPreference = dataUpdateRepository.loadImagePreference()
+        imageDownloadPreference = dataUpdateRepository.loadImagePreference(),
+        autoCheckAppUpdates = dataUpdateRepository.loadAutoCheckApp(),
+        installerSource = dataUpdateRepository.getInstallerSource()
     ))
     
     private val _characters = repository.getCharacters()
@@ -143,6 +145,12 @@ class CharacterViewModel(
             if (_state.value.autoCheckDataUpdates) {
                 dataUpdateRepository.checkForDataUpdate()
                     ?.let { release -> _state.update { it.copy(pendingDataUpdate = release) } }
+            }
+
+            // App update check (opt-in, off by default)
+            if (_state.value.autoCheckAppUpdates) {
+                dataUpdateRepository.checkForAppUpdate()
+                    ?.let { release -> _state.update { it.copy(pendingAppUpdate = release) } }
             }
 
             // Image update check
@@ -399,6 +407,19 @@ class CharacterViewModel(
             }
             CharacterEvent.EndGame -> handleReadyAction(GameAction.NEXT_TURN, forceEnd = true)
             is CharacterEvent.CreateTournament -> startHostingTournament(event.tournamentName, event.troupeSize, event.timer, event.hostParticipating, event.passcode, event.hostMode)
+
+            // App update events
+            is CharacterEvent.SetAutoCheckAppUpdates -> {
+                _state.update { it.copy(autoCheckAppUpdates = event.enabled) }
+                dataUpdateRepository.persistAutoCheckApp(event.enabled)
+            }
+            CharacterEvent.CheckForAppUpdate -> {
+                viewModelScope.launch(Dispatchers.IO) {
+                    dataUpdateRepository.checkForAppUpdate()
+                        ?.let { release -> _state.update { it.copy(pendingAppUpdate = release) } }
+                }
+            }
+            CharacterEvent.DismissAppUpdate -> _state.update { it.copy(pendingAppUpdate = null) }
 
             // Data update events
             is CharacterEvent.SetAutoCheckDataUpdates -> {

@@ -1,5 +1,7 @@
 package io.github.garemat.lunachron
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
@@ -36,6 +38,7 @@ import androidx.navigation.navArgument
 import io.github.garemat.lunachron.ui.*
 import io.github.garemat.lunachron.ui.theme.LocalAppThemeProperties
 import io.github.garemat.lunachron.ui.theme.LunachronTheme
+import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -672,6 +675,43 @@ private fun DataUpdateDialogs(
     onEvent: (CharacterEvent) -> Unit,
     theme: AppThemeProperties
 ) {
+    val context = LocalContext.current
+
+    // App update available
+    val appRelease = state.pendingAppUpdate
+    if (appRelease != null) {
+        AlertDialog(
+            onDismissRequest = { onEvent(CharacterEvent.DismissAppUpdate) },
+            title = { Text("App Update Available") },
+            text = {
+                if (state.installerSource == InstallerSource.FDROID) {
+                    Text("Version ${appRelease.tagName} is available. Open the F-Droid client to update.")
+                } else {
+                    Text("Version ${appRelease.tagName} is available on GitHub.")
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val url = if (state.installerSource == InstallerSource.FDROID)
+                            "https://f-droid.org/packages/io.github.garemat.lunachron/"
+                        else
+                            appRelease.htmlUrl
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                        onEvent(CharacterEvent.DismissAppUpdate)
+                    },
+                    shape = theme.cardShape
+                ) {
+                    Text(if (state.installerSource == InstallerSource.FDROID) "Open F-Droid" else "View Release")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { onEvent(CharacterEvent.DismissAppUpdate) }) { Text("Later") }
+            },
+            shape = theme.cardShape
+        )
+    }
+
     // First-launch image download prompt
     if (state.pendingImageUpdate == "FIRST_LAUNCH") {
         AlertDialog(
