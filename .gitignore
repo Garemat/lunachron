@@ -13,6 +13,9 @@
 /.idea/deploymentTargetSelector.xml
 /.idea/assetWizardSettings.xml
 /.idea/vcs.xml
+/.idea/deviceManager.xml
+/.idea/studiobot.xml
+/.idea/markdown.xml
 .DS_Store
 /build
 /captures
