@@ -21,6 +21,6 @@
 local.properties
 
 /app/src/main/assets/
-/app/src/main/res/drawable/
+
 /app/src/androidTest/java/com/garemat/moonstone_companion/ExampleInstrumentedTest.kt
 /app/src/test/java/com/garemat/moonstone_companion/ExampleUnitTest.kt

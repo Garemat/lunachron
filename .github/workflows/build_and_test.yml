@@ -6,54 +6,6 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Validate PR Template
-      env:
-        PR_BODY: ${{ github.event.pull_request.body }}
-      run: |
-        echo "Validating PR description..."
-        
-        # 1. Check if at least one Type of Change is selected
-        if ! echo "$PR_BODY" | grep -qEi "(- \[x\] (🐛 Bug fix|✨ New feature|💥 Breaking change|🧹 Chore))"; then
-          echo "::error::Validation Failed: Please select at least one 'Type of Change' in your PR description."
-          exit 1
-        fi
-
-        # 2. Check if all items in the Checklist are checked
-        # This looks at everything after the '## Checklist' header for any unchecked boxes '[ ]'
-        if echo "$PR_BODY" | sed -n '/## Checklist/,$p' | grep -q "\[ \]"; then
-          echo "::error::Validation Failed: Please ensure all items in the 'Checklist' are completed and checked."
-          exit 1
-        fi
-        
-        echo "PR Template validation passed!"
-
-    - name: set up JDK 17
-      uses: actions/setup-java@v4
-      with:
-        java-version: '17'
-        distribution: 'temurin'
-        cache: gradle
-
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
-      
-    - name: Run lint
-      run: ./gradlew lint
-
-    - name: Build with Gradle
-      run: ./gradlew build
-
-    - name: Run tests
-      run: ./gradlew test
-
-    - name: Upload build reports
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: build-reports
-        path: '**/build/reports/*'
+    uses: garemat/moonstone-companion/.github/workflows/validate.yml@main
+    with:
+      pr_body: ${{ github.event.pull_request.body }}

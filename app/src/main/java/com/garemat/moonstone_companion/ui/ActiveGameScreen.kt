@@ -217,6 +217,7 @@ fun ActiveGameScreen(
                                                 onAbilityToggle = { name, used -> viewModel.onEvent(CharacterEvent.ToggleAbilityUsed(pageIndex, charIndex, name, used)) },
                                                 onFlippedChange = { viewModel.onEvent(CharacterEvent.ToggleCharacterFlipped(pageIndex, charIndex, it)) },
                                                 onTap = { selectedChar = character to playState },
+                                                onTransform = if (character.transformsInto != null) { targetId -> viewModel.onEvent(CharacterEvent.TransformCharacter(pageIndex, charIndex, targetId)) } else null,
                                                 onStoneDragStart = { index, pos ->
                                                     draggingStoneIndex = index
                                                     draggingStoneSource = StoneSource.Character(pageIndex, charIndex)
@@ -293,7 +294,8 @@ fun ActiveGameScreen(
                                                         onEnergyChange = { viewModel.onEvent(CharacterEvent.UpdateCharacterEnergy(pageIndex, charIndex, it)) },
                                                         onExpandToggle = { viewModel.onEvent(CharacterEvent.ToggleCharacterExpanded(pageIndex, charIndex, !playState.isExpanded)) },
                                                         onAbilityToggle = { name, used -> viewModel.onEvent(CharacterEvent.ToggleAbilityUsed(pageIndex, charIndex, name, used)) },
-                                                        onFlip = { viewModel.onEvent(CharacterEvent.ToggleCharacterFlipped(pageIndex, charIndex, true)) }
+                                                        onFlip = { viewModel.onEvent(CharacterEvent.ToggleCharacterFlipped(pageIndex, charIndex, true)) },
+                                                        onTransform = if (character.transformsInto != null) { targetId -> viewModel.onEvent(CharacterEvent.TransformCharacter(pageIndex, charIndex, targetId)) } else null
                                                     )
                                                 }
                                                 if (playState.moonstones > 0) {
@@ -569,6 +571,7 @@ private fun GameCharacterGridCard(
     onAbilityToggle: (String, Boolean) -> Unit,
     onFlippedChange: (Boolean) -> Unit,
     onTap: () -> Unit,
+    onTransform: ((Int) -> Unit)? = null,
     onStoneDragStart: (Int, Offset) -> Unit,
     onStoneDrag: (Offset) -> Unit,
     onStoneDragEnd: () -> Unit
@@ -579,11 +582,10 @@ private fun GameCharacterGridCard(
     val stoneCoords = remember { mutableStateMapOf<Int, LayoutCoordinates>() }
 
     val sigName = remember(character) {
-        if (character.signatureMove.upgradeFrom.isNotEmpty()) character.signatureMove.upgradeFrom else character.signatureMove.name
+        character.signatureMove?.let { if (it.upgradeFor.isNotEmpty()) it.upgradeFor else it.name } ?: ""
     }
     val trackableAbilities = remember(character) {
-        (character.activeAbilities.filter { it.oncePerTurn || it.oncePerGame }.map { it.name } +
-         character.arcaneAbilities.filter { it.oncePerTurn || it.oncePerGame }.map { it.name })
+        character.abilities.filter { it.abilityType in listOf("Active", "Arcane") && (it.oncePerTurn || it.oncePerGame) }.map { it.name }
     }
 
     ThemedCard(
@@ -610,7 +612,7 @@ private fun GameCharacterGridCard(
                 Spacer(modifier = Modifier.width(6.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text("⚔ ${character.melee} | ${character.meleeRange}\"", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-                    Text("Evade ${character.evade}", style = MaterialTheme.typography.bodySmall)
+                    Text("Evade ${character.evade.toString()}", style = MaterialTheme.typography.bodySmall)
                     ModifierDisplay(character, isOffense = true)
                     ModifierDisplay(character, isOffense = false)
                 }
@@ -697,6 +699,23 @@ private fun GameCharacterGridCard(
             )
 
             SummonerIndicator(summoner)
+
+            if (onTransform != null && character.transformsInto != null) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(MaterialTheme.shapes.small)
+                        .clickable(enabled = isEditable) { onTransform(character.transformsInto) }
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(12.dp), tint = MaterialTheme.colorScheme.primary)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Transform", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                }
+            }
         }
     }
 }
@@ -894,6 +913,7 @@ fun FrontSide(
     onExpandToggle: () -> Unit,
     onAbilityToggle: (String, Boolean) -> Unit,
     onFlip: () -> Unit,
+    onTransform: ((Int) -> Unit)? = null,
     trackingMode: GameTrackingMode = GameTrackingMode.FULL_TRACKING
 ) {
     val theme = LocalAppThemeProperties.current
@@ -902,7 +922,7 @@ fun FrontSide(
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.SpaceBetween) {
             Column(modifier = Modifier.weight(1f).clickable { onFlip() }.padding(start = 24.dp)) {
                 Text(text = character.name, style = theme.titleStyle, color = MaterialTheme.colorScheme.primary)
-                val signature = if (character.signatureMove.upgradeFrom.isNotEmpty()) character.signatureMove.upgradeFrom else character.signatureMove.name
+                val signature = character.signatureMove?.let { if (it.upgradeFor.isNotEmpty()) it.upgradeFor else it.name } ?: ""
                 if (signature.isNotEmpty()) {
                     Text(text = signature, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary, fontStyle = FontStyle.Italic, modifier = Modifier.offset(y = (-8).dp))
                 }
@@ -915,7 +935,7 @@ fun FrontSide(
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
                     CommonStatBox("MELEE", "${character.melee} / ${character.meleeRange}\"", modifier = Modifier.weight(1f), horizontalAlignment = Alignment.Start)
                     CommonStatBox("ARCANE", character.arcane.toString(), modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally)
-                    CommonStatBox("EVADE", character.evade, modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally)
+                    CommonStatBox("EVADE", character.evade.toString(), modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally)
                 }
                 Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -950,19 +970,39 @@ fun FrontSide(
         }
         if (playState.isExpanded) {
             Spacer(modifier = Modifier.height(theme.verticalSpacing / 2)); HorizontalDivider(); Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
-            if (character.passiveAbilities.isNotEmpty()) {
+            val passiveAbilities = character.abilities.filter { it.abilityType == "Passive" }
+            val activeAbilities = character.abilities.filter { it.abilityType == "Active" }
+            val arcaneAbilities = character.abilities.filter { it.abilityType == "Arcane" }
+            if (passiveAbilities.isNotEmpty()) {
                 Text("PASSIVE ABILITIES", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                character.passiveAbilities.forEach { CommonAbilityItem(name = it.name, description = it.description, oncePerTurn = it.oncePerTurn, oncePerGame = it.oncePerGame) }
+                passiveAbilities.forEach { CommonAbilityItem(name = it.name, description = it.description, oncePerTurn = it.oncePerTurn, oncePerGame = it.oncePerGame) }
                 Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
             }
-            if (character.activeAbilities.isNotEmpty()) {
+            if (activeAbilities.isNotEmpty()) {
                 Text("ACTIVE ABILITIES", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                character.activeAbilities.forEach { it -> CommonAbilityItem(name = "${it.name} (${it.cost})${if (it.range.isNotEmpty()) " " + it.range else ""}", description = it.description, oncePerTurn = it.oncePerTurn, oncePerGame = it.oncePerGame, isUsed = playState.usedAbilities[it.name] ?: false, onUsedChange = { u -> onAbilityToggle(it.name, u) }, isEditable = isEditable) }
+                activeAbilities.forEach { ability -> CommonAbilityItem(name = "${ability.name} (${ability.energyCost ?: 0})${if ((ability.range ?: "").isNotEmpty()) " " + ability.range else ""}", description = ability.description, oncePerTurn = ability.oncePerTurn, oncePerGame = ability.oncePerGame, isUsed = playState.usedAbilities[ability.name] ?: false, onUsedChange = { u -> onAbilityToggle(ability.name, u) }, isEditable = isEditable) }
                 Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
             }
-            if (character.arcaneAbilities.isNotEmpty()) {
+            if (arcaneAbilities.isNotEmpty()) {
                 Text("ARCANE ABILITIES", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                character.arcaneAbilities.forEach { it -> CommonAbilityItem(name = "${it.name} (${it.cost})${if (it.range.isNotEmpty()) " " + it.range else ""}", description = it.description, oncePerTurn = it.oncePerTurn, oncePerGame = it.oncePerGame, reloadable = it.reloadable, isUsed = playState.usedAbilities[it.name] ?: false, onUsedChange = { u -> onAbilityToggle(it.name, u) }, isEditable = isEditable) }
+                arcaneAbilities.forEach { ability -> CommonAbilityItem(name = "${ability.name} (${ability.energyCost ?: 0})${if ((ability.range ?: "").isNotEmpty()) " " + ability.range else ""}", description = buildArcaneDescription(ability), oncePerTurn = ability.oncePerTurn, oncePerGame = ability.oncePerGame, isUsed = playState.usedAbilities[ability.name] ?: false, onUsedChange = { u -> onAbilityToggle(ability.name, u) }, isEditable = isEditable) }
+            }
+            if (onTransform != null && character.transformsInto != null) {
+                Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
+                HorizontalDivider()
+                Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(MaterialTheme.shapes.small)
+                        .clickable(enabled = isEditable) { onTransform(character.transformsInto) }
+                        .padding(vertical = 6.dp, horizontal = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Transform", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                }
             }
         }
     }

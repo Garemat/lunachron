@@ -1,3 +1,6 @@
+import groovy.json.JsonSlurper
+import java.net.URI
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -59,6 +62,56 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+}
+
+// ---------------------------------------------------------------------------
+// Task: download the latest moonstone-companion-data release compendium.json
+// into app/src/main/assets/ so the bundled seed is always up-to-date at build
+// time. The assets/ folder is gitignored — these files are never committed.
+// ---------------------------------------------------------------------------
+val dataAssetsDir = file("src/main/assets")
+val compendiumAsset = "compendium.json"
+val dataApiUrl = "https://api.github.com/repos/garemat/moonstone-companion-data/releases/latest"
+
+tasks.register("downloadDataAssets") {
+    description = "Downloads the latest compendium.json from moonstone-companion-data."
+    group = "moonstone"
+
+    outputs.files(file("${dataAssetsDir}/$compendiumAsset"))
+
+    onlyIf("compendium asset already present") {
+        !file("${dataAssetsDir}/$compendiumAsset").exists()
+    }
+
+    doLast {
+        dataAssetsDir.mkdirs()
+
+        logger.lifecycle("Fetching latest data release from GitHub...")
+        @Suppress("UNCHECKED_CAST")
+        val release = JsonSlurper().parseText(
+            URI(dataApiUrl).toURL().openStream().bufferedReader().readText()
+        ) as Map<String, Any>
+
+        val tag = release["tag_name"] as String
+        @Suppress("UNCHECKED_CAST")
+        val assets = release["assets"] as List<Map<String, Any>>
+
+        val asset = assets.firstOrNull { it["name"] == compendiumAsset }
+            ?: error("Asset '$compendiumAsset' not found in release $tag")
+        val downloadUrl = asset["browser_download_url"] as String
+        logger.lifecycle("  Downloading $compendiumAsset from $tag...")
+        URI(downloadUrl).toURL().openStream().use { input ->
+            file("${dataAssetsDir}/$compendiumAsset").outputStream().use { output ->
+                input.copyTo(output)
+            }
+        }
+
+        logger.lifecycle("Data asset downloaded (release $tag).")
+    }
+}
+
+tasks.named("preBuild") {
+    dependsOn("downloadDataAssets")
 }
 
 dependencies {

@@ -262,7 +262,7 @@ fun SelectionCharacterCard(
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(text = character.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text(text = character.tags.joinToString(", "), style = MaterialTheme.typography.bodySmall, fontStyle = FontStyle.Italic)
+                    Text(text = character.keywords.joinToString(", "), style = MaterialTheme.typography.bodySmall, fontStyle = FontStyle.Italic)
                 }
 
                 IconButton(onClick = onExpandClick) {

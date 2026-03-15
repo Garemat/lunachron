@@ -165,6 +165,20 @@ fun AnnotatedString.Builder.appendWithHighlight(text: String, searchQuery: Strin
     append(text.substring(lastIndex))
 }
 
+fun buildArcaneDescription(ability: Ability): String {
+    val outcomeLines = ability.arcaneOutcomes.joinToString("\n") { outcome ->
+        val cardLabel = outcome.validCards.joinToString(" or ") { card ->
+            if (card.colour == "Catastrophe") "Catastrophe" else "[${card.colour.first()}]${card.value}"
+        }
+        "$cardLabel: ${outcome.text}"
+    }
+    return when {
+        ability.description.isNotEmpty() && outcomeLines.isNotEmpty() -> "${ability.description}\n$outcomeLines"
+        outcomeLines.isNotEmpty() -> outcomeLines
+        else -> ability.description
+    }
+}
+
 @Composable
 fun parseAbilityDescription(description: String, searchQuery: String = "") = buildAnnotatedString {
     val regex = "\\[([GBP])\\]([^\\s,.:;]*)|Catastrophe:|\\{Null\\}".toRegex()
@@ -189,7 +203,7 @@ fun parseAbilityDescription(description: String, searchQuery: String = "") = bui
 }
 
 @Composable
-fun SignatureResultDisplay(entry: SignatureResultEntry) {
+fun SignatureResultDisplay(entry: SigMoveEntry) {
     val isNull = entry.deal == "Null"
     val appTheme = LocalAppTheme.current
     
@@ -360,18 +374,23 @@ fun CharacterFront(character: Character, searchQuery: String, onFlip: () -> Unit
                 CommonStatBox("Melee", character.melee.toString(), showDivider = true)
                 CommonStatBox("Range", "${character.meleeRange}\"", showDivider = true)
                 CommonStatBox("Arcane", character.arcane.toString(), showDivider = true)
-                CommonStatBox("Evade", character.evade, showDivider = true)
+                CommonStatBox("Evade", character.evade.toString(), showDivider = true)
             }
             IconButton(onClick = onFlip, modifier = Modifier.onGloballyPositioned { onFlipPositioned(it) }) { Icon(Icons.Default.Refresh, contentDescription = "Flip", tint = MaterialTheme.colorScheme.primary) }
         }
         if (appTheme == AppTheme.MOONSTONE) MoonstoneStats(character)
         Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
-        character.passiveAbilities.forEach { CommonAbilityItem(it.name, it.description, searchQuery) }
-        if (character.activeAbilities.isNotEmpty()) { AbilityTypeSeparator(); character.activeAbilities.forEach { CommonAbilityItem("${it.name} (${it.cost}) ${it.range}", it.description, searchQuery, it.oncePerTurn, it.oncePerGame) } }
-        if (character.arcaneAbilities.isNotEmpty()) { AbilityTypeSeparator(); character.arcaneAbilities.forEach { CommonAbilityItem("${it.name} (${it.cost}) ${it.range}", it.description, searchQuery, it.oncePerTurn, it.oncePerGame, it.reloadable) } }
-        Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
-        Text(text = buildAnnotatedString { append(if (appTheme == AppTheme.MOONSTONE) "Signature Move on a " else "Signature Move: "); withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { appendWithHighlight(if (appTheme == AppTheme.MOONSTONE) character.signatureMove.upgradeFrom else character.signatureMove.name, searchQuery) }; append(".") }, style = MaterialTheme.typography.bodyMedium, fontStyle = FontStyle.Italic, modifier = Modifier.clickable { onFlip() }.fillMaxWidth(), textAlign = if (appTheme == AppTheme.MOONSTONE) TextAlign.Start else TextAlign.Center, color = if (appTheme == AppTheme.MOONSTONE) Color.Unspecified else MaterialTheme.colorScheme.secondary)
-        Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
+        val passiveAbilities = character.abilities.filter { it.abilityType == "Passive" }
+        val activeAbilities = character.abilities.filter { it.abilityType == "Active" }
+        val arcaneAbilities = character.abilities.filter { it.abilityType == "Arcane" }
+        passiveAbilities.forEach { CommonAbilityItem(it.name, it.description, searchQuery, it.oncePerTurn, it.oncePerGame) }
+        if (activeAbilities.isNotEmpty()) { AbilityTypeSeparator(); activeAbilities.forEach { CommonAbilityItem("${it.name} (${it.energyCost ?: 0}) ${it.range ?: ""}", it.description, searchQuery, it.oncePerTurn, it.oncePerGame) } }
+        if (arcaneAbilities.isNotEmpty()) { AbilityTypeSeparator(); arcaneAbilities.forEach { CommonAbilityItem("${it.name} (${it.energyCost ?: 0}) ${it.range ?: ""}", buildArcaneDescription(it), searchQuery, it.oncePerTurn, it.oncePerGame) } }
+        character.signatureMove?.let { sigMove ->
+            Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
+            Text(text = buildAnnotatedString { append(if (appTheme == AppTheme.MOONSTONE) "Signature Move on a " else "Signature Move: "); withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { appendWithHighlight(if (appTheme == AppTheme.MOONSTONE) sigMove.upgradeFor else sigMove.name, searchQuery) }; append(".") }, style = MaterialTheme.typography.bodyMedium, fontStyle = FontStyle.Italic, modifier = Modifier.clickable { onFlip() }.fillMaxWidth(), textAlign = if (appTheme == AppTheme.MOONSTONE) TextAlign.Start else TextAlign.Center, color = if (appTheme == AppTheme.MOONSTONE) Color.Unspecified else MaterialTheme.colorScheme.secondary)
+            Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
+        }
         HealthTracker(character.health, character.health, character.energyTrack, {}, isEditable = false)
         Text(text = "Base: ${character.baseSize}", style = MaterialTheme.typography.labelSmall, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End)
     }
@@ -382,7 +401,7 @@ private fun MoonstoneHeader(character: Character, searchQuery: String, onFlip: (
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
         Column(modifier = Modifier.weight(1f)) {
             Text(text = buildAnnotatedString { appendWithHighlight(character.name, searchQuery); append(",") }, style = MaterialTheme.typography.displayLarge.copy(fontSize = 32.sp), color = MaterialTheme.colorScheme.primary)
-            Text(text = character.tags.joinToString(", "), style = MaterialTheme.typography.bodyLarge.copy(fontStyle = FontStyle.Italic), color = MaterialTheme.colorScheme.primary)
+            Text(text = character.keywords.joinToString(", "), style = MaterialTheme.typography.bodyLarge.copy(fontStyle = FontStyle.Italic), color = MaterialTheme.colorScheme.primary)
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             character.factions.firstOrNull()?.let { FactionSymbol(faction = it, modifier = Modifier.size(48.dp).padding(end = 8.dp)) }
@@ -404,7 +423,7 @@ private fun MoonstoneStats(character: Character) {
         Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) { Text("Arcane", style = MaterialTheme.typography.labelSmall.copy(fontStyle = FontStyle.Italic)); Text("Evade", style = MaterialTheme.typography.labelSmall.copy(fontStyle = FontStyle.Italic)) }
             HorizontalDivider(thickness = 1.5.dp, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(horizontal = 8.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) { Text(character.arcane.toString(), style = MaterialTheme.typography.headlineMedium); Text(character.evade, style = MaterialTheme.typography.headlineMedium) }
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) { Text(character.arcane.toString(), style = MaterialTheme.typography.headlineMedium); Text(character.evade.toString(), style = MaterialTheme.typography.headlineMedium) }
         }
     }
 }
@@ -414,26 +433,31 @@ fun CharacterBack(character: Character, searchQuery: String, onFlip: () -> Unit,
     val appTheme = LocalAppTheme.current
     val theme = LocalAppThemeProperties.current
     Column {
+        val sigMove = character.signatureMove
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
-            Text(text = highlightText(character.signatureMove.name, searchQuery), style = if (appTheme == AppTheme.MOONSTONE) MaterialTheme.typography.displayLarge.copy(fontSize = 28.sp) else MaterialTheme.typography.titleLarge, fontWeight = if (appTheme == AppTheme.MOONSTONE) null else FontWeight.Bold, color = if (appTheme == AppTheme.MOONSTONE) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(text = highlightText(sigMove?.name ?: "", searchQuery), style = if (appTheme == AppTheme.MOONSTONE) MaterialTheme.typography.displayLarge.copy(fontSize = 28.sp) else MaterialTheme.typography.titleLarge, fontWeight = if (appTheme == AppTheme.MOONSTONE) null else FontWeight.Bold, color = if (appTheme == AppTheme.MOONSTONE) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
             IconButton(onClick = onFlip, modifier = Modifier.onGloballyPositioned { onFlipPositioned(it) }) { Icon(Icons.Default.Refresh, contentDescription = "Flip", tint = if (appTheme == AppTheme.MOONSTONE) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary) }
         }
-        Text(text = buildAnnotatedString { append("Upgrade for "); withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(character.signatureMove.upgradeFrom) } }, style = MaterialTheme.typography.bodyLarge.copy(fontStyle = FontStyle.Italic), color = if (appTheme == AppTheme.MOONSTONE) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
-        Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
-        character.signatureMove.damageType?.let { Text(text = "Damage Type:", style = MaterialTheme.typography.labelSmall.copy(fontStyle = FontStyle.Italic)); Text(text = it, style = if (appTheme == AppTheme.MOONSTONE) MaterialTheme.typography.titleLarge else MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold); Spacer(modifier = Modifier.height(theme.verticalSpacing / 4)) }
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("Opponent plays:", style = MaterialTheme.typography.labelSmall.copy(fontStyle = FontStyle.Italic)); Text("deal", style = MaterialTheme.typography.labelSmall.copy(fontStyle = FontStyle.Italic)) }
-        Column(modifier = Modifier.fillMaxWidth()) {
-            character.signatureMove.results.forEach { entry ->
-                Row(modifier = Modifier.fillMaxWidth().padding(vertical = theme.verticalSpacing / 8), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text(entry.opponentPlay, style = if (appTheme == AppTheme.MOONSTONE) MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Normal) else MaterialTheme.typography.bodyMedium)
-                    SignatureResultDisplay(entry)
+        if (sigMove == null) {
+            Text(text = "No signature move.", style = MaterialTheme.typography.bodyMedium, fontStyle = FontStyle.Italic, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else {
+            Text(text = buildAnnotatedString { append("Upgrade for "); withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(sigMove.upgradeFor) } }, style = MaterialTheme.typography.bodyLarge.copy(fontStyle = FontStyle.Italic), color = if (appTheme == AppTheme.MOONSTONE) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+            Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
+            sigMove.possibleDamageTypes.takeIf { it.isNotEmpty() }?.let { types -> Text(text = "Damage Type:", style = MaterialTheme.typography.labelSmall.copy(fontStyle = FontStyle.Italic)); Text(text = types.joinToString(", "), style = if (appTheme == AppTheme.MOONSTONE) MaterialTheme.typography.titleLarge else MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold); Spacer(modifier = Modifier.height(theme.verticalSpacing / 4)) }
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("Opponent plays:", style = MaterialTheme.typography.labelSmall.copy(fontStyle = FontStyle.Italic)); Text("deal", style = MaterialTheme.typography.labelSmall.copy(fontStyle = FontStyle.Italic)) }
+            Column(modifier = Modifier.fillMaxWidth()) {
+                sigMove.positionEntries().forEach { (pos, entry) ->
+                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = theme.verticalSpacing / 8), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text(pos, style = if (appTheme == AppTheme.MOONSTONE) MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Normal) else MaterialTheme.typography.bodyMedium)
+                        SignatureResultDisplay(entry)
+                    }
                 }
             }
-        }
-        if (character.signatureMove.passiveEffect != null || character.signatureMove.endStepEffect != null) {
-            Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
-            character.signatureMove.passiveEffect?.let { Text(text = parseAbilityDescription(it, searchQuery), style = MaterialTheme.typography.bodyMedium, inlineContent = getMoonstoneInlineContent()) }
-            character.signatureMove.endStepEffect?.let { Text(text = buildAnnotatedString { withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("End Step Effect: ") }; append(parseAbilityDescription(it, searchQuery)) }, style = MaterialTheme.typography.bodyMedium, inlineContent = getMoonstoneInlineContent()) }
+            if (sigMove.extraText.isNotEmpty() || sigMove.endStepEffect.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
+                if (sigMove.extraText.isNotEmpty()) Text(text = parseAbilityDescription(sigMove.extraText, searchQuery), style = MaterialTheme.typography.bodyMedium, inlineContent = getMoonstoneInlineContent())
+                if (sigMove.endStepEffect.isNotEmpty()) Text(text = buildAnnotatedString { withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("End Step Effect: ") }; append(parseAbilityDescription(sigMove.endStepEffect, searchQuery)) }, style = MaterialTheme.typography.bodyMedium, inlineContent = getMoonstoneInlineContent())
+            }
         }
     }
 }
@@ -466,7 +490,7 @@ fun CommonCharacterCard(character: Character, searchQuery: String, isExpanded: B
                 Spacer(modifier = Modifier.width(if (selectionControl != null) 12.dp else 16.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(text = highlightText(character.name, searchQuery), style = if (selectionControl != null) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                    Text(text = character.tags.joinToString(", "), style = MaterialTheme.typography.bodySmall, fontStyle = FontStyle.Italic, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(text = character.keywords.joinToString(", "), style = MaterialTheme.typography.bodySmall, fontStyle = FontStyle.Italic, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Icon(imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, contentDescription = null, modifier = Modifier.padding(start = 8.dp))
             }
@@ -509,8 +533,12 @@ fun UpgradeCardUI(card: UpgradeCard, searchQuery: String, isExpanded: Boolean, o
             if (isExpanded) {
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                 Column(modifier = Modifier.padding(theme.cardContentPadding)) {
-                    card.tags?.let { tags ->
-                        Text(text = "Restrictions: ${tags.joinToString(", ")}", style = MaterialTheme.typography.bodySmall, fontStyle = FontStyle.Italic)
+                    val restriction = buildList {
+                        if (card.allowedKeywords.isNotEmpty()) add(card.allowedKeywords.joinToString(", "))
+                        if (card.restrictedKeywords.isNotEmpty()) add("Not: " + card.restrictedKeywords.joinToString(", "))
+                    }.joinToString(" · ")
+                    if (restriction.isNotEmpty()) {
+                        Text(text = "Restrictions: $restriction", style = MaterialTheme.typography.bodySmall, fontStyle = FontStyle.Italic)
                         Spacer(modifier = Modifier.height(8.dp))
                     }
                     card.abilities.forEach { CommonAbilityItem(it.name, it.description, searchQuery) }
@@ -587,19 +615,19 @@ fun ModifierDisplay(character: Character, isOffense: Boolean, modifier: Modifier
     if (appTheme == AppTheme.MOONSTONE) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier) {
             if (isOffense) {
-                val piercing = character.piercingDamageBuff.toIntOrNull() ?: 0
+                val piercing = character.piercingDamageBuff ?: 0
                 if (piercing != 0) {
                     Image(painter = painterResource(id = R.drawable.piercing), contentDescription = "Piercing", modifier = Modifier.size(16.dp))
                     Text(text = piercing.toString(), fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(end = 4.dp))
                 }
 
-                val impact = character.impactDamageBuff.toIntOrNull() ?: 0
+                val impact = character.impactDamageBuff ?: 0
                 if (impact != 0) {
                     Image(painter = painterResource(id = R.drawable.impact), contentDescription = "Impact", modifier = Modifier.size(16.dp))
                     Text(text = impact.toString(), fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(end = 4.dp))
                 }
 
-                val slicing = character.slicingDamageBuff.toIntOrNull() ?: 0
+                val slicing = character.slicingDamageBuff ?: 0
                 if (slicing != 0) {
                     Image(painter = painterResource(id = R.drawable.slicing), contentDescription = "Slicing", modifier = Modifier.size(16.dp))
                     Text(text = slicing.toString(), fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(end = 4.dp))
@@ -609,38 +637,29 @@ fun ModifierDisplay(character: Character, isOffense: Boolean, modifier: Modifier
                     Icon(Icons.Default.AutoAwesome, contentDescription = "Magical", modifier = Modifier.size(14.dp), tint = Color(0xFF00B0FF))
                 }
             } else {
-                val allMitigation = character.allDamageMitigation.toIntOrNull() ?: 0
-                if (allMitigation >= 1) {
+                if (character.allDamageMitigation >= 1) {
                     Image(painter = painterResource(id = R.drawable.alldamagemitigation), contentDescription = "All Mitigation", modifier = Modifier.size(16.dp))
-                    Text(text = allMitigation.toString(), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text(text = character.allDamageMitigation.toString(), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 } else {
                     Icon(imageVector = Icons.Default.Shield, contentDescription = null, modifier = Modifier.size(14.dp))
-                    
-                    val piercing = character.piercingDamageMitigation.toIntOrNull() ?: 0
-                    if (piercing != 0) MitigationIcon(R.drawable.piercing, piercing.toString())
-
-                    val impact = character.impactDamageMitigation.toIntOrNull() ?: 0
-                    if (impact != 0) MitigationIcon(R.drawable.impact, impact.toString())
-
-                    val slicing = character.slicingDamageMitigation.toIntOrNull() ?: 0
-                    if (slicing != 0) MitigationIcon(R.drawable.slicing, slicing.toString())
-
-                    val magical = character.magicalDamageMitigation.toIntOrNull() ?: 0
-                    if (magical != 0) {
+                    if (character.piercingDamageMitigation != 0) MitigationIcon(R.drawable.piercing, character.piercingDamageMitigation.toString())
+                    if (character.impactDamageMitigation != 0) MitigationIcon(R.drawable.impact, character.impactDamageMitigation.toString())
+                    if (character.slicingDamageMitigation != 0) MitigationIcon(R.drawable.slicing, character.slicingDamageMitigation.toString())
+                    if (character.magicalDamageMitigation != 0) {
                         Icon(Icons.Default.AutoAwesome, contentDescription = "Magical Mitigation", modifier = Modifier.size(14.dp), tint = Color(0xFF00B0FF))
-                        Text(text = magical.toString(), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text(text = character.magicalDamageMitigation.toString(), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
         }
     } else {
         val modifiers = mutableListOf<@Composable () -> Unit>()
-        fun addMod(prefix: String, value: String, offense: Boolean) {
-            if (value == "Null") modifiers.add { Row(verticalAlignment = Alignment.CenterVertically) { Text(prefix, fontSize = 11.sp, fontWeight = FontWeight.Bold); NullSymbol(size = 12.dp, modifier = Modifier.padding(horizontal = 1.dp)) } }
-            else if (value.toIntOrNull() != 0) modifiers.add { Text("$prefix${if (offense) "+" else "-"}$value", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+        fun addMod(prefix: String, value: Int?, offense: Boolean) {
+            if (value == null) modifiers.add { Row(verticalAlignment = Alignment.CenterVertically) { Text(prefix, fontSize = 11.sp, fontWeight = FontWeight.Bold); NullSymbol(size = 12.dp, modifier = Modifier.padding(horizontal = 1.dp)) } }
+            else if (value != 0) modifiers.add { val sign = if (offense) { if (value > 0) "+" else "" } else { if (value > 0) "-" else "+" }; Text("$prefix$sign$value", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
         }
         if (isOffense) { addMod("I", character.impactDamageBuff, true); addMod("S", character.slicingDamageBuff, true); addMod("P", character.piercingDamageBuff, true) }
-        else { if (character.allDamageMitigation != "0") addMod("ALL", character.allDamageMitigation, false) else { addMod("I", character.impactDamageMitigation, false); addMod("S", character.slicingDamageMitigation, false); addMod("P", character.piercingDamageMitigation, false) }; addMod("M", character.magicalDamageMitigation, false) }
+        else { if (character.allDamageMitigation != 0) addMod("ALL", character.allDamageMitigation, false) else { addMod("I", character.impactDamageMitigation, false); addMod("S", character.slicingDamageMitigation, false); addMod("P", character.piercingDamageMitigation, false) }; addMod("M", character.magicalDamageMitigation, false) }
         
         if (modifiers.isNotEmpty() || (isOffense && character.dealsMagicalDamage)) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier) {
@@ -725,7 +744,7 @@ fun HealthPip(
 }
 
 @Composable
-fun CharacterFilterHeader(searchQuery: String, onSearchQueryChange: (String) -> Unit, selectedFactions: Set<Faction>, onFactionsChange: (Set<Faction>) -> Unit, selectedTags: Set<String>, onTagsChange: (Set<String>) -> Unit, availableTags: List<String>, modifier: Modifier = Modifier, isFactionFixed: Boolean = false, showCollapseAll: Boolean = false, onCollapseAll: () -> Unit = {}, onClearAll: () -> Unit = {}, onTargetPositioned: (String, LayoutCoordinates) -> Unit = { _, _ -> }) {
+fun CharacterFilterHeader(searchQuery: String, onSearchQueryChange: (String) -> Unit, selectedFactions: Set<Faction>, onFactionsChange: (Set<Faction>) -> Unit, selectedTags: Set<String>, onTagsChange: (Set<String>) -> Unit, availableTags: List<String>, modifier: Modifier = Modifier, isFactionFixed: Boolean = false, showCollapseAll: Boolean = false, onCollapseAll: () -> Unit = {}, onClearAll: () -> Unit = {}, onTargetPositioned: (String, LayoutCoordinates) -> Unit = { _, _ -> }) { // showCollapseAll retained for API compat but no longer rendered
     val theme = LocalAppThemeProperties.current
     Column(modifier = modifier.padding(theme.screenPadding)) {
         OutlinedTextField(value = searchQuery, onValueChange = onSearchQueryChange, modifier = Modifier.fillMaxWidth().onGloballyPositioned { onTargetPositioned("SearchField", it) }, placeholder = { Text("Search name or abilities...") }, leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) }, trailingIcon = { if (searchQuery.isNotEmpty()) IconButton(onClick = { onSearchQueryChange("") }) { Icon(Icons.Default.Clear, contentDescription = "Clear") } }, singleLine = true, shape = theme.cardShape)
@@ -741,7 +760,6 @@ fun CharacterFilterHeader(searchQuery: String, onSearchQueryChange: (String) -> 
             }
         }
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-            if (showCollapseAll) TextButton(onClick = onCollapseAll) { Icon(Icons.Default.UnfoldLess, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(modifier = Modifier.width(4.dp)); Text("Collapse All") }
             if (searchQuery.isNotEmpty() || selectedFactions.isNotEmpty() || selectedTags.isNotEmpty()) TextButton(onClick = onClearAll) { Text("Clear All") }
         }
     }

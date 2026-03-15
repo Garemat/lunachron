@@ -74,25 +74,22 @@ class LocalCharacterRepository(
      * needed in the ViewModel or domain models.
      */
     suspend fun seedFromAssets(context: Context) {
-        CharacterData.getCharactersFromAssets(context).forEach { dao.upsertCharacter(it) }
-        CharacterData.getUpgradesFromAssets(context).forEach { dao.upsertUpgradeCard(it) }
-        CharacterData.getCampaignCardsFromAssets(context).forEach { dao.upsertCampaignCard(it) }
+        val compendium = CharacterData.readCompendium(context)
+        dao.upsertCharacters(compendium.characters)
+        dao.upsertUpgradeCards(compendium.upgrades)
+        dao.upsertCampaignCards(compendium.campaign)
     }
 
     /**
-     * Upserts game data from downloaded JSON files in [dir].
+     * Upserts game data from a downloaded compendium.json in [dir].
      * Called after a data update is downloaded to internal storage.
      */
     suspend fun seedFromFiles(dir: java.io.File) {
         val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true; coerceInputValues = true }
-        val chars = dir.resolve("characters.json").takeIf { it.exists() }?.readText()
-            ?.let { json.decodeFromString<List<Character>>(it) } ?: emptyList()
-        val upgrades = dir.resolve("upgrades.json").takeIf { it.exists() }?.readText()
-            ?.let { json.decodeFromString<List<UpgradeCard>>(it) } ?: emptyList()
-        val campaign = dir.resolve("campaign.json").takeIf { it.exists() }?.readText()
-            ?.let { json.decodeFromString<List<CampaignCard>>(it) } ?: emptyList()
-        chars.forEach { dao.upsertCharacter(it) }
-        upgrades.forEach { dao.upsertUpgradeCard(it) }
-        campaign.forEach { dao.upsertCampaignCard(it) }
+        val compendium = dir.resolve("compendium.json").takeIf { it.exists() }?.readText()
+            ?.let { json.decodeFromString<CompendiumData>(it) } ?: return
+        dao.upsertCharacters(compendium.characters)
+        dao.upsertUpgradeCards(compendium.upgrades)
+        dao.upsertCampaignCards(compendium.campaign)
     }
 }

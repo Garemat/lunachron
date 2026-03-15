@@ -32,7 +32,7 @@ fun UpgradeListScreen(
     
     val availableTags = remember(state.upgradeCards) {
         state.upgradeCards
-            .flatMap { it.tags ?: emptyList() }
+            .flatMap { it.allowedKeywords }
             .distinct()
             .sorted()
     }
@@ -43,7 +43,7 @@ fun UpgradeListScreen(
         state.upgradeCards.filter { card ->
             // If a card doesn't mention a tag/faction, assume it applies for all (restriction logic)
             val matchesFaction = selectedFactions.isEmpty() || card.factions == null || card.factions.any { it in selectedFactions }
-            val matchesTags = selectedTags.isEmpty() || card.tags == null || card.tags.any { it in selectedTags }
+            val matchesTags = selectedTags.isEmpty() || card.allowedKeywords.isEmpty() || card.allowedKeywords.any { it in selectedTags }
             val matchesSearch = searchQuery.isEmpty() || 
                 card.name.contains(searchQuery, ignoreCase = true) ||
                 card.abilities.any { it.name.contains(searchQuery, ignoreCase = true) || it.description.contains(searchQuery, ignoreCase = true) }
