@@ -1,0 +1,42 @@
+version: 2
+updates:
+  # Gradle dependencies (libs.versions.toml + build.gradle.kts)
+  - package-ecosystem: "gradle"
+    directory: "/"
+    schedule:
+      interval: "daily"
+      time: "03:00"
+      timezone: "Europe/London"
+    open-pull-requests-limit: 10
+    # Group related libraries into single PRs to reduce noise
+    groups:
+      androidx-compose:
+        patterns:
+          - "androidx.compose*"
+      androidx-camera:
+        patterns:
+          - "androidx.camera*"
+      androidx-room:
+        patterns:
+          - "androidx.room*"
+      kotlin:
+        patterns:
+          - "org.jetbrains.kotlin*"
+          - "org.jetbrains.kotlinx*"
+      ktor:
+        patterns:
+          - "io.ktor*"
+    ignore:
+      # Major version bumps require manual review — could be breaking
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "03:00"
+      timezone: "Europe/London"
+    open-pull-requests-limit: 5
