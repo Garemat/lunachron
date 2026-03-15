@@ -98,3 +98,20 @@ jobs:
       uses: github/codeql-action/analyze@v4
       with:
         category: "/language:${{matrix.language}}"
+
+  # Required status check gate — always reports success so that branch
+  # protection is satisfied whether CodeQL ran (human PR) or was skipped
+  # (Dependabot PR). Point the required check at "codeql" not "analyze".
+  codeql:
+    runs-on: ubuntu-latest
+    needs: analyze
+    if: always()
+    steps:
+      - name: Check result
+        run: |
+          if [[ "${{ needs.analyze.result }}" == "success" || "${{ needs.analyze.result }}" == "skipped" ]]; then
+            echo "CodeQL passed or was intentionally skipped."
+          else
+            echo "CodeQL analysis failed."
+            exit 1
+          fi
