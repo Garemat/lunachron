@@ -100,7 +100,7 @@ fun TroupeListScreen(
                             },
                             onDelete = { if (troupe.id != -1) troupeToDelete = troupe },
                             onShare = {
-                                val code = if (troupe.id != -1) viewModel.generateFullShareCode(troupe, state.characters) else "DUMMY_CODE"
+                                val code = if (troupe.id != -1) viewModel.generateFullShareCode(troupe, state.characters, state.upgradeCards) else "DUMMY_CODE"
                                 shareTroupe(context, troupe.troupeName, code)
                             },
                             onEdit = { viewModel.onEvent(CharacterEvent.EditTroupe(troupe)); onEditTroupe() },
@@ -118,7 +118,7 @@ fun TroupeListScreen(
             }
 
             if (showImportDialog) {
-                AlertDialog(onDismissRequest = { showImportDialog = false }, title = { Text("Import") }, text = { OutlinedTextField(value = importCode, onValueChange = { importCode = it }, modifier = Modifier.fillMaxWidth()) }, confirmButton = { Button(onClick = { viewModel.importTroupe(importCode, state.characters); if (viewModel.state.value.errorMessage == null) { showImportDialog = false; importCode = ""; onAddTroupe() } }, enabled = importCode.isNotBlank()) { Text("Import") } }, dismissButton = { TextButton(onClick = { showImportDialog = false }) { Text("Cancel") } })
+                AlertDialog(onDismissRequest = { showImportDialog = false }, title = { Text("Import") }, text = { OutlinedTextField(value = importCode, onValueChange = { importCode = it }, modifier = Modifier.fillMaxWidth()) }, confirmButton = { Button(onClick = { viewModel.importTroupe(importCode, state.characters, state.upgradeCards); if (viewModel.state.value.errorMessage == null) { showImportDialog = false; importCode = ""; onAddTroupe() } }, enabled = importCode.isNotBlank()) { Text("Import") } }, dismissButton = { TextButton(onClick = { showImportDialog = false }) { Text("Cancel") } })
             }
 
             if (state.errorMessage != null) {

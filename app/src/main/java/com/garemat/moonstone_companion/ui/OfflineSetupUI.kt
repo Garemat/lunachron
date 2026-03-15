@@ -192,7 +192,7 @@ fun OfflineSetupUI(
     }
     
     if (showQrForTroupe != null) {
-        val shareCode = viewModel.generateFullShareCode(showQrForTroupe!!, state.characters)
+        val shareCode = viewModel.generateFullShareCode(showQrForTroupe!!, state.characters, state.upgradeCards)
         QrCodeDialog(troupeName = showQrForTroupe!!.troupeName, shareCode = shareCode, onDismiss = { showQrForTroupe = null })
     }
 

@@ -271,7 +271,7 @@ fun GameSetupScreen(
                 androidx.compose.ui.window.Dialog(onDismissRequest = { showScannerDialogForPlayer = null }, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
                     Box(modifier = Modifier.fillMaxSize()) {
                         QrScanner(onResult = { result ->
-                            val importedTroupe = viewModel.importTroupe(result, state.characters)
+                            val importedTroupe = viewModel.importTroupe(result, state.characters, state.upgradeCards)
                             if (importedTroupe != null) {
                                 viewModel.onTroupeScanned(playerIndex, importedTroupe)
                                 showScannerDialogForPlayer = null
