@@ -5,91 +5,79 @@ import kotlinx.coroutines.flow.Flow
 
 /**
  * Room-backed implementation of [CharacterRepository].
- * All asset parsing and DAO access is confined here so the ViewModel
- * has no direct dependency on Room or [CharacterData].
- *
- * When migrating to an API, implement [CharacterRepository] with a
- * Ktor/Retrofit-based class and swap it in at the injection site in MainActivity.
+ * Game data (characters, upgrades, campaign cards) is served from [gameDao] backed by [GameDatabase].
+ * User data (troupes, campaigns, game results) is served from [userDao] backed by [UserDatabase].
  */
 class LocalCharacterRepository(
-    private val dao: CharacterDAO
+    private val gameDao: GameDataDAO,
+    private val userDao: UserDataDAO
 ) : CharacterRepository {
 
     // --- Read streams ---
 
     override fun getCharacters(): Flow<List<Character>> =
-        dao.getCharactersOrderedByName()
+        gameDao.getCharactersOrderedByName()
 
     override fun getCharactersByIds(ids: List<Int>): Flow<List<Character>> =
-        dao.getCharactersByIds(ids)
+        gameDao.getCharactersByIds(ids)
 
     override fun getUpgradeCards(): Flow<List<UpgradeCard>> =
-        dao.getUpgradeCards()
+        gameDao.getUpgradeCards()
 
     override fun getCampaignCards(): Flow<List<CampaignCard>> =
-        dao.getCampaignCards()
+        gameDao.getCampaignCards()
 
     override fun getCampaigns(): Flow<List<Campaign>> =
-        dao.getCampaigns()
+        userDao.getCampaigns()
 
     override fun getTroupes(): Flow<List<Troupe>> =
-        dao.getTroupes()
+        userDao.getTroupes()
 
     override fun getGameResults(): Flow<List<GameResult>> =
-        dao.getGameResults()
+        userDao.getGameResults()
 
     // --- Troupe writes ---
 
     override suspend fun upsertTroupe(troupe: Troupe): Long =
-        dao.upsertTroupe(troupe)
+        userDao.upsertTroupe(troupe)
 
     override suspend fun deleteTroupe(troupe: Troupe) =
-        dao.deleteTroupe(troupe)
+        userDao.deleteTroupe(troupe)
 
     override suspend fun getTroupeById(id: Int): Troupe? =
-        dao.getTroupeById(id)
+        userDao.getTroupeById(id)
 
     override suspend fun getTroupeByShareCode(code: String): Troupe? =
-        dao.getTroupeByShareCode(code)
+        userDao.getTroupeByShareCode(code)
 
     // --- Campaign writes ---
 
     override suspend fun upsertCampaign(campaign: Campaign): Long =
-        dao.upsertCampaign(campaign)
+        userDao.upsertCampaign(campaign)
 
     override suspend fun deleteCampaign(campaign: Campaign) =
-        dao.deleteCampaign(campaign)
+        userDao.deleteCampaign(campaign)
 
     // --- Game result writes ---
 
     override suspend fun upsertGameResult(result: GameResult) =
-        dao.upsertGameResult(result)
+        userDao.upsertGameResult(result)
 
     // --- Asset seeding ---
 
-    /**
-     * Upserts all JSON asset data into Room. Called once on DB open.
-     * When migrating to the API, this method is replaced by a network fetch.
-     * JSON field names that change in the API are handled here — no changes
-     * needed in the ViewModel or domain models.
-     */
     suspend fun seedFromAssets(context: Context) {
         val compendium = CharacterData.readCompendium(context)
-        dao.upsertCharacters(compendium.characters)
-        dao.upsertUpgradeCards(compendium.upgrades)
-        dao.upsertCampaignCards(compendium.campaign)
+        gameDao.upsertCharacters(compendium.characters)
+        gameDao.upsertUpgradeCards(compendium.upgrades)
+        gameDao.upsertCampaignCards(compendium.campaign)
     }
 
-    /**
-     * Upserts game data from a downloaded compendium.json in [dir].
-     * Called after a data update is downloaded to internal storage.
-     */
     suspend fun seedFromFiles(dir: java.io.File) {
         val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true; coerceInputValues = true }
         val compendium = dir.resolve("compendium.json").takeIf { it.exists() }?.readText()
             ?.let { json.decodeFromString<CompendiumData>(it) } ?: return
-        dao.upsertCharacters(compendium.characters)
-        dao.upsertUpgradeCards(compendium.upgrades)
-        dao.upsertCampaignCards(compendium.campaign)
+        gameDao.upsertCharacters(compendium.characters)
+        gameDao.upsertUpgradeCards(compendium.upgrades)
+        gameDao.upsertCampaignCards(compendium.campaign)
     }
 }

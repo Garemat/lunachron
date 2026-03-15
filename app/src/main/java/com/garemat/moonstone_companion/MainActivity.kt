@@ -40,15 +40,14 @@ import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
-    private val db by lazy {
-        CharacterDatabase.getDatabase(applicationContext)
-    }
+    private val gameDb by lazy { GameDatabase.getDatabase(applicationContext) }
+    private val userDb by lazy { UserDatabase.getDatabase(applicationContext) }
 
     private val viewModel by viewModels<CharacterViewModel>(
         factoryProducer = {
             object : ViewModelProvider.Factory {
                 override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                    val repo = LocalCharacterRepository(db.dao)
+                    val repo = LocalCharacterRepository(gameDb.dao, userDb.dao)
                     val dataUpdateRepo = DataUpdateRepository(applicationContext, repo)
                     @Suppress("UNCHECKED_CAST")
                     return CharacterViewModel(application, repo, dataUpdateRepo) as T

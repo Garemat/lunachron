@@ -1,0 +1,117 @@
+{
+  "modelId": "c1af8ded-b8f4-4bc6-b6e1-99d05c0b818f",
+  "name": "Abra Cadaverous",
+  "factionName": "Shade",
+  "maxHp": 10,
+  "energyBlips": "1,4",
+  "keywords": "Spirit",
+  "melee": 4,
+  "range": 2,
+  "arcane": 5,
+  "evade": 1,
+  "baseSize": "40",
+  "headImageUrl": "https://moontome.b-cdn.net/CharacterHeads/AbraCad.webp",
+  "statCardUrl": "https://moontome.b-cdn.net/StatCardsHd/AbraCadaverous.webp",
+  "signatureCardUrl": "https://moontome.b-cdn.net/StatCardsHd/Frenzy.webp",
+  "signatureMove": {
+    "signatureMoveId": "d6896e88-8df0-4b6e-8c57-d209e4d0fe85",
+    "name": "Frenzy",
+    "upgradeFor": "Rising Attack",
+    "highGuard": 1,
+    "fallingSwing": 0,
+    "thrust": 0,
+    "sweepingCut": 1,
+    "risingAttack": 0,
+    "lowGuard": null,
+    "extraText": "",
+    "endStepEffect": " If this character is the attacker and causes 1 or more Wds during this round of Melee, reduce the energy cost of its next action this turn to (0) if it is a Melee Attack action."
+  },
+  "abilities": [
+    {
+      "abilityId": "1dc88f2f-f390-42d2-a231-4347050163b6",
+      "name": "Spare Parts",
+      "description": "",
+      "energyCost": 2,
+      "range": 4,
+      "pulse": false,
+      "oncePerGame": false,
+      "oncePerTurn": false,
+      "arcaneOutcomes": [
+        {
+          "arcaneOutcomeId": "226d03ee-3df9-4185-897a-76ceae8351c8",
+          "text": "Target restores X Wds.",
+          "validCards": [
+            {
+              "colour": "Green",
+              "value": "X"
+            }
+          ]
+        },
+        {
+          "arcaneOutcomeId": "db19a314-4322-42cf-a31f-f6e3aae09a93",
+          "text": "This model suffers 3 Wds.",
+          "validCards": [
+            {
+              "colour": "Catastrophe",
+              "value": "X"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "abilityId": "47cdddf7-5632-40ec-918a-d9c89a572d2c",
+      "name": "Claws and Stick",
+      "description": ": If this character deals Slicing or Impact Melee Dmg, increase the Dmg dealt by +2.",
+      "energyCost": null,
+      "range": null,
+      "pulse": false,
+      "oncePerGame": false,
+      "oncePerTurn": false,
+      "arcaneOutcomes": []
+    },
+    {
+      "abilityId": "72913326-c3c2-4b3d-bcba-0a40f6fc88e5",
+      "name": "Reanimate",
+      "description": "",
+      "energyCost": 3,
+      "range": null,
+      "pulse": false,
+      "oncePerGame": false,
+      "oncePerTurn": false,
+      "arcaneOutcomes": [
+        {
+          "arcaneOutcomeId": "32721fdb-7d7e-4204-b02b-b557c9bc3818",
+          "text": "Place a friendly slain model in base contact with this model. Restore half its health rounding up. It has no energy but may activate this turn.",
+          "validCards": [
+            {
+              "colour": "Green",
+              "value": "2"
+            }
+          ]
+        },
+        {
+          "arcaneOutcomeId": "b3cfbaca-307c-4a9c-a83c-05c8e11f005f",
+          "text": "This model suffers 4 Wds.",
+          "validCards": [
+            {
+              "colour": "Catastrophe",
+              "value": "X"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "abilityId": "fff45886-35f7-4a7d-921d-9e36c3dca935",
+      "name": "Fashion from Flesh",
+      "description": "When this model causes 1 or more Wds to an enemy in a round of melee, it may summon a new friendly Psychopomp as a bonus End Step Effect. Place the new friendly Psychopomp in base contact with this model. This cannot bring a character into play if it is already in play. If the enemy is slain this character may instead reduce the energy cost of the next Arcane Ability it uses this turn to (0).",
+      "energyCost": null,
+      "range": null,
+      "pulse": false,
+      "oncePerGame": false,
+      "oncePerTurn": true,
+      "arcaneOutcomes": []
+    }
+  ]
+}
