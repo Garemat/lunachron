@@ -8,4 +8,6 @@ jobs:
   build:
     uses: garemat/moonstone-companion/.github/workflows/validate.yml@main
     with:
-      pr_body: ${{ github.event.pull_request.body }}
+      # Skip PR template validation for Dependabot — it generates its own body
+      # and is already classified by the auto-merge workflow via update-type metadata.
+      pr_body: ${{ github.actor != 'dependabot[bot]' && github.event.pull_request.body || '' }}
