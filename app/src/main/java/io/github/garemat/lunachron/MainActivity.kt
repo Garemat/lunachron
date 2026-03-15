@@ -137,7 +137,7 @@ class MainActivity : ComponentActivity() {
                         ) {
                             Spacer(Modifier.height(12.dp))
                             Text(
-                                "Moonstone Companion",
+                                "Lunachron",
                                 modifier = Modifier.padding(16.dp),
                                 style = theme.titleStyle,
                                 color = MaterialTheme.colorScheme.primary
@@ -224,7 +224,7 @@ class MainActivity : ComponentActivity() {
                                 CenterAlignedTopAppBar(
                                     title = { Text(
                                         text = when {
-                                            currentDestination?.route == Screen.Home.route -> "Moonstone Companion"
+                                            currentDestination?.route == Screen.Home.route -> "Lunachron"
                                             currentDestination?.route == Screen.Compendium.route -> "Compendium"
                                             currentDestination?.route == Screen.Characters.route -> "Character List"
                                             currentDestination?.route == Screen.Upgrades.route -> "Upgrades"
@@ -248,7 +248,7 @@ class MainActivity : ComponentActivity() {
                                                     null -> camp?.name ?: "Campaign"
                                                 }
                                             }
-                                            else -> "Moonstone Companion"
+                                            else -> "Lunachron"
                                         },
                                         style = theme.titleStyle
                                     ) },
@@ -790,7 +790,7 @@ private fun DataUpdateDialogs(
             AlertDialog(
                 onDismissRequest = { onEvent(CharacterEvent.DismissDataUpdate) },
                 title = { Text("App Update Required") },
-                text = { Text("Data version ${dataRelease.tagName} requires a newer version of the app. Please update Moonstone Companion to access the latest game data.") },
+                text = { Text("Data version ${dataRelease.tagName} requires a newer version of the app. Please update Lunachron to access the latest game data.") },
                 confirmButton = {
                     Button(onClick = { onEvent(CharacterEvent.DismissDataUpdate) }, shape = theme.cardShape) {
                         Text("OK")
