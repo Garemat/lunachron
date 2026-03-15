@@ -41,8 +41,7 @@ fun TroupeListScreen(
     onTargetPositioned: (String, LayoutCoordinates) -> Unit = { _, _ -> }
 ) {
     var troupeToDelete by remember { mutableStateOf<Troupe?>(null) }
-    var showImportDialog by remember { mutableStateOf(false) }
-    var importCode by remember { mutableStateOf("") }
+    var showQrForTroupe by remember { mutableStateOf<Troupe?>(null) }
     val context = LocalContext.current
     val theme = LocalAppThemeProperties.current
     
@@ -99,6 +98,7 @@ fun TroupeListScreen(
                                 } else if (troupe.id != -1) { viewModel.onEvent(CharacterEvent.EditTroupe(troupe)); onEditTroupe() }
                             },
                             onDelete = { if (troupe.id != -1) troupeToDelete = troupe },
+                            onQr = { if (troupe.id != -1) showQrForTroupe = troupe },
                             onShare = {
                                 val code = if (troupe.id != -1) viewModel.generateFullShareCode(troupe, state.characters, state.upgradeCards) else "DUMMY_CODE"
                                 shareTroupe(context, troupe.troupeName, code)
@@ -117,8 +117,9 @@ fun TroupeListScreen(
                 AlertDialog(onDismissRequest = { troupeToDelete = null }, title = { Text("Delete Troupe") }, text = { Text("Are you sure?") }, confirmButton = { TextButton(onClick = { troupeToDelete?.let { viewModel.onEvent(CharacterEvent.DeleteTroupe(it)) }; troupeToDelete = null }, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text("Delete") } }, dismissButton = { TextButton(onClick = { troupeToDelete = null }) { Text("Cancel") } })
             }
 
-            if (showImportDialog) {
-                AlertDialog(onDismissRequest = { showImportDialog = false }, title = { Text("Import") }, text = { OutlinedTextField(value = importCode, onValueChange = { importCode = it }, modifier = Modifier.fillMaxWidth()) }, confirmButton = { Button(onClick = { viewModel.importTroupe(importCode, state.characters, state.upgradeCards); if (viewModel.state.value.errorMessage == null) { showImportDialog = false; importCode = ""; onAddTroupe() } }, enabled = importCode.isNotBlank()) { Text("Import") } }, dismissButton = { TextButton(onClick = { showImportDialog = false }) { Text("Cancel") } })
+            if (showQrForTroupe != null) {
+                val shareCode = viewModel.generateFullShareCode(showQrForTroupe!!, state.characters, state.upgradeCards)
+                QrCodeDialog(troupeName = showQrForTroupe!!.troupeName, shareCode = shareCode, onDismiss = { showQrForTroupe = null })
             }
 
             if (state.errorMessage != null) {
@@ -133,6 +134,7 @@ fun TroupeListItem(
     troupe: Troupe,
     onClick: () -> Unit,
     onDelete: () -> Unit,
+    onQr: () -> Unit = {},
     onShare: () -> Unit,
     onEdit: () -> Unit,
     isDimmed: Boolean = false,
@@ -177,8 +179,12 @@ fun TroupeListItem(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                if (selectionMode) IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) { Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(20.dp)) }
-                else IconButton(onClick = onShare, modifier = Modifier.size(36.dp).onGloballyPositioned { onPositioned("ShareTroupe", it) }) { Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(20.dp)) }
+                if (selectionMode) {
+                    IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) { Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(20.dp)) }
+                } else {
+                    IconButton(onClick = onQr, modifier = Modifier.size(36.dp)) { Icon(Icons.Default.QrCode, contentDescription = "Show QR", modifier = Modifier.size(20.dp)) }
+                    IconButton(onClick = onShare, modifier = Modifier.size(36.dp).onGloballyPositioned { onPositioned("ShareTroupe", it) }) { Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(20.dp)) }
+                }
                 if (showDelete) IconButton(onClick = onDelete, modifier = Modifier.size(36.dp).onGloballyPositioned { onPositioned("DeleteTroupe", it) }) { Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.error) }
             }
             if (!characters.isNullOrEmpty()) {
