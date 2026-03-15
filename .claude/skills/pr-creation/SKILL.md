@@ -10,7 +10,7 @@ When creating a PR:
    - `git diff main...HEAD` — understand what changed
    - Read `.github/pull_request_template.md` for the required format
 
-2. Draft a PR title (under 70 chars, imperative tense) and body following the template exactly, filling in all checklist items appropriately.
+2. Draft a PR title (under 70 chars, imperative tense) and body following the template exactly. All checklist items must be ticked (`[x]`) — items marked "N/A for now" in the template should still be checked.
 
 3. Raise the PR:
 ```bash
