@@ -165,6 +165,7 @@ data class CharacterState(
 
     // Data / image update state
     val autoCheckDataUpdates: Boolean = true,
+    val installedDataVersion: String = "",
     val pendingDataUpdate: GitHubRelease? = null,
     val isInstallingDataUpdate: Boolean = false,
     val imageDownloadPreference: ImageDownloadPreference = ImageDownloadPreference.PROMPT,

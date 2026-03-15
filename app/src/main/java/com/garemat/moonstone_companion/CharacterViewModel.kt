@@ -64,6 +64,7 @@ class CharacterViewModel(
         gameLayoutMode = GameLayoutMode.valueOf(prefs.getString("game_layout_mode", GameLayoutMode.COMPACT_GRID.name) ?: GameLayoutMode.COMPACT_GRID.name),
         newsItems = loadCachedNews(),
         autoCheckDataUpdates = dataUpdateRepository.loadAutoCheck(),
+        installedDataVersion = CharacterData.getInstalledVersion(application),
         imageDownloadPreference = dataUpdateRepository.loadImagePreference()
     ))
     
@@ -579,21 +580,46 @@ class CharacterViewModel(
         editingTroupeId = null; newTroupeName = ""; selectedTroupeFaction = Faction.COMMONWEALTH; selectedCharacterIds = emptySet(); isTournamentList = isTournament; isCampaignTroupe = isCampaign
     }
 
-    fun generateFullShareCode(troupe: Troupe, characters: List<Character>): String {
+    fun generateFullShareCode(troupe: Troupe, characters: List<Character>, upgrades: List<UpgradeCard>): String {
         val factionCode = when (troupe.faction) { Faction.COMMONWEALTH -> "A"; Faction.DOMINION -> "B"; Faction.LESHAVULT -> "C"; Faction.SHADES -> "D" }
-        val selectedCodes = troupe.characterIds.mapNotNull { id -> characters.find { it.id == id }?.shareCode }.joinToString("")
-        val rawCode = "${troupe.troupeName}|$factionCode${if (troupe.isTournamentList) "1" else "0"}$selectedCodes"
+        val items = buildString {
+            for (charId in troupe.characterIds) {
+                val char = characters.find { it.id == charId } ?: continue
+                append(char.shareCode)
+                for (upgradeId in troupe.equippedUpgrades[charId].orEmpty()) {
+                    val upgrade = upgrades.find { it.id == upgradeId } ?: continue
+                    append(upgrade.shareCode)
+                }
+            }
+        }
+        val rawCode = "${troupe.troupeName}|$factionCode${if (troupe.isTournamentList) "1" else "0"}$items"
         return Base64.encodeToString(rawCode.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
     }
 
-    fun importTroupe(fullCode: String, allCharacters: List<Character>): Troupe? {
+    fun importTroupe(fullCode: String, allCharacters: List<Character>, allUpgrades: List<UpgradeCard>): Troupe? {
         try {
             val decoded = String(Base64.decode(fullCode, Base64.DEFAULT), Charsets.UTF_8)
             val parts = decoded.split("|"); if (parts.size != 2 || parts[1].isEmpty()) return null
             val codeBody = parts[1]
             val faction = when (codeBody[0]) { 'A' -> Faction.COMMONWEALTH; 'B' -> Faction.DOMINION; 'C' -> Faction.LESHAVULT; 'D' -> Faction.SHADES; else -> return null }
-            val ids = codeBody.substring(2).chunked(3).mapNotNull { code -> allCharacters.find { it.shareCode == code }?.id }
-            return Troupe(0, parts[0], faction, ids, fullCode, codeBody[1] == '1')
+            val isTournament = codeBody[1] == '1'
+            val characterIds = mutableListOf<Int>()
+            val equippedUpgrades = mutableMapOf<Int, MutableList<Int>>()
+            var currentCharId: Int? = null
+            for (code in codeBody.substring(2).chunked(5)) {
+                if (code.length != 5) continue
+                when (code[0]) {
+                    'A' -> { // character
+                        val char = allCharacters.find { it.shareCode == code } ?: continue
+                        characterIds.add(char.id); currentCharId = char.id
+                    }
+                    'B' -> { // upgrade card
+                        val upgrade = allUpgrades.find { it.shareCode == code } ?: continue
+                        currentCharId?.let { equippedUpgrades.getOrPut(it) { mutableListOf() }.add(upgrade.id) }
+                    }
+                }
+            }
+            return Troupe(0, parts[0], faction, characterIds, fullCode, isTournament, equippedUpgrades = equippedUpgrades)
         } catch (e: Exception) { return null }
     }
 

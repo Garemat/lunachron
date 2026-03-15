@@ -198,6 +198,12 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(theme.verticalSpacing))
 
             Text("Data Updates", style = theme.titleStyle.copy(fontSize = 20.sp), color = MaterialTheme.colorScheme.primary)
+            Spacer(modifier = Modifier.height(theme.verticalSpacing / 4))
+            Text(
+                text = "Installed version: ${state.installedDataVersion.ifEmpty { "bundled" }}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
 
             Row(

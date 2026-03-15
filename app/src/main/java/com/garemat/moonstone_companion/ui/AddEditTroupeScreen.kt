@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -25,6 +27,8 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.garemat.moonstone_companion.*
 import com.garemat.moonstone_companion.ui.theme.LocalAppThemeProperties
 import kotlinx.coroutines.launch
@@ -124,12 +128,22 @@ fun AddEditTroupeScreen(
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
             when (editStage) {
-                TroupeEditStage.SETUP -> SetupStage(viewModel, theme, isNameError, onNameChange = { isNameError = false }, onNext = {
-                    if (viewModel.newTroupeName.isBlank()) {
-                        isNameError = true
-                        scope.launch { snackbarHostState.showSnackbar("Troupe name can't be empty") }
-                    } else editStage = TroupeEditStage.DASHBOARD
-                }, onBack = onNavigateBack, onTargetPositioned = onTargetPositioned)
+                TroupeEditStage.SETUP -> SetupStage(
+                    viewModel = viewModel,
+                    state = state,
+                    theme = theme,
+                    isNameError = isNameError,
+                    onNameChange = { isNameError = false },
+                    onNext = {
+                        if (viewModel.newTroupeName.isBlank()) {
+                            isNameError = true
+                            scope.launch { snackbarHostState.showSnackbar("Troupe name can't be empty") }
+                        } else editStage = TroupeEditStage.DASHBOARD
+                    },
+                    onBack = onNavigateBack,
+                    onImportSuccess = onNavigateBack,
+                    onTargetPositioned = onTargetPositioned
+                )
                 
                 TroupeEditStage.DASHBOARD -> DashboardStage(
                     viewModel = viewModel,
@@ -221,18 +235,60 @@ fun AddEditTroupeScreen(
 }
 
 @Composable
-private fun SetupStage(viewModel: CharacterViewModel, theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties, isNameError: Boolean, onNameChange: (String) -> Unit, onNext: () -> Unit, onBack: () -> Unit, onTargetPositioned: (String, LayoutCoordinates) -> Unit) {
+private fun SetupStage(
+    viewModel: CharacterViewModel,
+    state: CharacterState,
+    theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties,
+    isNameError: Boolean,
+    onNameChange: (String) -> Unit,
+    onNext: () -> Unit,
+    onBack: () -> Unit,
+    onImportSuccess: () -> Unit,
+    onTargetPositioned: (String, LayoutCoordinates) -> Unit
+) {
+    val tabs = listOf("Create", "Import")
+    val pagerState = rememberPagerState(pageCount = { tabs.size })
+    val scope = rememberCoroutineScope()
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        Spacer(modifier = Modifier.height(24.dp))
+        Text("New Troupe", style = theme.headerStyle, color = MaterialTheme.colorScheme.primary, modifier = Modifier.align(Alignment.CenterHorizontally))
+        Spacer(modifier = Modifier.height(16.dp))
+        TabRow(selectedTabIndex = pagerState.currentPage) {
+            tabs.forEachIndexed { index, title ->
+                Tab(
+                    selected = pagerState.currentPage == index,
+                    onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
+                    text = { Text(title) }
+                )
+            }
+        }
+        HorizontalPager(state = pagerState, modifier = Modifier.weight(1f)) { page ->
+            when (page) {
+                0 -> CreateTroupeTab(viewModel, theme, isNameError, onNameChange, onNext, onBack, onTargetPositioned)
+                1 -> ImportTroupeTab(viewModel, state, theme, onBack, onImportSuccess)
+            }
+        }
+    }
+}
+
+@Composable
+private fun CreateTroupeTab(
+    viewModel: CharacterViewModel,
+    theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties,
+    isNameError: Boolean,
+    onNameChange: (String) -> Unit,
+    onNext: () -> Unit,
+    onBack: () -> Unit,
+    onTargetPositioned: (String, LayoutCoordinates) -> Unit
+) {
     Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("New Troupe", style = theme.headerStyle, color = MaterialTheme.colorScheme.primary)
-        Spacer(modifier = Modifier.height(32.dp))
         OutlinedTextField(value = viewModel.newTroupeName, onValueChange = { viewModel.newTroupeName = it; onNameChange(it) }, label = { Text("Troupe Name") }, modifier = Modifier.fillMaxWidth().onGloballyPositioned { onTargetPositioned("TroupeName", it) }, singleLine = true, isError = isNameError, shape = theme.cardShape)
         Spacer(modifier = Modifier.height(24.dp))
-        
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Checkbox(checked = viewModel.isCampaignTroupe, onCheckedChange = { viewModel.isCampaignTroupe = it })
             Text("Campaign Troupe", style = MaterialTheme.typography.bodyLarge)
         }
-        
         Spacer(modifier = Modifier.height(24.dp))
         Text("Select Faction", style = MaterialTheme.typography.labelMedium)
         Row(modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp).onGloballyPositioned { onTargetPositioned("FactionSymbols", it) }, horizontalArrangement = Arrangement.SpaceEvenly) {
@@ -247,6 +303,84 @@ private fun SetupStage(viewModel: CharacterViewModel, theme: com.garemat.moonsto
         Button(onClick = onNext, modifier = Modifier.fillMaxWidth().height(56.dp), shape = theme.cardShape) { Text("Next", style = MaterialTheme.typography.titleMedium) }
         Spacer(modifier = Modifier.height(8.dp))
         TextButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("Cancel", color = MaterialTheme.colorScheme.secondary) }
+    }
+}
+
+@Composable
+private fun ImportTroupeTab(
+    viewModel: CharacterViewModel,
+    state: CharacterState,
+    theme: com.garemat.moonstone_companion.ui.theme.AppThemeProperties,
+    onBack: () -> Unit,
+    onImportSuccess: () -> Unit
+) {
+    var importCode by remember { mutableStateOf("") }
+    var importError by remember { mutableStateOf(false) }
+    var showScanner by remember { mutableStateOf(false) }
+
+    fun tryImport(code: String) {
+        val troupe = viewModel.importTroupe(code.trim(), state.characters, state.upgradeCards)
+        if (troupe != null) {
+            viewModel.saveTroupe(troupe)
+            onImportSuccess()
+        } else {
+            importError = true
+        }
+    }
+
+    Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+        OutlinedTextField(
+            value = importCode,
+            onValueChange = { importCode = it; importError = false },
+            label = { Text("Paste Share Code") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            isError = importError,
+            supportingText = if (importError) { { Text("Invalid code — check the text and try again.", color = MaterialTheme.colorScheme.error) } } else null,
+            shape = theme.cardShape
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            OutlinedButton(
+                onClick = { showScanner = true },
+                modifier = Modifier.weight(1f),
+                shape = theme.cardShape
+            ) {
+                Icon(Icons.Default.QrCodeScanner, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Scan QR")
+            }
+            Button(
+                onClick = { tryImport(importCode) },
+                modifier = Modifier.weight(1f),
+                enabled = importCode.isNotBlank(),
+                shape = theme.cardShape
+            ) {
+                Text("Import")
+            }
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+        TextButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("Cancel", color = MaterialTheme.colorScheme.secondary) }
+    }
+
+    if (showScanner) {
+        Dialog(
+            onDismissRequest = { showScanner = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                QrScanner(onResult = { result ->
+                    showScanner = false
+                    tryImport(result)
+                })
+                IconButton(
+                    onClick = { showScanner = false },
+                    modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)
+                ) {
+                    Icon(Icons.Default.Close, contentDescription = "Close scanner", tint = Color.White)
+                }
+            }
+        }
     }
 }
 
