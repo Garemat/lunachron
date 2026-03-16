@@ -2,6 +2,7 @@ package io.github.garemat.lunachron
 
 import android.content.Context
 import android.content.Context.MODE_PRIVATE
+import androidx.core.content.edit
 import android.os.Build
 import android.util.Log
 import androidx.core.content.pm.PackageInfoCompat
@@ -125,21 +126,21 @@ class DataUpdateRepository(
                 entry = zis.nextEntry
             }
         }
-        prefs.edit().putString(KEY_IMAGE_VERSION, releaseTag).apply()
+        prefs.edit { putString(KEY_IMAGE_VERSION, releaseTag) }
     }
 
     fun markDataVersionSkipped(tag: String) {
-        prefs.edit().putString(KEY_SKIP_DATA_VERSION, tag).apply()
+        prefs.edit { putString(KEY_SKIP_DATA_VERSION, tag) }
     }
 
     fun markImageVersionSkipped(tag: String) {
-        prefs.edit().putString(KEY_SKIP_IMAGE_VERSION, tag).apply()
+        prefs.edit { putString(KEY_SKIP_IMAGE_VERSION, tag) }
     }
 
     fun isFirstImageLaunch(): Boolean = prefs.getString(KEY_IMAGE_VERSION, null) == null
 
     fun persistImagePreference(pref: ImageDownloadPreference) {
-        prefs.edit().putString("image_download_pref", pref.name).apply()
+        prefs.edit { putString("image_download_pref", pref.name) }
     }
 
     fun loadImagePreference(): ImageDownloadPreference {
@@ -148,7 +149,7 @@ class DataUpdateRepository(
     }
 
     fun persistAutoCheck(enabled: Boolean) {
-        prefs.edit().putBoolean("auto_check_data_updates", enabled).apply()
+        prefs.edit { putBoolean("auto_check_data_updates", enabled) }
     }
 
     fun loadAutoCheck(): Boolean = prefs.getBoolean("auto_check_data_updates", true)
@@ -191,7 +192,7 @@ class DataUpdateRepository(
     }
 
     fun persistAutoCheckApp(enabled: Boolean) {
-        prefs.edit().putBoolean("auto_check_app_updates", enabled).apply()
+        prefs.edit { putBoolean("auto_check_app_updates", enabled) }
     }
 
     fun loadAutoCheckApp(): Boolean = prefs.getBoolean("auto_check_app_updates", false)

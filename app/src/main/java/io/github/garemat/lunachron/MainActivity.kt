@@ -1,8 +1,8 @@
 package io.github.garemat.lunachron
 
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
+import androidx.core.net.toUri
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.activity.compose.setContent
@@ -697,7 +697,7 @@ private fun DataUpdateDialogs(
                             "https://f-droid.org/packages/io.github.garemat.lunachron/"
                         else
                             appRelease.htmlUrl
-                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                        context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
                         onEvent(CharacterEvent.DismissAppUpdate)
                     },
                     shape = theme.cardShape

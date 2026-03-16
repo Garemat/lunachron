@@ -65,31 +65,19 @@ fun CharacterPortrait(character: Character, size: Dp, modifier: Modifier = Modif
             }
         }
     }
-    val drawableRes = remember(character.imageName) {
-        if (imageFile == null && character.imageName != null)
-            context.resources.getIdentifier(
-                character.imageName.substringBeforeLast("."), "drawable", context.packageName
-            )
-        else 0
-    }
     Box(
         modifier = modifier.size(size).clip(CircleShape),
         contentAlignment = Alignment.Center
     ) {
-        when {
-            imageFile != null -> AsyncImage(
+        if (imageFile != null) {
+            AsyncImage(
                 model = imageFile,
                 contentDescription = character.name,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
             )
-            drawableRes != 0 -> Image(
-                painter = painterResource(id = drawableRes),
-                contentDescription = character.name,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
-            else -> Text(
+        } else {
+            Text(
                 text = character.name.take(1),
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.primary
@@ -240,15 +228,11 @@ fun getFactionIcon(faction: Faction) = when (faction) {
 
 @Composable
 fun FactionSymbol(faction: Faction, modifier: Modifier = Modifier, tint: Color? = null) {
-    val context = LocalContext.current
-    val resId = remember(faction) {
-        val resName = when(faction) {
-            Faction.COMMONWEALTH -> "commonwealth"
-            Faction.DOMINION -> "dominion"
-            Faction.LESHAVULT -> "leshavult"
-            Faction.SHADES -> "shades"
-        }
-        context.resources.getIdentifier(resName, "drawable", context.packageName)
+    val resId = when(faction) {
+        Faction.COMMONWEALTH -> R.drawable.commonwealth
+        Faction.DOMINION -> R.drawable.dominion
+        Faction.LESHAVULT -> R.drawable.leshavult
+        Faction.SHADES -> R.drawable.shades
     }
     if (resId != 0) Image(
         painter = painterResource(id = resId), 
@@ -475,11 +459,6 @@ fun CommonCharacterCard(character: Character, searchQuery: String, isExpanded: B
             }
         }
     }
-    val bgDrawableRes = remember(character.imageName) {
-        if (bgImageFile == null && character.imageName != null)
-            context.resources.getIdentifier(character.imageName.substringBeforeLast("."), "drawable", context.packageName)
-        else 0
-    }
     ThemedCard(modifier = modifier.fillMaxWidth().animateContentSize().onGloballyPositioned { onPositioned(cardTargetName, it) }) {
         Column {
             Row(modifier = Modifier.fillMaxWidth().clickable { onExpandClick() }.padding(theme.cardContentPadding), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -497,11 +476,8 @@ fun CommonCharacterCard(character: Character, searchQuery: String, isExpanded: B
             if (isExpanded) {
                 if (appTheme != AppTheme.MOONSTONE) HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                 Box(modifier = Modifier.fillMaxWidth()) {
-                    if (appTheme == AppTheme.MOONSTONE) {
-                        when {
-                            bgImageFile != null -> AsyncImage(model = bgImageFile, contentDescription = null, modifier = Modifier.matchParentSize().alpha(0.25f), contentScale = ContentScale.Crop)
-                            bgDrawableRes != 0 -> Image(painter = painterResource(id = bgDrawableRes), contentDescription = null, modifier = Modifier.matchParentSize().alpha(0.25f), contentScale = ContentScale.Crop)
-                        }
+                    if (appTheme == AppTheme.MOONSTONE && bgImageFile != null) {
+                        AsyncImage(model = bgImageFile, contentDescription = null, modifier = Modifier.matchParentSize().alpha(0.25f), contentScale = ContentScale.Crop)
                     }
                     Box(modifier = Modifier.padding(theme.cardContentPadding)) {
                         if (!isFlipped) CharacterFront(character = character, searchQuery = searchQuery, onFlip = { isFlippedState = true }, onFlipPositioned = { onPositioned("FlipButton", it) })
@@ -672,7 +648,7 @@ fun ModifierDisplay(character: Character, isOffense: Boolean, modifier: Modifier
 }
 
 @Composable
-fun HealthTracker(totalHealth: Int, currentHealth: Int, energyTrack: List<Int>, onHealthChange: (Int) -> Unit, isEditable: Boolean = true, modifier: Modifier = Modifier) {
+fun HealthTracker(totalHealth: Int, currentHealth: Int, energyTrack: List<Int>, onHealthChange: (Int) -> Unit, modifier: Modifier = Modifier, isEditable: Boolean = true) {
     val theme = LocalAppThemeProperties.current
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.Start), modifier = modifier.padding(top = theme.verticalSpacing / 2), verticalAlignment = Alignment.CenterVertically) {
         for (i in 1..totalHealth) {

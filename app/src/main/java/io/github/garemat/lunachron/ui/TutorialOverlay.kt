@@ -26,7 +26,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -84,8 +84,7 @@ fun TutorialOverlay(
     var dialogRectInOverlay by remember { mutableStateOf<Rect?>(null) }
     var overlayCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
 
-    val configuration = LocalConfiguration.current
-    val screenHeightPx = configuration.screenHeightDp * configuration.densityDpi / 160f
+    val screenHeightPx = LocalWindowInfo.current.containerSize.height.toFloat()
 
     Dialog(
         onDismissRequest = { /* Don't dismiss on outside tap */ },

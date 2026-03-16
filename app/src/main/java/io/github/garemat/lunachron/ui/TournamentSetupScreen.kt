@@ -17,6 +17,7 @@ import io.github.garemat.lunachron.CharacterState
 import io.github.garemat.lunachron.HostMode
 import io.github.garemat.lunachron.TroupeSizeSetting
 import io.github.garemat.lunachron.ui.theme.LocalAppThemeProperties
+import java.util.Locale
 import kotlin.random.Random
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -35,7 +36,7 @@ fun TournamentSetupScreen(
     var selectedTroupeSize by remember { mutableStateOf(existingSettings?.troupeSize ?: TroupeSizeSetting.V6_10) }
     var roundTimer by remember { mutableStateOf(existingSettings?.roundTimerMinutes?.toString() ?: "90") }
     var hostParticipating by remember { mutableStateOf(existingSettings?.hostParticipating ?: true) }
-    var passcode by remember { mutableStateOf(existingSettings?.passcode ?: String.format("%04d", Random.nextInt(10000))) }
+    var passcode by remember { mutableStateOf(existingSettings?.passcode ?: String.format(Locale.getDefault(), "%04d", Random.nextInt(10000))) }
     var selectedHostMode by remember { mutableStateOf(HostMode.WIFI_NSD) }
 
     var showDisbandConfirmation by remember { mutableStateOf(false) }
