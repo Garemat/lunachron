@@ -19,8 +19,9 @@ jobs:
 
     - name: Determine Version Bump
       id: bump_type
+      env:
+        BODY: ${{ github.event.pull_request.body }}
       run: |
-        BODY="${{ github.event.pull_request.body }}"
         if [[ "$BODY" == *"[x] 💥 Breaking change"* ]]; then
           echo "type=major" >> $GITHUB_OUTPUT
         elif [[ "$BODY" == *"[x] ✨ New feature"* ]]; then
