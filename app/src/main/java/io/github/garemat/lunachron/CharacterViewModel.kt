@@ -28,6 +28,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.jsoup.Jsoup
+import androidx.core.content.edit
 import java.util.UUID
 
 class CharacterViewModel(
@@ -41,6 +42,7 @@ class CharacterViewModel(
         val oldPrefs = application.getSharedPreferences("moonstone_prefs", Context.MODE_PRIVATE)
         val newPrefs = application.getSharedPreferences("lunachron_prefs", Context.MODE_PRIVATE)
         if (oldPrefs.all.isNotEmpty() && newPrefs.all.isEmpty()) {
+            @Suppress("UseKtx") // Multi-op loop — KTX edit{} block can't accumulate inside forEach
             val editor = newPrefs.edit()
             @Suppress("UNCHECKED_CAST")
             oldPrefs.all.forEach { (key, value) ->
@@ -53,7 +55,7 @@ class CharacterViewModel(
                 }
             }
             editor.apply()
-            oldPrefs.edit().clear().apply()
+            oldPrefs.edit { clear() }
         }
         newPrefs
     }
@@ -68,7 +70,7 @@ class CharacterViewModel(
 
     private val persistentDeviceId: String = prefs.getString("persistent_device_id", null) ?: run {
         val newId = UUID.randomUUID().toString()
-        prefs.edit().putString("persistent_device_id", newId).apply()
+        prefs.edit { putString("persistent_device_id", newId) }
         newId
     }
 
@@ -214,7 +216,7 @@ class CharacterViewModel(
                         val currentItems = _state.value.newsItems
                         if (currentItems.isEmpty() || currentItems[0].url != newItems[0].url) {
                             _state.update { it.copy(newsItems = newItems) }
-                            prefs.edit().putString("cached_news", Json.encodeToString(newItems)).apply()
+                            prefs.edit { putString("cached_news", Json.encodeToString(newItems)) }
                         }
                     }
                 }
@@ -274,28 +276,28 @@ class CharacterViewModel(
             CharacterEvent.DismissError -> _state.update { it.copy(errorMessage = null) }
             is CharacterEvent.UpdateUserName -> {
                 val old = _state.value.name; _state.update { it.copy(name = event.name) }
-                prefs.edit().putString("player_name", event.name).apply()
+                prefs.edit { putString("player_name", event.name) }
                 if (event.name != old) nearbyManager.sendPayloadToAll(MessageParser.encode(SessionMessage.PlayerInfoUpdate(persistentDeviceId, event.name)))
             }
             is CharacterEvent.ChangeTheme -> {
                 _state.update { it.copy(theme = event.theme) }
-                prefs.edit().putString("app_theme", event.theme.name).apply()
+                prefs.edit { putString("app_theme", event.theme.name) }
             }
             is CharacterEvent.ChangeLayoutDensity -> {
                 _state.update { it.copy(layoutDensity = event.density) }
-                prefs.edit().putString("layout_density", event.density.name).apply()
+                prefs.edit { putString("layout_density", event.density.name) }
             }
             is CharacterEvent.SetLocalModeDefault -> {
                 _state.update { it.copy(useLocalModeByDefault = event.useLocal) }
-                prefs.edit().putBoolean("use_local_mode_by_default", event.useLocal).apply()
+                prefs.edit { putBoolean("use_local_mode_by_default", event.useLocal) }
             }
             is CharacterEvent.SetSinglePlayerMode -> {
                 _state.update { it.copy(useSinglePlayerMode = event.enabled) }
-                prefs.edit().putBoolean("use_single_player_mode", event.enabled).apply()
+                prefs.edit { putBoolean("use_single_player_mode", event.enabled) }
             }
             is CharacterEvent.SetHasSeenTutorial -> {
                 if (event.tutorialKey == "global") _state.update { it.copy(hasSeenGlobalTutorial = event.seen) }
-                prefs.edit().putBoolean(if (event.tutorialKey == "global") "has_seen_global_tutorial" else "has_seen_${event.tutorialKey}_tutorial", event.seen).apply()
+                prefs.edit { putBoolean(if (event.tutorialKey == "global") "has_seen_global_tutorial" else "has_seen_${event.tutorialKey}_tutorial", event.seen) }
             }
             CharacterEvent.RefreshNews -> fetchNews()
             is CharacterEvent.UpdateCharacterHealth -> {
@@ -317,11 +319,11 @@ class CharacterViewModel(
             CharacterEvent.ResetGamePlayState -> _state.update { it.copy(characterPlayStates = emptyMap(), currentTurn = 1, turnHistory = emptyList(), winnerName = null, isTie = false, activeSummons = emptyMap(), poolResourceCounts = emptyMap()) }
             is CharacterEvent.ChangeGameTrackingMode -> {
                 _state.update { it.copy(gameTrackingMode = event.mode) }
-                prefs.edit().putString("game_tracking_mode", event.mode.name).apply()
+                prefs.edit { putString("game_tracking_mode", event.mode.name) }
             }
             is CharacterEvent.ChangeGameLayoutMode -> {
                 _state.update { it.copy(gameLayoutMode = event.mode) }
-                prefs.edit().putString("game_layout_mode", event.mode.name).apply()
+                prefs.edit { putString("game_layout_mode", event.mode.name) }
             }
             is CharacterEvent.AddSummonedCharacter -> {
                 _state.update { cur ->

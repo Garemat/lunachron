@@ -1,6 +1,7 @@
 package io.github.garemat.lunachron.ui
 
 import androidx.compose.foundation.Image
+import io.github.garemat.lunachron.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -15,7 +16,6 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -131,15 +131,11 @@ private fun ScoreText(score: Int, modifier: Modifier, fontSize: androidx.compose
 @Composable
 fun PlayerQuadrant(stat: PlayerStat, isWinner: Boolean, modifier: Modifier) {
     val theme = LocalAppThemeProperties.current
-    val context = LocalContext.current
-    val backgroundRes = remember(stat.faction) {
-        val resName = when(stat.faction) {
-            Faction.COMMONWEALTH -> "commonwealth"
-            Faction.DOMINION -> "dominion"
-            Faction.LESHAVULT -> "leshavult"
-            Faction.SHADES -> "shades"
-        }
-        context.resources.getIdentifier(resName, "drawable", context.packageName)
+    val backgroundRes = when(stat.faction) {
+        Faction.COMMONWEALTH -> R.drawable.commonwealth
+        Faction.DOMINION -> R.drawable.dominion
+        Faction.LESHAVULT -> R.drawable.leshavult
+        Faction.SHADES -> R.drawable.shades
     }
 
     Box(

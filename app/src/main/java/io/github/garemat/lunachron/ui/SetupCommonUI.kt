@@ -15,7 +15,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -23,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.garemat.lunachron.AppTheme
 import io.github.garemat.lunachron.HostMode
+import io.github.garemat.lunachron.R
 import io.github.garemat.lunachron.ui.theme.LocalAppTheme
 import io.github.garemat.lunachron.ui.theme.LocalAppThemeProperties
 
@@ -101,8 +101,13 @@ fun SetupOptionCard(
     modifier: Modifier = Modifier
 ) {
     val isMoonstone = LocalAppTheme.current == AppTheme.MOONSTONE
-    val context = LocalContext.current
-    val backgroundRes = remember(backgroundType) { context.resources.getIdentifier(backgroundType, "drawable", context.packageName) }
+    val backgroundRes = when (backgroundType) {
+        "commonwealth" -> R.drawable.commonwealth
+        "dominion" -> R.drawable.dominion
+        "leshavult" -> R.drawable.leshavult
+        "shades" -> R.drawable.shades
+        else -> 0
+    }
     
     Card(
         onClick = onClick,
