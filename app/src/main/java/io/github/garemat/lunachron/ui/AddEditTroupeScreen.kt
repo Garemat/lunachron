@@ -1,6 +1,11 @@
 package io.github.garemat.lunachron.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -27,8 +32,10 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.core.content.ContextCompat
 import io.github.garemat.lunachron.*
 import io.github.garemat.lunachron.ui.theme.LocalAppThemeProperties
 import kotlinx.coroutines.launch
@@ -314,9 +321,25 @@ private fun ImportTroupeTab(
     onBack: () -> Unit,
     onImportSuccess: () -> Unit
 ) {
+    val context = LocalContext.current
     var importCode by remember { mutableStateOf("") }
     var importError by remember { mutableStateOf(false) }
     var showScanner by remember { mutableStateOf(false) }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) showScanner = true
+        else Toast.makeText(context, "Camera permission is required to scan QR codes", Toast.LENGTH_SHORT).show()
+    }
+
+    fun requestScan() {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            showScanner = true
+        } else {
+            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
 
     fun tryImport(code: String) {
         val troupe = viewModel.importTroupe(code.trim(), state.characters, state.upgradeCards)
@@ -342,7 +365,7 @@ private fun ImportTroupeTab(
         Spacer(modifier = Modifier.height(16.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             OutlinedButton(
-                onClick = { showScanner = true },
+                onClick = { requestScan() },
                 modifier = Modifier.weight(1f),
                 shape = theme.cardShape
             ) {
