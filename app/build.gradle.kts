@@ -43,9 +43,11 @@ android {
         release {
             isMinifyEnabled = false
             isCrunchPngs = false
-            // Only apply signingConfig if storeFile is set
-            if (signingConfigs.getByName("release").storeFile != null) {
-                signingConfig = signingConfigs.getByName("release")
+            // Only apply signingConfig if it exists and storeFile is set.
+            // fdroidserver strips the signingConfigs block before building, so
+            // findByName (returns null) is used instead of getByName (throws).
+            signingConfigs.findByName("release")?.takeIf { it.storeFile != null }?.let {
+                signingConfig = it
             }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
