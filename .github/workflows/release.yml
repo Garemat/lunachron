@@ -69,14 +69,13 @@ jobs:
         sed -i "s/        versionName = .*/        versionName = \"$VERSION_NAME\"/" app/build.gradle.kts
         echo "Version: $VERSION_NAME ($VERSION_CODE), tag: $NEW_TAG"
 
-    - name: Commit release files and create tag
+    - name: Create release commit and tag
       if: steps.bump_type.outputs.type != 'none'
       run: |
         git config user.name  "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
         git add app/build.gradle.kts data.version
         git diff --staged --quiet || git commit -m "chore: release ${{ steps.version.outputs.new_tag }} [skip ci]"
-        git push origin HEAD:main
         git tag ${{ steps.version.outputs.new_tag }}
         git push origin ${{ steps.version.outputs.new_tag }}
 
