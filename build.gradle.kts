@@ -19,6 +19,7 @@ buildscript {
                 group == "org.bitbucket.b_c"   && name == "jose4j"          -> useVersion("0.9.6")
                 group == "org.jdom"            && name == "jdom2"            -> useVersion("2.0.6.1")
                 group == "org.apache.commons"  && name == "commons-compress" -> useVersion("1.26.0")
+                group == "org.apache.commons"  && name == "commons-lang3"    -> useVersion("3.18.0")
             }
         }
     }
