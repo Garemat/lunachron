@@ -108,5 +108,9 @@ jobs:
         git config user.name  "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
         git add data.version
-        git commit -m "chore: pin data.version to ${{ steps.pin_data.outputs.data_tag }} for release ${{ steps.tag_version.outputs.new_tag }} [skip ci]"
-        git push origin HEAD:main
+        if ! git diff --staged --quiet; then
+          git commit -m "chore: pin data.version to ${{ steps.pin_data.outputs.data_tag }} for release ${{ steps.tag_version.outputs.new_tag }} [skip ci]"
+          git push origin HEAD:main
+        else
+          echo "data.version unchanged, skipping commit"
+        fi
