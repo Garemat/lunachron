@@ -43,14 +43,42 @@ jobs:
         echo "$DATA_TAG" > data.version
         echo "Pinned data release: $DATA_TAG"
 
-    - name: Create Tag
+    - name: Compute next version and write to build.gradle.kts
       if: steps.bump_type.outputs.type != 'none'
-      id: tag_version
-      uses: anothrNick/github-tag-action@1.75.0
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        DEFAULT_BUMP: ${{ steps.bump_type.outputs.type }}
-        WITH_V: true
+      id: version
+      run: |
+        LATEST_TAG=$(git tag --sort=-v:refname | grep '^v' | head -1)
+        LATEST="${LATEST_TAG#v}"
+        if [ -z "$LATEST" ]; then LATEST="0.0.0"; fi
+        IFS='.' read -r major minor patch <<< "$LATEST"
+        major=${major:-0}; minor=${minor:-0}; patch=${patch:-0}
+        case "${{ steps.bump_type.outputs.type }}" in
+          major) major=$((major+1)); minor=0; patch=0 ;;
+          minor) minor=$((minor+1)); patch=0 ;;
+          patch) patch=$((patch+1)) ;;
+        esac
+        VERSION_NAME="${major}.${minor}.${patch}"
+        VERSION_CODE=$(( major * 10000 + minor * 100 + patch ))
+        NEW_TAG="v${VERSION_NAME}"
+        echo "new_tag=$NEW_TAG" >> $GITHUB_OUTPUT
+        echo "version_name=$VERSION_NAME" >> $GITHUB_OUTPUT
+        echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
+        # Write hardcoded values into build.gradle.kts so F-Droid can read them
+        # directly from the tagged commit without needing env var injection.
+        sed -i "s/        versionCode = .*/        versionCode = $VERSION_CODE/" app/build.gradle.kts
+        sed -i "s/        versionName = .*/        versionName = \"$VERSION_NAME\"/" app/build.gradle.kts
+        echo "Version: $VERSION_NAME ($VERSION_CODE), tag: $NEW_TAG"
+
+    - name: Commit release files and create tag
+      if: steps.bump_type.outputs.type != 'none'
+      run: |
+        git config user.name  "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git add app/build.gradle.kts data.version
+        git diff --staged --quiet || git commit -m "chore: release ${{ steps.version.outputs.new_tag }} [skip ci]"
+        git push origin HEAD:main
+        git tag ${{ steps.version.outputs.new_tag }}
+        git push origin ${{ steps.version.outputs.new_tag }}
 
     - name: set up JDK 17
       if: steps.bump_type.outputs.type != 'none'
@@ -69,17 +97,6 @@ jobs:
       run: |
         echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > app/release.keystore
 
-    - name: Compute version code and name
-      if: steps.bump_type.outputs.type != 'none'
-      run: |
-        TAG="${{ steps.tag_version.outputs.new_tag }}"
-        VERSION_NAME="${TAG#v}"
-        IFS='.' read -r major minor patch <<< "$VERSION_NAME"
-        VERSION_CODE=$(( ${major:-0} * 10000 + ${minor:-0} * 100 + ${patch:-0} ))
-        echo "VERSION_CODE=$VERSION_CODE" >> $GITHUB_ENV
-        echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_ENV
-        echo "Version: $VERSION_NAME ($VERSION_CODE)"
-
     - name: Build Release APK
       if: steps.bump_type.outputs.type != 'none'
       env:
@@ -87,30 +104,15 @@ jobs:
         KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
         KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
         KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
-        VERSION_CODE: ${{ env.VERSION_CODE }}
-        VERSION_NAME: ${{ env.VERSION_NAME }}
       run: ./gradlew assembleRelease
 
     - name: Create GitHub Release
       if: steps.bump_type.outputs.type != 'none'
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: ${{ steps.tag_version.outputs.new_tag }}
+        tag_name: ${{ steps.version.outputs.new_tag }}
         files: app/build/outputs/apk/release/app-release.apk
-        name: Release ${{ steps.tag_version.outputs.new_tag }}
+        name: Release ${{ steps.version.outputs.new_tag }}
         generate_release_notes: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Commit pinned data.version to main
-      if: steps.bump_type.outputs.type != 'none'
-      run: |
-        git config user.name  "github-actions[bot]"
-        git config user.email "github-actions[bot]@users.noreply.github.com"
-        git add data.version
-        if ! git diff --staged --quiet; then
-          git commit -m "chore: pin data.version to ${{ steps.pin_data.outputs.data_tag }} for release ${{ steps.tag_version.outputs.new_tag }} [skip ci]"
-          git push origin HEAD:main
-        else
-          echo "data.version unchanged, skipping commit"
-        fi
