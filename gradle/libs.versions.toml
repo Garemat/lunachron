@@ -15,7 +15,7 @@ navigationCompose = "2.9.7"
 zxing = "3.5.4"
 cameraX = "1.5.3"
 jsoup = "1.22.1"
-ktor = "3.0.1"
+ktor = "3.4.1"
 coil = "2.7.0"
 
 [libraries]
