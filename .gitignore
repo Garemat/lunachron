@@ -24,7 +24,9 @@
 local.properties
 .kotlin/
 
-/app/src/main/assets/
+# Ignore downloaded data assets (generated at build time by downloadDataAssets task)
+/app/src/main/assets/*.json
+# themes/ and fonts/ are committed assets — not ignored
 
 /app/src/androidTest/java/io/github/garemat/lunachron/ExampleInstrumentedTest.kt
 /app/src/test/java/io/github/garemat/lunachron/ExampleUnitTest.kt

@@ -20,10 +20,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import io.github.garemat.lunachron.AppTheme
 import io.github.garemat.lunachron.HostMode
 import io.github.garemat.lunachron.R
-import io.github.garemat.lunachron.ui.theme.LocalAppTheme
 import io.github.garemat.lunachron.ui.theme.LocalAppThemeProperties
 
 @Composable
@@ -34,7 +32,7 @@ fun SetupModeSelection(
     onJoinTournamentSelected: () -> Unit,
     onTargetPositioned: (String, LayoutCoordinates) -> Unit = { _, _ -> }
 ) {
-    val isMoonstone = LocalAppTheme.current == AppTheme.MOONSTONE
+    val isMoonstone = LocalAppThemeProperties.current.showExpandedStatsHeader
     
     Column(
         modifier = Modifier.fillMaxSize().padding(16.dp),
@@ -100,7 +98,7 @@ fun SetupOptionCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val isMoonstone = LocalAppTheme.current == AppTheme.MOONSTONE
+    val isMoonstone = LocalAppThemeProperties.current.showExpandedStatsHeader
     val backgroundRes = when (backgroundType) {
         "commonwealth" -> R.drawable.commonwealth
         "dominion" -> R.drawable.dominion
@@ -234,7 +232,7 @@ fun GameInProgressContent(
     onContinue: () -> Unit,
     onNewGame: () -> Unit
 ) {
-    val isMoonstone = LocalAppTheme.current == AppTheme.MOONSTONE
+    val isMoonstone = LocalAppThemeProperties.current.showExpandedStatsHeader
     
     Column(
         modifier = Modifier.fillMaxSize().padding(16.dp),

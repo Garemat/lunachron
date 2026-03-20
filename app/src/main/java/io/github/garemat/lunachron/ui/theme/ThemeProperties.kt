@@ -35,7 +35,7 @@ data class AppThemeProperties(
     val verticalSpacing: Dp,
     val screenPadding: Dp,
     val showFactionBackgrounds: Boolean = false,
-    // Semantic game / UI colors — change all game colours from getThemeProperties()
+    // Semantic game / UI colors
     val moonstoneColor: Color = Color(0xFF2196F3),
     val positiveColor: Color = Color(0xFF4CAF50),
     val rankingGoldColor: Color = Color(0xFFFFD700),
@@ -43,7 +43,24 @@ data class AppThemeProperties(
     val rankingBronzeColor: Color = Color(0xFFCD7F32),
     val readyColor: Color = Color(0xFF2E7D32),
     val scoreCircleColor: Color = Color(0xFF1976D2),
-    val cardBackground: Color = Color.Unspecified
+    val cardBackground: Color = Color.Unspecified,
+    // Game mechanic colors
+    val magicalDamageColor: Color = Color(0xFF00B0FF),
+    val followUpHighlightColor: Color = Color(0xFFFFEB3B),
+    val arcaneGreenColor: Color = Color(0xFF2E7D32),
+    val arcaneBlueColor: Color = Color(0xFF1565C0),
+    val arcanePurpleColor: Color = Color(0xFFC2185B),
+    val catastropheColor: Color = Color.Red,
+    // Faction identity colors
+    val factionCommonwealth: Color = Color(0xFFFBC02D),
+    val factionDominion: Color = Color(0xFF1976D2),
+    val factionLeshavult: Color = Color(0xFF388E3C),
+    val factionShades: Color = Color(0xFF424242),
+    // Character card behaviour flags
+    val showBackgroundImageOverlay: Boolean = false,
+    val showExpandedStatsHeader: Boolean = false,
+    val showCardDivider: Boolean = true,
+    val useDamageTypeIcons: Boolean = false,
 )
 
 val LocalAppThemeProperties = staticCompositionLocalOf {

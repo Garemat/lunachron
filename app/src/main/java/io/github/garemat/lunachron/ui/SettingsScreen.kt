@@ -12,8 +12,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import io.github.garemat.lunachron.AppTheme
+import androidx.compose.ui.platform.LocalContext
 import io.github.garemat.lunachron.CharacterEvent
+import io.github.garemat.lunachron.ui.theme.ThemeRepository
 import io.github.garemat.lunachron.CharacterState
 import io.github.garemat.lunachron.GameLayoutMode
 import io.github.garemat.lunachron.GameTrackingMode
@@ -32,6 +33,8 @@ fun SettingsScreen(
     var name by remember { mutableStateOf(state.name) }
     val theme = LocalAppThemeProperties.current
     val scrollState = rememberScrollState()
+    val context = LocalContext.current
+    val availableThemes = remember(context) { ThemeRepository(context).listAvailable() }
 
     Scaffold(
         topBar = {
@@ -76,18 +79,16 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
             
             Column {
-                ThemeOption(
-                    title = "Default",
-                    selected = state.theme == AppTheme.DEFAULT,
-                    onSelect = { onEvent(CharacterEvent.ChangeTheme(AppTheme.DEFAULT)) },
-                    theme = theme
-                )
-                ThemeOption(
-                    title = "Moonstone",
-                    selected = state.theme == AppTheme.MOONSTONE,
-                    onSelect = { onEvent(CharacterEvent.ChangeTheme(AppTheme.MOONSTONE)) },
-                    theme = theme
-                )
+                availableThemes.forEach { definition ->
+                    ThemeOption(
+                        title = definition.name,
+                        subtitle = definition.fonts?.display?.replaceFirstChar { it.uppercase() }
+                            ?.takeIf { it != "Default" },
+                        selected = state.activeThemeId == definition.id,
+                        onSelect = { onEvent(CharacterEvent.SetActiveTheme(definition.id)) },
+                        theme = theme
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(theme.verticalSpacing))
@@ -337,8 +338,8 @@ fun SelectionOption(title: String, selected: Boolean, onSelect: () -> Unit, them
 
 // Aliases kept for backward compatibility within this file
 @Composable
-fun ThemeOption(title: String, selected: Boolean, onSelect: () -> Unit, theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties) =
-    SelectionOption(title, selected, onSelect, theme)
+fun ThemeOption(title: String, selected: Boolean, onSelect: () -> Unit, theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties, subtitle: String? = null) =
+    SelectionOption(title, selected, onSelect, theme, subtitle)
 
 @Composable
 fun DensityOption(title: String, selected: Boolean, onSelect: () -> Unit, theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties) =

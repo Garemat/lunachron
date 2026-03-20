@@ -2,9 +2,9 @@ package io.github.garemat.lunachron
 
 import kotlinx.serialization.Serializable
 
-enum class AppTheme {
-    DEFAULT, MOONSTONE
-}
+/** Legacy enum kept only as a bridge while composables are migrated off AppTheme checks.
+ *  Use [CharacterState.activeThemeId] and [AppThemeProperties] flags going forward. */
+enum class AppTheme { DEFAULT, MOONSTONE }
 
 @Serializable
 enum class LayoutDensity {
@@ -117,7 +117,7 @@ data class CharacterState(
     
     val name: String = "",
     val deviceId: String = "",
-    val theme: AppTheme = AppTheme.MOONSTONE,
+    val activeThemeId: String = "moonstone",
     val layoutDensity: LayoutDensity = LayoutDensity.COZY,
     val useLocalModeByDefault: Boolean = false,
     val useSinglePlayerMode: Boolean = false,
