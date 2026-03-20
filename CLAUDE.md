@@ -28,6 +28,26 @@ This is an Android project. Use Gradle wrapper from the project root:
 
 The app targets SDK 36, min SDK 24, Java 17.
 
+## F-Droid Distribution
+
+The app is distributed via [F-Droid](https://f-droid.org). The fdroiddata metadata lives in a separate fork at `gitlab.com/Garemat/fdroiddata` (MR: `fdroid/fdroiddata!34869`).
+
+**Dependency policy:** All runtime dependencies must be free/open-source (Apache-2.0 or MIT). Do not add any Google Play Services, ML Kit, Firebase, or other non-free libraries — F-Droid's SUSS scanner will block the build.
+- QR scanning uses **ZXing** (`com.google.zxing:core`, Apache-2.0) — not ML Kit.
+
+**Local F-Droid build test** (requires `fdroidserver` and `gradlew-fdroid` on PATH):
+```bash
+# From the fdroiddata repo root
+ANDROID_HOME=/home/bazzite/Android/Sdk fdroid build --latest io.github.garemat.lunachron
+```
+Run `fdroid readmeta` and `fdroid rewritemeta io.github.garemat.lunachron` to validate metadata formatting before pushing to the fdroiddata fork.
+
+**Fastlane metadata** lives in `fastlane/metadata/android/en-US/` — screenshots, descriptions, and `images/icon.png` are read by F-Droid for the store listing.
+
+**App icon source of truth:** `fastlane/metadata/android/en-US/images/icon.png` (512×512 PNG) is the canonical app icon. The mipmap `.webp` files in `app/src/main/res/mipmap-*/` are the Android adaptive launcher icon components (foreground/background layers) and cannot be replaced by the fastlane image — they serve different purposes. When the icon is updated, both `fastlane/metadata/android/en-US/images/icon.png` (flat composite, for store listings) and the mipmap assets (adaptive icon layers, for the device launcher) must be updated.
+
+**Changelog:** `CHANGELOG.md` in the repo root follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format. Add an entry under `[Unreleased]` for every user-visible change. When cutting a release, move `[Unreleased]` entries to the new version section and update the comparison links at the bottom.
+
 ## Architecture Overview
 
 This is a single-`Activity` Android app using Jetpack Compose with a unidirectional data flow pattern:
