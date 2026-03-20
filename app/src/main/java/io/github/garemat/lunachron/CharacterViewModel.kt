@@ -77,7 +77,11 @@ class CharacterViewModel(
     private val _state = MutableStateFlow(CharacterState(
         name = prefs.getString("player_name", "") ?: "",
         deviceId = persistentDeviceId,
-        theme = AppTheme.valueOf(prefs.getString("app_theme", AppTheme.MOONSTONE.name) ?: AppTheme.DEFAULT.name),
+        activeThemeId = run {
+            val raw = prefs.getString("app_theme", "moonstone") ?: "moonstone"
+            // Migrate legacy ALL_CAPS enum names stored by older app versions.
+            when (raw.uppercase()) { "MOONSTONE" -> "moonstone"; "DEFAULT" -> "default"; else -> raw }
+        },
         layoutDensity = LayoutDensity.valueOf(prefs.getString("layout_density", LayoutDensity.COZY.name) ?: LayoutDensity.COZY.name),
         useLocalModeByDefault = prefs.getBoolean("use_local_mode_by_default", false),
         useSinglePlayerMode = prefs.getBoolean("use_single_player_mode", false),
@@ -279,9 +283,9 @@ class CharacterViewModel(
                 prefs.edit { putString("player_name", event.name) }
                 if (event.name != old) nearbyManager.sendPayloadToAll(MessageParser.encode(SessionMessage.PlayerInfoUpdate(persistentDeviceId, event.name)))
             }
-            is CharacterEvent.ChangeTheme -> {
-                _state.update { it.copy(theme = event.theme) }
-                prefs.edit { putString("app_theme", event.theme.name) }
+            is CharacterEvent.SetActiveTheme -> {
+                _state.update { it.copy(activeThemeId = event.themeId) }
+                prefs.edit { putString("app_theme", event.themeId) }
             }
             is CharacterEvent.ChangeLayoutDensity -> {
                 _state.update { it.copy(layoutDensity = event.density) }

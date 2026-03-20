@@ -1,74 +1,69 @@
 package io.github.garemat.lunachron.ui.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import io.github.garemat.lunachron.AppTheme
 import io.github.garemat.lunachron.LayoutDensity
 
+/**
+ * Legacy composition local kept while composables are migrated off direct AppTheme checks.
+ * Derives its value from [activeThemeId]: "moonstone" → MOONSTONE, anything else → DEFAULT.
+ * Remove once task 6 (Remove AppTheme.MOONSTONE checks) is complete.
+ */
 val LocalAppTheme = staticCompositionLocalOf { AppTheme.DEFAULT }
-
-private val MoonstoneColorScheme = lightColorScheme(
-    primary = Color(0xFF2C1810),
-    secondary = Color(0xFF8B4513),
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFFF4E4BC),
-    onPrimaryContainer = Color(0xFF2C1810),
-    secondaryContainer = Color(0xFFEADBB0),
-    onSecondaryContainer = Color(0xFF2C1810),
-    surface = Color(0xFFF4E4BC),
-    onSurface = Color(0xFF2C1810),
-    surfaceVariant = Color(0xFFEADBB0),
-    onSurfaceVariant = Color(0xFF2C1810),
-    background = Color(0xFFF4E4BC),
-    onBackground = Color(0xFF2C1810),
-    outline = Color(0xFF2C1810).copy(alpha = 0.5f)
-)
-
-private val DarkColorScheme = darkColorScheme(
-    primary = Color(0xFFD0BCFF),
-    secondary = Color(0xFFCCC2DC),
-    tertiary = Color(0xFFEFB8C8)
-)
-
-private val LightColorScheme = lightColorScheme(
-    primary = Color(0xFF6650a4),
-    secondary = Color(0xFF625b71),
-    tertiary = Color(0xFF7D5260)
-)
 
 @Composable
 fun LunachronTheme(
-    appTheme: AppTheme = AppTheme.DEFAULT,
+    activeThemeId: String = "default",
     layoutDensity: LayoutDensity = LayoutDensity.COZY,
-    darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when (appTheme) {
-        AppTheme.MOONSTONE -> MoonstoneColorScheme
-        AppTheme.DEFAULT -> if (darkTheme) DarkColorScheme else LightColorScheme
+    val context = LocalContext.current
+    val repo = remember(context) { ThemeRepository(context) }
+    val definition = remember(activeThemeId) { repo.resolve(activeThemeId) }
+
+    val displayFamily = remember(definition.fonts?.display) {
+        repo.buildFontFamily(definition.fonts?.display, fallback = androidx.compose.ui.text.font.FontFamily.Default)
     }
-    
-    val typography = when (appTheme) {
-        AppTheme.MOONSTONE -> MoonstoneTypography
-        AppTheme.DEFAULT -> DefaultTypography
+    val bodyFamily = remember(definition.fonts?.body) {
+        repo.buildFontFamily(definition.fonts?.body, fallback = androidx.compose.ui.text.font.FontFamily.Default)
+    }
+
+    val typography = remember(definition, displayFamily, bodyFamily) {
+        repo.buildTypography(definition, displayFamily, bodyFamily)
+    }
+    val colorScheme = remember(definition.colorScheme) {
+        repo.buildColorScheme(definition.colorScheme!!)
     }
 
     // themeProperties must be computed INSIDE MaterialTheme so that
-    // MaterialTheme.colorScheme.* and MaterialTheme.typography.* resolve
-    // to the correct (Moonstone/Default) values, not the outer default scheme.
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = typography
-    ) {
-        val themeProperties = getThemeProperties(appTheme, layoutDensity)
+    // MaterialTheme.colorScheme.* resolves to the correct scheme.
+    MaterialTheme(colorScheme = colorScheme, typography = typography) {
+        val themeProperties = remember(definition, layoutDensity) {
+            repo.buildAppThemeProperties(definition, layoutDensity, typography)
+        }.run {
+            // secondaryColor, unselectedNavColor, and cardBackground reference MaterialTheme
+            // so they must be resolved here inside the MaterialTheme scope.
+            copy(
+                secondaryColor     = if (activeThemeId == "moonstone") MaterialTheme.colorScheme.secondary
+                                     else MaterialTheme.colorScheme.primary,
+                unselectedNavColor = if (activeThemeId == "moonstone") MaterialTheme.colorScheme.primary
+                                     else MaterialTheme.colorScheme.onSurfaceVariant,
+                cardBackground     = if (definition.characterCard?.showBackgroundImageOverlay == true)
+                                         MaterialTheme.colorScheme.surfaceVariant
+                                     else MaterialTheme.colorScheme.surface,
+            )
+        }
+
+        // Derive legacy AppTheme for backward-compat CompositionLocal.
+        val legacyTheme = if (activeThemeId == "moonstone") AppTheme.MOONSTONE else AppTheme.DEFAULT
+
         CompositionLocalProvider(
-            LocalAppTheme provides appTheme,
+            LocalAppTheme provides legacyTheme,
             LocalAppThemeProperties provides themeProperties,
             content = content
         )

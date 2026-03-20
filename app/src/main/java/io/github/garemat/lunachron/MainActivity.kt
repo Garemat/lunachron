@@ -77,7 +77,7 @@ class MainActivity : ComponentActivity() {
             var isSelectingForCampaign by remember { mutableStateOf(false) }
 
             LunachronTheme(
-                appTheme = state.theme,
+                activeThemeId = state.activeThemeId,
                 layoutDensity = state.layoutDensity
             ) {
                 val theme = LocalAppThemeProperties.current
@@ -281,7 +281,7 @@ class MainActivity : ComponentActivity() {
                         bottomBar = {
                             if (showNavBars) {
                                 NavigationBar(
-                                    containerColor = if (state.theme == AppTheme.MOONSTONE) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceVariant,
+                                    containerColor = if (theme.navigationBarElevation == 0.dp) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceVariant,
                                     tonalElevation = theme.navigationBarElevation
                                 ) {
                                     val playRoute = if (state.useLocalModeByDefault && state.useSinglePlayerMode)
@@ -317,7 +317,7 @@ class MainActivity : ComponentActivity() {
                                                 if (isPlayButton) {
                                                     Surface(
                                                         shape = CircleShape,
-                                                        color = if (isSelected) MaterialTheme.colorScheme.primary else if (state.theme == AppTheme.MOONSTONE) Color.Transparent else MaterialTheme.colorScheme.secondaryContainer,
+                                                        color = if (isSelected) MaterialTheme.colorScheme.primary else if (theme.navigationBarElevation == 0.dp) Color.Transparent else MaterialTheme.colorScheme.secondaryContainer,
                                                         modifier = Modifier.size(48.dp)
                                                     ) {
                                                         Box(contentAlignment = Alignment.Center) {
@@ -351,7 +351,7 @@ class MainActivity : ComponentActivity() {
                                                 }
                                             },
                                             colors = NavigationBarItemDefaults.colors(
-                                                indicatorColor = if (isPlayButton) Color.Transparent else if (state.theme == AppTheme.MOONSTONE) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else MaterialTheme.colorScheme.secondaryContainer
+                                                indicatorColor = if (isPlayButton) Color.Transparent else if (theme.navigationBarElevation == 0.dp) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else MaterialTheme.colorScheme.secondaryContainer
                                             )
                                         )
                                     }

@@ -12,7 +12,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import io.github.garemat.lunachron.AppTheme
 import io.github.garemat.lunachron.CharacterEvent
 import io.github.garemat.lunachron.CharacterState
 import io.github.garemat.lunachron.GameLayoutMode
@@ -78,14 +77,14 @@ fun SettingsScreen(
             Column {
                 ThemeOption(
                     title = "Default",
-                    selected = state.theme == AppTheme.DEFAULT,
-                    onSelect = { onEvent(CharacterEvent.ChangeTheme(AppTheme.DEFAULT)) },
+                    selected = state.activeThemeId == "default",
+                    onSelect = { onEvent(CharacterEvent.SetActiveTheme("default")) },
                     theme = theme
                 )
                 ThemeOption(
                     title = "Moonstone",
-                    selected = state.theme == AppTheme.MOONSTONE,
-                    onSelect = { onEvent(CharacterEvent.ChangeTheme(AppTheme.MOONSTONE)) },
+                    selected = state.activeThemeId == "moonstone",
+                    onSelect = { onEvent(CharacterEvent.SetActiveTheme("moonstone")) },
                     theme = theme
                 )
             }
