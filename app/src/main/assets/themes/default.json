@@ -1,0 +1,76 @@
+{
+  "id": "default",
+  "name": "Default",
+  "fonts": {
+    "display": "default",
+    "body": "default",
+    "mono": "monospace"
+  },
+  "colorScheme": {
+    "primary":            "#6650A4",
+    "onPrimary":          "#FFFFFF",
+    "primaryContainer":   "#EADDFF",
+    "onPrimaryContainer": "#21005D",
+    "secondary":          "#625B71",
+    "onSecondary":        "#FFFFFF",
+    "secondaryContainer": "#E8DEF8",
+    "onSecondaryContainer": "#1D192B",
+    "surface":            "#FFFBFE",
+    "onSurface":          "#1C1B1F",
+    "surfaceVariant":     "#E7E0EC",
+    "onSurfaceVariant":   "#49454F",
+    "background":         "#FFFBFE",
+    "onBackground":       "#1C1B1F",
+    "outline":            "#79747E",
+    "error":              "#B3261E",
+    "onError":            "#FFFFFF",
+    "isDark":             false
+  },
+  "factionColors": {
+    "commonwealth": "#FBC02D",
+    "dominion":     "#1976D2",
+    "leshavult":    "#388E3C",
+    "shades":       "#424242"
+  },
+  "shapes": {
+    "cardCornerRadius": 12.0,
+    "navItemShape":     "circle",
+    "drawerShape":      "rounded"
+  },
+  "spacing": {
+    "compact":            8.0,
+    "cozy":               16.0,
+    "spacious":           24.0,
+    "cardPaddingCompact": 8.0,
+    "cardPaddingCozy":    12.0,
+    "cardPaddingSpacious": 16.0
+  },
+  "typography": {
+    "titleStyle":      { "base": "titleLarge",  "weight": "bold" },
+    "headerStyle":     { "base": "headlineMedium" },
+    "labelStyle":      { "base": "labelSmall" },
+    "buttonTextStyle": { "base": "labelLarge" }
+  },
+  "gameColors": {
+    "moonstone":         "#2196F3",
+    "positive":          "#4CAF50",
+    "rankingGold":       "#FFD700",
+    "rankingSilver":     "#C0C0C0",
+    "rankingBronze":     "#CD7F32",
+    "ready":             "#2E7D32",
+    "scoreCircle":       "#1976D2",
+    "magicalDamage":     "#00B0FF",
+    "followUpHighlight": "#FFEB3B",
+    "arcaneGreen":       "#2E7D32",
+    "arcaneBlue":        "#1565C0",
+    "arcanePurple":      "#C2185B",
+    "catastrophe":       "#FF0000"
+  },
+  "characterCard": {
+    "showBackgroundImageOverlay": false,
+    "showExpandedStatsHeader":    false,
+    "showCardDivider":            true,
+    "useDamageTypeIcons":         false
+  },
+  "showFactionBackgrounds": false
+}
