@@ -22,7 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.garemat.lunachron.*
-import io.github.garemat.lunachron.ui.theme.LocalAppTheme
+import io.github.garemat.lunachron.ui.theme.LocalAppThemeProperties
 
 @Composable
 fun SessionSetupUI(
@@ -38,7 +38,7 @@ fun SessionSetupUI(
 ) {
     var troupeToPrune by remember { mutableStateOf<Troupe?>(null) }
     val playerCount = session.players.size
-    val isMoonstone = LocalAppTheme.current == AppTheme.MOONSTONE
+    val isMoonstone = LocalAppThemeProperties.current.showExpandedStatsHeader
 
     LaunchedEffect(playerCount) {
         viewModel.uiEvent.collect { event ->
@@ -162,7 +162,7 @@ fun PlayerSlotCard(
     onEditTroupe: (Troupe) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val isMoonstone = LocalAppTheme.current == AppTheme.MOONSTONE
+    val isMoonstone = LocalAppThemeProperties.current.showExpandedStatsHeader
     
     Card(
         modifier = modifier.fillMaxWidth(),

@@ -29,7 +29,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import io.github.garemat.lunachron.*
-import io.github.garemat.lunachron.ui.theme.LocalAppTheme
+import io.github.garemat.lunachron.ui.theme.LocalAppThemeProperties
 
 @Composable
 fun TroupeSelector(
@@ -43,7 +43,7 @@ fun TroupeSelector(
     onPositioned: (String, LayoutCoordinates) -> Unit = { _, _ -> }
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val isMoonstone = LocalAppTheme.current == AppTheme.MOONSTONE
+    val isMoonstone = LocalAppThemeProperties.current.showExpandedStatsHeader
 
     Box(modifier = modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         OutlinedCard(
@@ -159,7 +159,7 @@ fun TroupeSelectionDialog(
     }
     val selectedCharacters = remember { mutableStateListOf<Character>() }
     var expandedCharacterId by remember { mutableStateOf<Int?>(null) }
-    val isMoonstone = LocalAppTheme.current == AppTheme.MOONSTONE
+    val isMoonstone = LocalAppThemeProperties.current.showExpandedStatsHeader
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -233,7 +233,7 @@ fun SelectionCharacterCard(
     onExpandClick: () -> Unit
 ) {
     var isFlipped by remember { mutableStateOf(false) }
-    val isMoonstone = LocalAppTheme.current == AppTheme.MOONSTONE
+    val isMoonstone = LocalAppThemeProperties.current.showExpandedStatsHeader
 
     Card(
         modifier = Modifier.fillMaxWidth().animateContentSize(),
@@ -290,7 +290,7 @@ fun QrCodeDialog(
     shareCode: String,
     onDismiss: () -> Unit
 ) {
-    val isMoonstone = LocalAppTheme.current == AppTheme.MOONSTONE
+    val isMoonstone = LocalAppThemeProperties.current.showExpandedStatsHeader
     Dialog(onDismissRequest = onDismiss) {
         Card(
             modifier = Modifier.fillMaxWidth().padding(16.dp),

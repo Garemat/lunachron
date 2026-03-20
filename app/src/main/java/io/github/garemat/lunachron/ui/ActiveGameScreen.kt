@@ -50,7 +50,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import io.github.garemat.lunachron.*
 import io.github.garemat.lunachron.R
-import io.github.garemat.lunachron.ui.theme.LocalAppTheme
 import io.github.garemat.lunachron.ui.theme.LocalAppThemeProperties
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -865,7 +864,7 @@ private fun FullScreenCharacterModal(
 
 @Composable
 private fun GameEndDialogs(state: CharacterState, viewModel: CharacterViewModel, isTutorialActive: Boolean) {
-    val isMoonstone = LocalAppTheme.current == AppTheme.MOONSTONE
+    val isMoonstone = LocalAppThemeProperties.current.showExpandedStatsHeader
     val theme = LocalAppThemeProperties.current
     if (state.winnerName != null && !isTutorialActive) {
         AlertDialog(onDismissRequest = { viewModel.onEvent(CharacterEvent.ResetGamePlayState) }, title = { Text("Victory!", style = if (isMoonstone) MaterialTheme.typography.displayLarge else MaterialTheme.typography.headlineMedium) }, text = { Text(text = "${state.winnerName} has collected the most Moonstones and wins the game!", textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) }, confirmButton = { Button(onClick = { viewModel.onEvent(CharacterEvent.ResetGamePlayState) }, shape = theme.cardShape) { Text("New Game", style = theme.buttonTextStyle) } }, shape = theme.cardShape)
