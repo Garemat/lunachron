@@ -190,7 +190,7 @@ data class CampaignCard(
 @Serializable
 data class TroupeCampaignCard(
     val cardId: Int,
-    val used: Boolean = false
+    val usedInGame: Int? = null
 )
 
 @Entity
