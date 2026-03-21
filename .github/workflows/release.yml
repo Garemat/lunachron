@@ -96,21 +96,23 @@ jobs:
       run: |
         echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > app/release.keystore
 
-    - name: Build Release APK
+    - name: Build Release APK and AAB
       if: steps.bump_type.outputs.type != 'none'
       env:
         KEYSTORE_PATH: release.keystore
         KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
         KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
         KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
-      run: ./gradlew assembleRelease
+      run: ./gradlew assembleRelease bundleRelease
 
     - name: Create GitHub Release
       if: steps.bump_type.outputs.type != 'none'
       uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ steps.version.outputs.new_tag }}
-        files: app/build/outputs/apk/release/app-release.apk
+        files: |
+          app/build/outputs/apk/release/app-release.apk
+          app/build/outputs/bundle/release/app-release.aab
         name: Release ${{ steps.version.outputs.new_tag }}
         generate_release_notes: true
       env:
