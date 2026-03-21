@@ -20,7 +20,7 @@ enum class GameLayoutMode { COMPACT_GRID, DETAILED_LIST }
 @Serializable
 enum class ImageDownloadPreference { PROMPT, ENABLED, DISABLED }
 
-enum class InstallerSource { FDROID, DIRECT }
+enum class InstallerSource { FDROID, DIRECT, PLAY_STORE }
 
 data class AppRelease(
     val tagName: String,
