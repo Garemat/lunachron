@@ -187,8 +187,11 @@ class DataUpdateRepository(
             @Suppress("DEPRECATION")
             context.packageManager.getInstallerPackageName(context.packageName)
         }
-        return if (installer == "org.fdroid.fdroid" || installer == "org.fdroid.fdroid.privileged.ota")
-            InstallerSource.FDROID else InstallerSource.DIRECT
+        return when {
+            installer == "org.fdroid.fdroid" || installer == "org.fdroid.fdroid.privileged.ota" -> InstallerSource.FDROID
+            installer == "com.android.vending" -> InstallerSource.PLAY_STORE
+            else -> InstallerSource.DIRECT
+        }
     }
 
     fun persistAutoCheckApp(enabled: Boolean) {

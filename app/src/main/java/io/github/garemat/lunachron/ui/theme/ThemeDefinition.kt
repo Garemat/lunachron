@@ -26,6 +26,7 @@ data class ThemeDefinition(
     val gameColors: GameColorDefinition? = null,
     val characterCard: CharacterCardDefinition? = null,
     val showFactionBackgrounds: Boolean? = null,
+    val gameplayPreferences: GameplayPreferencesDefinition? = null,
 )
 
 // ---------------------------------------------------------------------------
@@ -143,6 +144,13 @@ data class GameColorDefinition(
     val arcaneBlue: String? = null,
     val arcanePurple: String? = null,
     val catastrophe: String? = null,
+)
+
+/** Preferred game layout and tracking modes applied when the user switches to this theme. */
+@Serializable
+data class GameplayPreferencesDefinition(
+    val defaultLayoutMode: String? = null,   // "COMPACT_GRID" | "DETAILED_LIST"
+    val defaultTrackingMode: String? = null, // "LOW_DETAIL" | "FULL_TRACKING"
 )
 
 /** Flags controlling character card layout and rendering behaviour. */

@@ -14,6 +14,7 @@ import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.garemat.lunachron.ui.CampaignSubScreen
+import io.github.garemat.lunachron.ui.theme.ThemeRepository
 import io.ktor.client.*
 import io.ktor.client.engine.android.*
 import io.ktor.client.plugins.HttpTimeout
@@ -59,6 +60,7 @@ class CharacterViewModel(
         }
         newPrefs
     }
+    private val themeRepository = ThemeRepository(application)
     private val nearbyManager = NearbyManager(application)
     private val client = HttpClient(Android) {
         install(HttpTimeout) {
@@ -153,8 +155,8 @@ class CharacterViewModel(
                     ?.let { release -> _state.update { it.copy(pendingDataUpdate = release) } }
             }
 
-            // App update check (opt-in, off by default)
-            if (_state.value.autoCheckAppUpdates) {
+            // App update check (opt-in, off by default; suppressed on Play Store installs)
+            if (_state.value.autoCheckAppUpdates && _state.value.installerSource != InstallerSource.PLAY_STORE) {
                 dataUpdateRepository.checkForAppUpdate()
                     ?.let { release -> _state.update { it.copy(pendingAppUpdate = release) } }
             }
@@ -286,6 +288,24 @@ class CharacterViewModel(
             is CharacterEvent.SetActiveTheme -> {
                 _state.update { it.copy(activeThemeId = event.themeId) }
                 prefs.edit { putString("app_theme", event.themeId) }
+                // Clear override flags so theme preferences apply fresh on this switch.
+                prefs.edit {
+                    putBoolean("layout_mode_overridden", false)
+                    putBoolean("tracking_mode_overridden", false)
+                }
+                val gp = runCatching { themeRepository.resolve(event.themeId).gameplayPreferences }.getOrNull()
+                gp?.defaultLayoutMode?.let { name ->
+                    runCatching { GameLayoutMode.valueOf(name) }.getOrNull()?.let { mode ->
+                        _state.update { it.copy(gameLayoutMode = mode) }
+                        prefs.edit { putString("game_layout_mode", mode.name) }
+                    }
+                }
+                gp?.defaultTrackingMode?.let { name ->
+                    runCatching { GameTrackingMode.valueOf(name) }.getOrNull()?.let { mode ->
+                        _state.update { it.copy(gameTrackingMode = mode) }
+                        prefs.edit { putString("game_tracking_mode", mode.name) }
+                    }
+                }
             }
             is CharacterEvent.ChangeLayoutDensity -> {
                 _state.update { it.copy(layoutDensity = event.density) }
@@ -323,11 +343,17 @@ class CharacterViewModel(
             CharacterEvent.ResetGamePlayState -> _state.update { it.copy(characterPlayStates = emptyMap(), currentTurn = 1, turnHistory = emptyList(), winnerName = null, isTie = false, activeSummons = emptyMap(), poolResourceCounts = emptyMap()) }
             is CharacterEvent.ChangeGameTrackingMode -> {
                 _state.update { it.copy(gameTrackingMode = event.mode) }
-                prefs.edit { putString("game_tracking_mode", event.mode.name) }
+                prefs.edit {
+                    putString("game_tracking_mode", event.mode.name)
+                    putBoolean("tracking_mode_overridden", true)
+                }
             }
             is CharacterEvent.ChangeGameLayoutMode -> {
                 _state.update { it.copy(gameLayoutMode = event.mode) }
-                prefs.edit { putString("game_layout_mode", event.mode.name) }
+                prefs.edit {
+                    putString("game_layout_mode", event.mode.name)
+                    putBoolean("layout_mode_overridden", true)
+                }
             }
             is CharacterEvent.AddSummonedCharacter -> {
                 _state.update { cur ->
@@ -420,9 +446,11 @@ class CharacterViewModel(
                 dataUpdateRepository.persistAutoCheckApp(event.enabled)
             }
             CharacterEvent.CheckForAppUpdate -> {
-                viewModelScope.launch(Dispatchers.IO) {
-                    dataUpdateRepository.checkForAppUpdate()
-                        ?.let { release -> _state.update { it.copy(pendingAppUpdate = release) } }
+                if (_state.value.installerSource != InstallerSource.PLAY_STORE) {
+                    viewModelScope.launch(Dispatchers.IO) {
+                        dataUpdateRepository.checkForAppUpdate()
+                            ?.let { release -> _state.update { it.copy(pendingAppUpdate = release) } }
+                    }
                 }
             }
             CharacterEvent.DismissAppUpdate -> _state.update { it.copy(pendingAppUpdate = null) }

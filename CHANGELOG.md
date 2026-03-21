@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Themes can now specify preferred game layout and tracking modes; switching themes applies the theme's preference unless you've already customised those settings under that theme.
+
 ### Changed
 - Bumped Ktor from 3.0.1 to 3.4.1
 - Bumped Kotlin from 2.3.10 to 2.3.20

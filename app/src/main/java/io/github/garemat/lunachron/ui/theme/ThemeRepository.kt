@@ -233,6 +233,7 @@ fun ThemeDefinition.mergeOver(base: ThemeDefinition) = ThemeDefinition(
     gameColors     = gameColors.mergeOver(base.gameColors),
     characterCard  = characterCard.mergeOver(base.characterCard),
     showFactionBackgrounds = showFactionBackgrounds ?: base.showFactionBackgrounds,
+    gameplayPreferences = gameplayPreferences.mergeOver(base.gameplayPreferences),
 )
 
 private fun FontDefinition?.mergeOver(base: FontDefinition?) = FontDefinition(
@@ -319,6 +320,12 @@ private fun CharacterCardDefinition?.mergeOver(base: CharacterCardDefinition?) =
     showCardDivider            = this?.showCardDivider            ?: base?.showCardDivider,
     useDamageTypeIcons         = this?.useDamageTypeIcons         ?: base?.useDamageTypeIcons,
 )
+
+private fun GameplayPreferencesDefinition?.mergeOver(base: GameplayPreferencesDefinition?) =
+    GameplayPreferencesDefinition(
+        defaultLayoutMode   = this?.defaultLayoutMode   ?: base?.defaultLayoutMode,
+        defaultTrackingMode = this?.defaultTrackingMode ?: base?.defaultTrackingMode,
+    )
 
 // ---------------------------------------------------------------------------
 // AppThemeProperties builder — converts resolved ThemeDefinition into the
