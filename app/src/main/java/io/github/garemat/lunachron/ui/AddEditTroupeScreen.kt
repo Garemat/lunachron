@@ -107,7 +107,7 @@ fun AddEditTroupeScreen(
     var campaignCards by remember { mutableStateOf(emptyList<TroupeCampaignCard>()) }
     var victoryPoints by remember { mutableIntStateOf(0) }
 
-    var targetCharIdxForUpgrade by remember { mutableIntStateOf(-1) }
+    var targetCharIdForUpgrade by remember { mutableIntStateOf(-1) }
     var showUpgradeDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(viewModel.editingTroupeId) {
@@ -207,7 +207,13 @@ fun AddEditTroupeScreen(
                     campaignCards = campaignCards,
                     victoryPoints = victoryPoints,
                     onVictoryPointsChange = { victoryPoints = it },
-                    onManageUpgrades = { idx -> targetCharIdxForUpgrade = idx; showUpgradeDialog = true },
+                    onManageUpgrades = { charId -> targetCharIdForUpgrade = charId; showUpgradeDialog = true },
+                    onRemoveUpgrade = { charId, upgradeId ->
+                        val newMap = equippedUpgrades.toMutableMap()
+                        val updated = (newMap[charId] ?: emptyList()) - upgradeId
+                        if (updated.isEmpty()) newMap.remove(charId) else newMap[charId] = updated
+                        equippedUpgrades = newMap
+                    },
                     onManageCampaignCards = { showCampaignCardSheet = true },
                     onShowTroupeTypeSheet = { showTroupeTypeSheet = true },
                     onAddCharacters = { temporarySelectedIds = viewModel.selectedCharacterIds; editStage = TroupeEditStage.CHARACTER_SELECTION },
@@ -253,21 +259,6 @@ fun AddEditTroupeScreen(
             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 80.dp)
         )
 
-        if (showUpgradeDialog && targetCharIdxForUpgrade >= 0) {
-            UpgradeManagementDialog(
-                state = state,
-                theme = theme,
-                selectedIds = equippedUpgrades[targetCharIdxForUpgrade]?.toSet() ?: emptySet(),
-                onSelectionChange = { ids ->
-                    val newMap = equippedUpgrades.toMutableMap()
-                    if (ids.isEmpty()) newMap.remove(targetCharIdxForUpgrade)
-                    else newMap[targetCharIdxForUpgrade] = ids.toList()
-                    equippedUpgrades = newMap
-                },
-                onDismiss = { showUpgradeDialog = false }
-            )
-        }
-
         if (showSaveValidationDialog) {
             SaveValidationDialog(
                 viewModel = viewModel,
@@ -301,6 +292,25 @@ fun AddEditTroupeScreen(
                 title = "Discard Selection?",
                 onDismiss = { showSelectionDiscardConfirmation = false },
                 onConfirm = { showSelectionDiscardConfirmation = false; editStage = TroupeEditStage.DASHBOARD }
+            )
+        }
+    }
+
+    if (showUpgradeDialog) {
+        val targetChar = state.characters.find { it.id == targetCharIdForUpgrade }
+        if (targetChar != null) {
+            UpgradeManagementSheet(
+                character = targetChar,
+                state = state,
+                theme = theme,
+                selectedIds = equippedUpgrades[targetChar.id]?.toSet() ?: emptySet(),
+                onSelectionChange = { ids ->
+                    val newMap = equippedUpgrades.toMutableMap()
+                    if (ids.isEmpty()) newMap.remove(targetChar.id)
+                    else newMap[targetChar.id] = ids.toList()
+                    equippedUpgrades = newMap
+                },
+                onDismiss = { showUpgradeDialog = false; targetCharIdForUpgrade = -1 }
             )
         }
     }
@@ -586,6 +596,7 @@ private fun DashboardStage(
     victoryPoints: Int,
     onVictoryPointsChange: (Int) -> Unit,
     onManageUpgrades: (Int) -> Unit,
+    onRemoveUpgrade: (charId: Int, upgradeCardId: Int) -> Unit,
     onManageCampaignCards: () -> Unit,
     onShowTroupeTypeSheet: () -> Unit,
     onAddCharacters: () -> Unit
@@ -609,6 +620,7 @@ private fun DashboardStage(
             victoryPoints = victoryPoints,
             onVictoryPointsChange = onVictoryPointsChange,
             onManageUpgrades = onManageUpgrades,
+            onRemoveUpgrade = onRemoveUpgrade,
             onManageCampaignCards = onManageCampaignCards,
             onShowTroupeTypeSheet = onShowTroupeTypeSheet,
             onTargetPositioned = onTargetPositioned
@@ -625,6 +637,7 @@ private fun DashboardStage(
             victoryPoints = victoryPoints,
             onVictoryPointsChange = onVictoryPointsChange,
             onManageUpgrades = onManageUpgrades,
+            onRemoveUpgrade = onRemoveUpgrade,
             onManageCampaignCards = onManageCampaignCards,
             onShowTroupeTypeSheet = onShowTroupeTypeSheet,
             onAddCharacters = onAddCharacters,
@@ -797,6 +810,7 @@ private fun SingleColumnDashboard(
     victoryPoints: Int,
     onVictoryPointsChange: (Int) -> Unit,
     onManageUpgrades: (Int) -> Unit,
+    onRemoveUpgrade: (charId: Int, upgradeCardId: Int) -> Unit,
     onManageCampaignCards: () -> Unit,
     onShowTroupeTypeSheet: () -> Unit,
     onTargetPositioned: (String, LayoutCoordinates) -> Unit
@@ -836,13 +850,13 @@ private fun SingleColumnDashboard(
                     SwipeRevealCharacterItem(
                         modifier = Modifier.animateItem(),
                         character = character,
-                        charIdx = idx,
                         isExpanded = expandedCharacterId == character.id,
                         onExpandClick = { onExpandClick(character.id) },
                         isCampaignTroupe = viewModel.isCampaignTroupe,
                         equippedUpgrades = equippedUpgrades,
                         upgradeCards = state.upgradeCards,
                         onManageUpgrades = onManageUpgrades,
+                        onRemoveUpgrade = { upgradeId -> onRemoveUpgrade(character.id, upgradeId) },
                         onRemove = { viewModel.selectedCharacterIds = viewModel.selectedCharacterIds - character.id },
                         theme = theme
                     )
@@ -876,13 +890,13 @@ private fun SingleColumnDashboard(
 private fun SwipeRevealCharacterItem(
     modifier: Modifier = Modifier,
     character: Character,
-    charIdx: Int,
     isExpanded: Boolean,
     onExpandClick: () -> Unit,
     isCampaignTroupe: Boolean,
     equippedUpgrades: Map<Int, List<Int>>,
     upgradeCards: List<UpgradeCard>,
     onManageUpgrades: (Int) -> Unit,
+    onRemoveUpgrade: (upgradeCardId: Int) -> Unit,
     onRemove: () -> Unit,
     theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties
 ) {
@@ -940,13 +954,13 @@ private fun SwipeRevealCharacterItem(
         ) {
             DashboardCharacterItem(
                 character = character,
-                charIdx = charIdx,
                 isExpanded = isExpanded,
                 onExpandClick = onExpandClick,
                 isCampaignTroupe = isCampaignTroupe,
                 equippedUpgrades = equippedUpgrades,
                 upgradeCards = upgradeCards,
                 onManageUpgrades = onManageUpgrades,
+                onRemoveUpgrade = onRemoveUpgrade,
                 isRevealed = isRevealed,
                 onRemove = onRemove,
                 theme = theme
@@ -958,13 +972,13 @@ private fun SwipeRevealCharacterItem(
 @Composable
 private fun DashboardCharacterItem(
     character: Character,
-    charIdx: Int,
     isExpanded: Boolean,
     onExpandClick: () -> Unit,
     isCampaignTroupe: Boolean,
     equippedUpgrades: Map<Int, List<Int>>,
     upgradeCards: List<UpgradeCard>,
     onManageUpgrades: (Int) -> Unit,
+    onRemoveUpgrade: (upgradeCardId: Int) -> Unit,
     isRevealed: Boolean,
     onRemove: () -> Unit,
     theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties
@@ -1048,10 +1062,11 @@ private fun DashboardCharacterItem(
             if (isCampaignTroupe) {
                 HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
                 UpgradeStrip(
-                    charIdx = charIdx,
+                    characterId = character.id,
                     equippedUpgrades = equippedUpgrades,
                     upgradeCards = upgradeCards,
-                    onManageUpgrades = onManageUpgrades
+                    onManageUpgrades = onManageUpgrades,
+                    onRemoveUpgrade = onRemoveUpgrade
                 )
             }
         }
@@ -1060,38 +1075,91 @@ private fun DashboardCharacterItem(
 
 @Composable
 private fun UpgradeStrip(
-    charIdx: Int,
+    characterId: Int,
     equippedUpgrades: Map<Int, List<Int>>,
     upgradeCards: List<UpgradeCard>,
-    onManageUpgrades: (Int) -> Unit
+    onManageUpgrades: (Int) -> Unit,
+    onRemoveUpgrade: (upgradeCardId: Int) -> Unit
 ) {
-    val charUpgrades = equippedUpgrades[charIdx] ?: emptyList()
+    val charUpgrades = equippedUpgrades[characterId] ?: emptyList()
+    val maxUpgrades = 2
+    val upgradeNames = charUpgrades.mapNotNull { id -> upgradeCards.find { it.id == id } }
+
     Column(
         modifier = Modifier.fillMaxWidth()
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
             .padding(horizontal = 12.dp, vertical = 6.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = if (charUpgrades.isEmpty()) "No Upgrades" else "${charUpgrades.size} Upgrade${if (charUpgrades.size == 1) "" else "s"}",
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.weight(1f)
-            )
-            TextButton(onClick = { onManageUpgrades(charIdx) }, modifier = Modifier.height(28.dp)) {
-                Text("Manage Upgrades", style = MaterialTheme.typography.labelSmall)
+        // Star indicators
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            repeat(maxUpgrades) { i ->
+                Text(
+                    text = if (i < charUpgrades.size) "\u2605" else "\u2606",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (i < charUpgrades.size) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.outlineVariant
+                )
             }
         }
-        if (charUpgrades.isNotEmpty()) {
-            val names = charUpgrades.mapNotNull { id -> upgradeCards.find { it.id == id }?.name }
-            Text(
-                text = names.joinToString("  •  "),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+
+        when {
+            charUpgrades.isEmpty() -> {
+                // Centred "+ Add Upgrade"
+                Box(
+                    modifier = Modifier.fillMaxWidth().clickable { onManageUpgrades(characterId) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "+ Add Upgrade",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontStyle = FontStyle.Italic,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+            else -> {
+                // One row per equipped upgrade with ✕ remove
+                upgradeNames.forEach { upgrade ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = upgrade.name,
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                            val ability = upgrade.abilities.firstOrNull()
+                            if (ability != null) {
+                                Text(
+                                    text = "${ability.name}: ${ability.description}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(top = 1.dp)
+                                )
+                            }
+                        }
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Remove ${upgrade.name}",
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(16.dp).clickable { onRemoveUpgrade(upgrade.id) }
+                        )
+                    }
+                }
+                Box(
+                    modifier = Modifier.fillMaxWidth().clickable { onManageUpgrades(characterId) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = if (charUpgrades.size < maxUpgrades) "+ Add Upgrade" else "Manage Upgrades",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontStyle = FontStyle.Italic,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
         }
     }
 }
@@ -1110,6 +1178,7 @@ private fun PortraitColumnDashboard(
     victoryPoints: Int,
     onVictoryPointsChange: (Int) -> Unit,
     onManageUpgrades: (Int) -> Unit,
+    onRemoveUpgrade: (charId: Int, upgradeCardId: Int) -> Unit,
     onManageCampaignCards: () -> Unit,
     onShowTroupeTypeSheet: () -> Unit,
     onAddCharacters: () -> Unit,
@@ -1182,7 +1251,6 @@ private fun PortraitColumnDashboard(
 
             // Right panel — character detail
             if (selectedChar != null) {
-                val charIdx = selectedCharacters.indexOf(selectedChar)
                 val bgImageFile = remember(selectedChar.imageName) {
                     selectedChar.imageName?.let { name ->
                         val dir = File(context.filesDir, "images")
@@ -1220,10 +1288,11 @@ private fun PortraitColumnDashboard(
                                 color = MaterialTheme.colorScheme.outlineVariant
                             )
                             UpgradeStrip(
-                                charIdx = charIdx,
+                                characterId = selectedChar.id,
                                 equippedUpgrades = equippedUpgrades,
                                 upgradeCards = state.upgradeCards,
-                                onManageUpgrades = onManageUpgrades
+                                onManageUpgrades = onManageUpgrades,
+                                onRemoveUpgrade = { upgradeId -> onRemoveUpgrade(selectedChar.id, upgradeId) }
                             )
                         }
                     }
@@ -1290,6 +1359,7 @@ private fun TroupeTypeEditSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
     ) {
         Column(modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 32.dp)) {
@@ -1407,6 +1477,7 @@ private fun CampaignCardManagementSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
     ) {
         Column(
@@ -1473,6 +1544,16 @@ private fun CampaignCardManagementSheet(
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.primary
                                 )
+                            }
+                        }
+                    }
+                }
+
+                if (availableSlots == 0) {
+                    item {
+                        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                            TextButton(onClick = { showAddCardDialog = true }) {
+                                Text("Manage", style = MaterialTheme.typography.labelMedium)
                             }
                         }
                     }
@@ -1554,11 +1635,15 @@ private fun CampaignCardManagementSheet(
     if (showAddCardDialog) {
         AddCampaignCardDialog(
             allCampaignCards = allCampaignCards,
-            alreadySelected = campaignCards.map { it.cardId }.toSet(),
+            selectedIds = campaignCards.map { it.cardId }.toSet(),
+            maxSelectable = 3,
             theme = theme,
-            onAdd = { cardId ->
-                onCampaignCardsChange(campaignCards + TroupeCampaignCard(cardId))
-                showAddCardDialog = false
+            onToggle = { cardId ->
+                if (campaignCards.any { it.cardId == cardId }) {
+                    onCampaignCardsChange(campaignCards.filter { it.cardId != cardId })
+                } else {
+                    onCampaignCardsChange(campaignCards + TroupeCampaignCard(cardId))
+                }
             },
             onDismiss = { showAddCardDialog = false }
         )
@@ -1660,16 +1745,16 @@ private fun CampaignCardRow(
 @Composable
 private fun AddCampaignCardDialog(
     allCampaignCards: List<CampaignCard>,
-    alreadySelected: Set<Int>,
+    selectedIds: Set<Int>,
+    maxSelectable: Int,
     theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties,
-    onAdd: (Int) -> Unit,
+    onToggle: (Int) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val atMax = selectedIds.size >= maxSelectable
     var searchQuery by remember { mutableStateOf("") }
-    val available = remember(allCampaignCards, alreadySelected, searchQuery) {
-        allCampaignCards
-            .filter { it.id !in alreadySelected }
-            .filter { it.name.contains(searchQuery, ignoreCase = true) }
+    val cards = remember(allCampaignCards, searchQuery) {
+        allCampaignCards.filter { it.name.contains(searchQuery, ignoreCase = true) }
     }
 
     Dialog(
@@ -1704,18 +1789,45 @@ private fun AddCampaignCardDialog(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    items(available, key = { it.id }) { card ->
+                    items(cards, key = { it.id }) { card ->
+                        val isSelected = card.id in selectedIds
+                        val canSelect = isSelected || !atMax
+                        val contentAlpha = when {
+                            isSelected -> 0.45f
+                            !canSelect -> 0.35f
+                            else -> 1f
+                        }
                         Row(
-                            modifier = Modifier.fillMaxWidth().clickable { onAdd(card.id) }
+                            modifier = Modifier.fillMaxWidth()
+                                .clickable(enabled = canSelect || isSelected) { onToggle(card.id) }
                                 .padding(vertical = 8.dp, horizontal = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            SelectionCircle(
+                                isSelected = isSelected,
+                                contentAlpha = contentAlpha
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(card.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
-                                Text(card.timing, style = MaterialTheme.typography.labelSmall, fontStyle = FontStyle.Italic, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text(card.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
+                                Text(
+                                    card.name,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = contentAlpha)
+                                )
+                                Text(
+                                    card.timing,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontStyle = FontStyle.Italic,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = contentAlpha)
+                                )
+                                Text(
+                                    card.description,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = contentAlpha),
+                                    maxLines = 2
+                                )
                             }
-                            Icon(Icons.Default.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         }
                         HorizontalDivider()
                     }
@@ -1731,88 +1843,370 @@ private fun AddCampaignCardDialog(
 
 // ── Upgrade Management Dialog ──────────────────────────────────────────────────
 
+private fun upgradeCompatible(upgrade: UpgradeCard, character: Character): Boolean {
+    val factionOk = upgrade.factions == null || upgrade.factions.any { it in character.factions }
+    val keywordOk = upgrade.allowedKeywords.isEmpty() || upgrade.allowedKeywords.any { it in character.keywords }
+    val notRestricted = upgrade.restrictedKeywords.isEmpty() || upgrade.restrictedKeywords.none { it in character.keywords }
+    return factionOk && keywordOk && notRestricted
+}
+
+private fun upgradeIncompatibilityReason(upgrade: UpgradeCard, character: Character): String {
+    val reasons = mutableListOf<String>()
+    if (upgrade.factions != null && upgrade.factions.none { it in character.factions }) {
+        reasons.add("Faction: ${upgrade.factions.joinToString(" / ") { it.name.lowercase().replaceFirstChar { c -> c.uppercase() } }} only")
+    }
+    if (upgrade.allowedKeywords.isNotEmpty() && upgrade.allowedKeywords.none { it in character.keywords }) {
+        reasons.add("Requires: ${upgrade.allowedKeywords.joinToString(", ")}")
+    }
+    if (upgrade.restrictedKeywords.isNotEmpty() && upgrade.restrictedKeywords.any { it in character.keywords }) {
+        val bad = upgrade.restrictedKeywords.filter { it in character.keywords }
+        reasons.add("Excluded keyword: ${bad.joinToString(", ")}")
+    }
+    return reasons.joinToString(" · ")
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun UpgradeManagementDialog(
+private fun UpgradeManagementSheet(
+    character: Character,
     state: CharacterState,
     theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties,
     selectedIds: Set<Int>,
     onSelectionChange: (Set<Int>) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var searchQuery by remember { mutableStateOf("") }
-    val filteredUpgrades = remember(state.upgradeCards, searchQuery) {
-        state.upgradeCards.filter { it.name.contains(searchQuery, ignoreCase = true) }
+    val context = LocalContext.current
+
+    val bgImageFile = remember(character.imageName) {
+        character.imageName?.let { name ->
+            val dir = File(context.filesDir, "images")
+            listOf("$name-head.jpg", "$name-head.png", "$name-head.webp",
+                   "$name.jpg", "$name.png", "$name.webp", name).firstNotNullOfOrNull { candidate ->
+                File(dir, candidate).takeIf { it.exists() }
+            }
+        }
     }
 
-    Dialog(
+    // Auto-deselect incompatible upgrades
+    val compatibleIds = remember(state.upgradeCards, character.id) {
+        state.upgradeCards.filter { upgradeCompatible(it, character) }.map { it.id }.toSet()
+    }
+    LaunchedEffect(character.id) {
+        val cleaned = selectedIds.filter { it in compatibleIds }.toSet()
+        if (cleaned != selectedIds) onSelectionChange(cleaned)
+    }
+
+    val (compatibleUpgrades, incompatibleUpgrades) = remember(state.upgradeCards, searchQuery, character.id) {
+        val all = if (searchQuery.isEmpty()) state.upgradeCards
+                  else state.upgradeCards.filter { it.name.contains(searchQuery, ignoreCase = true) }
+        val compatible = all.filter { upgradeCompatible(it, character) }.sortedBy { it.name }
+        val incompatible = all.filter { !upgradeCompatible(it, character) }.sortedBy { it.name }
+        compatible to incompatible
+    }
+
+    val atMax = selectedIds.size >= 2
+
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
     ) {
-        Surface(
-            modifier = Modifier.fillMaxWidth().fillMaxHeight(0.85f).padding(horizontal = 16.dp),
-            shape = theme.cardShape,
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 6.dp
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.92f)
         ) {
-            Column(modifier = Modifier.padding(24.dp)) {
-                Text("Upgrades", style = theme.titleStyle.copy(fontSize = 22.sp))
-                Text(
-                    "Track which upgrades this character has earned in the campaign.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 2.dp, bottom = 12.dp)
-                )
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    placeholder = { Text("Search upgrades...") },
-                    modifier = Modifier.fillMaxWidth(),
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                    trailingIcon = {
-                        if (searchQuery.isNotEmpty()) IconButton(onClick = { searchQuery = "" }) {
-                            Icon(Icons.Default.Clear, contentDescription = null)
-                        }
-                    },
-                    singleLine = true,
-                    shape = theme.cardShape
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+            // ── Header image / initials banner ─────────────────────────────────
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(110.dp)
+                    .background(getFactionColor(character.factions.firstOrNull() ?: Faction.COMMONWEALTH).copy(alpha = 0.8f))
+            ) {
+                if (bgImageFile != null) {
+                    AsyncImage(
+                        model = bgImageFile,
+                        contentDescription = null,
+                        modifier = Modifier.matchParentSize().alpha(0.55f),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    // Initials fallback centred in upper portion
+                    Text(
+                        text = character.name.firstOrNull()?.uppercase() ?: "?",
+                        style = theme.titleStyle.copy(fontSize = 48.sp),
+                        color = Color.White.copy(alpha = 0.35f),
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                }
+                // Overlay: name + selection count
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(horizontal = 20.dp, vertical = 12.dp)
                 ) {
-                    items(filteredUpgrades, key = { it.id }) { upgrade ->
-                        val isSelected = selectedIds.contains(upgrade.id)
-                        Row(
-                            modifier = Modifier.fillMaxWidth().clickable {
+                    Text(
+                        text = "Upgrades for ${character.name}",
+                        style = theme.titleStyle.copy(fontSize = 17.sp),
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.85f),
+                        modifier = Modifier.padding(top = 4.dp)
+                    ) {
+                        Text(
+                            text = "${compatibleUpgrades.size} compatible · ${selectedIds.size}/2 selected",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                        )
+                    }
+                }
+            }
+
+            // ── Search bar ─────────────────────────────────────────────────────
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = { Text("Search upgrades…") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) IconButton(onClick = { searchQuery = "" }) {
+                        Icon(Icons.Default.Clear, contentDescription = null)
+                    }
+                },
+                singleLine = true,
+                shape = theme.cardShape
+            )
+
+            // ── Single scrollable list ─────────────────────────────────────────
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                // Compatible section header
+                stickyHeader {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = MaterialTheme.colorScheme.surface
+                    ) {
+                        Text(
+                            text = "COMPATIBLE (${compatibleUpgrades.size})",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(vertical = 6.dp, horizontal = 4.dp)
+                        )
+                    }
+                }
+                items(compatibleUpgrades, key = { it.id }) { upgrade ->
+                    val isSelected = upgrade.id in selectedIds
+                    val canSelect = isSelected || !atMax
+                    UpgradeRow(
+                        upgrade = upgrade,
+                        isSelected = isSelected,
+                        isCompatible = true,
+                        enabled = canSelect,
+                        incompatibilityReason = "",
+                        onClick = {
+                            if (canSelect) {
                                 val newIds = selectedIds.toMutableSet()
                                 if (isSelected) newIds.remove(upgrade.id) else newIds.add(upgrade.id)
                                 onSelectionChange(newIds)
-                            }.padding(vertical = 4.dp, horizontal = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Checkbox(checked = isSelected, onCheckedChange = null)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(upgrade.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
-                                val restriction = buildList {
-                                    if (upgrade.allowedKeywords.isNotEmpty()) add(upgrade.allowedKeywords.joinToString(", "))
-                                    if (upgrade.restrictedKeywords.isNotEmpty()) add("Not: " + upgrade.restrictedKeywords.joinToString(", "))
-                                }.joinToString(" · ")
-                                if (restriction.isNotEmpty()) {
-                                    Text(restriction, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
                             }
                         }
+                    )
+                }
+
+                // Incompatible section header
+                if (incompatibleUpgrades.isNotEmpty()) {
+                    stickyHeader {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = MaterialTheme.colorScheme.surface
+                        ) {
+                            Text(
+                                text = "INCOMPATIBLE WITH ${character.name.uppercase()} (${incompatibleUpgrades.size})",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.padding(vertical = 6.dp, horizontal = 4.dp)
+                            )
+                        }
+                    }
+                    items(incompatibleUpgrades, key = { it.id }) { upgrade ->
+                        UpgradeRow(
+                            upgrade = upgrade,
+                            isSelected = false,
+                            isCompatible = false,
+                            enabled = false,
+                            incompatibilityReason = upgradeIncompatibilityReason(upgrade, character),
+                            onClick = {}
+                        )
                     }
                 }
-                Spacer(modifier = Modifier.height(12.dp))
-                Button(
-                    onClick = onDismiss,
-                    modifier = Modifier.align(Alignment.End),
-                    shape = theme.cardShape
+
+                item { Spacer(modifier = Modifier.height(8.dp)) }
+            }
+
+            // ── Done button ────────────────────────────────────────────────────
+            Button(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                shape = theme.cardShape
+            ) {
+                Text("Done (${selectedIds.size} / 2)")
+            }
+        }
+    }
+}
+
+@Composable
+private fun SelectionCircle(
+    isSelected: Boolean,
+    isCompatible: Boolean = true,
+    contentAlpha: Float = 1f
+) {
+    Box(
+        modifier = Modifier
+            .size(22.dp)
+            .clip(CircleShape)
+            .background(
+                when {
+                    isSelected -> MaterialTheme.colorScheme.secondary
+                    isCompatible -> MaterialTheme.colorScheme.surfaceVariant
+                    else -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f)
+                }
+            )
+            .border(
+                width = if (isSelected) 0.dp else 1.dp,
+                color = if (isCompatible) MaterialTheme.colorScheme.outline.copy(alpha = contentAlpha)
+                        else MaterialTheme.colorScheme.error.copy(alpha = 0.4f),
+                shape = CircleShape
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        when {
+            isSelected -> Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondary, modifier = Modifier.size(14.dp))
+            !isCompatible -> Icon(Icons.Default.Close, contentDescription = null, tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f), modifier = Modifier.size(14.dp))
+        }
+    }
+}
+
+@Composable
+private fun UpgradeRow(
+    upgrade: UpgradeCard,
+    isSelected: Boolean,
+    isCompatible: Boolean,
+    enabled: Boolean,
+    incompatibilityReason: String,
+    onClick: () -> Unit
+) {
+    val containerColor = when {
+        isSelected -> MaterialTheme.colorScheme.secondaryContainer
+        isCompatible -> MaterialTheme.colorScheme.surface
+        else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+    }
+    val borderColor = when {
+        isSelected -> MaterialTheme.colorScheme.secondary
+        isCompatible -> MaterialTheme.colorScheme.outlineVariant
+        else -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+    }
+    val contentAlpha = if (!isCompatible) 0.45f else if (!enabled) 0.6f else 1f
+
+    Surface(
+        modifier = Modifier.fillMaxWidth().clickable(enabled = enabled, onClick = onClick),
+        shape = RoundedCornerShape(8.dp),
+        color = containerColor,
+        border = androidx.compose.foundation.BorderStroke(
+            width = if (isSelected) 1.5.dp else 1.dp,
+            color = borderColor
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            SelectionCircle(
+                isSelected = isSelected,
+                isCompatible = isCompatible,
+                contentAlpha = contentAlpha
+            )
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = upgrade.name,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = contentAlpha)
+                )
+                if (upgrade.abilities.isNotEmpty()) {
+                    val ability = upgrade.abilities.first()
+                    Text(
+                        text = "${ability.name}: ${ability.description}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = contentAlpha),
+                        maxLines = 6,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
+                val restriction = buildList {
+                    if (!upgrade.factions.isNullOrEmpty()) add(upgrade.factions.joinToString(" / ") { it.name.lowercase().replaceFirstChar { c -> c.uppercase() } } + " only")
+                    if (upgrade.allowedKeywords.isNotEmpty()) add("Requires: ${upgrade.allowedKeywords.joinToString(", ")}")
+                }.joinToString(" · ")
+                val footerText = if (!isCompatible && incompatibilityReason.isNotEmpty()) "⚠ $incompatibilityReason"
+                                 else restriction
+                if (footerText.isNotEmpty()) {
+                    Text(
+                        text = footerText,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (!isCompatible) MaterialTheme.colorScheme.error.copy(alpha = 0.8f)
+                                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = contentAlpha),
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
+            }
+
+            // Badge
+            if (isSelected) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.padding(start = 8.dp)
                 ) {
-                    Text("Done (${selectedIds.size})")
+                    Text(
+                        "● Owned",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSecondary,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                    )
+                }
+            } else if (isCompatible && !enabled) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    modifier = Modifier.padding(start = 8.dp)
+                ) {
+                    Text(
+                        "Max 2",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                    )
                 }
             }
         }
