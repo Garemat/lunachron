@@ -238,6 +238,10 @@ class CharacterViewModel(
     var isCampaignTroupe by mutableStateOf(false)
     var pendingTroupePlayerIndex by mutableStateOf<Int?>(null)
     var pendingCampaignPlayerId by mutableStateOf<String?>(null)
+    var showTroupeTypeSheet by mutableStateOf(false)
+    var troupeDashboardActive by mutableStateOf(false)
+    // TODO(dual-layout): Reserved for future dual-layout update — currently unused.
+    // var troupeLayoutSingleColumn by mutableStateOf(true)
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val playersWithCharacters = state.flatMapLatest { currentState ->
