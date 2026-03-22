@@ -54,7 +54,8 @@ import io.github.garemat.lunachron.ui.theme.LocalAppThemeProperties
 import kotlinx.coroutines.launch
 import java.io.File
 
-private enum class TroupeLayoutMode { SINGLE_COLUMN, PORTRAIT_COLUMN }
+// TODO(dual-layout): Reserved for future dual-layout update — currently unused.
+// private enum class TroupeLayoutMode { SINGLE_COLUMN, PORTRAIT_COLUMN }
 
 enum class TroupeEditStage {
     SETUP, DASHBOARD, CHARACTER_SELECTION
@@ -72,6 +73,10 @@ fun AddEditTroupeScreen(
     var editStage by remember {
         mutableStateOf(if (viewModel.editingTroupeId == null) TroupeEditStage.SETUP else TroupeEditStage.DASHBOARD)
     }
+    LaunchedEffect(editStage) {
+        viewModel.troupeDashboardActive = (editStage == TroupeEditStage.DASHBOARD)
+    }
+    DisposableEffect(Unit) { onDispose { viewModel.troupeDashboardActive = false } }
 
     val theme = LocalAppThemeProperties.current
     val context = LocalContext.current
@@ -80,25 +85,23 @@ fun AddEditTroupeScreen(
     val originalName = remember { viewModel.newTroupeName }
     val originalFaction = remember { viewModel.selectedTroupeFaction }
     val originalCharacterIds = remember { viewModel.selectedCharacterIds }
-    val originalIsTournament = remember { viewModel.isTournamentList }
     val originalIsCampaign = remember { viewModel.isCampaignTroupe }
 
     var expandedCharacterId by remember { mutableStateOf<Int?>(null) }
     var searchQuery by remember { mutableStateOf("") }
-    var showTroupeTypeSheet by remember { mutableStateOf(false) }
     var showCampaignCardSheet by remember { mutableStateOf(false) }
-    var showSaveValidationDialog by remember { mutableStateOf(false) }
     var showDiscardConfirmation by remember { mutableStateOf(false) }
     var showSelectionDiscardConfirmation by remember { mutableStateOf(false) }
     var isNameError by remember { mutableStateOf(false) }
-    var troupeLayout by remember {
-        mutableStateOf(
-            TroupeLayoutMode.valueOf(
-                prefs.getString("troupe_layout_mode", TroupeLayoutMode.SINGLE_COLUMN.name)
-                    ?: TroupeLayoutMode.SINGLE_COLUMN.name
-            )
-        )
-    }
+    // TODO(dual-layout): Reserved for future dual-layout update — currently unused.
+    // LaunchedEffect(Unit) {
+    //     viewModel.troupeLayoutSingleColumn = (prefs.getString("troupe_layout_mode", "SINGLE_COLUMN") != "PORTRAIT_COLUMN")
+    // }
+    // LaunchedEffect(viewModel.troupeLayoutSingleColumn) {
+    //     prefs.edit().putString("troupe_layout_mode", if (viewModel.troupeLayoutSingleColumn) "SINGLE_COLUMN" else "PORTRAIT_COLUMN").apply()
+    // }
+    // val troupeLayout = if (viewModel.troupeLayoutSingleColumn) TroupeLayoutMode.SINGLE_COLUMN else TroupeLayoutMode.PORTRAIT_COLUMN
+    // val onToggleLayout = { viewModel.troupeLayoutSingleColumn = !viewModel.troupeLayoutSingleColumn }
 
     var temporarySelectedIds by remember { mutableStateOf(viewModel.selectedCharacterIds) }
 
@@ -127,7 +130,6 @@ fun AddEditTroupeScreen(
     val hasDashboardChanges = viewModel.newTroupeName != originalName ||
             viewModel.selectedTroupeFaction != originalFaction ||
             viewModel.selectedCharacterIds != originalCharacterIds ||
-            viewModel.isTournamentList != originalIsTournament ||
             viewModel.isCampaignTroupe != originalIsCampaign
 
     val hasSelectionChanges = temporarySelectedIds != viewModel.selectedCharacterIds
@@ -155,8 +157,6 @@ fun AddEditTroupeScreen(
         if (viewModel.newTroupeName.isBlank()) {
             isNameError = true
             scope.launch { snackbarHostState.showSnackbar("Troupe name can't be empty") }
-        } else if (!viewModel.isTournamentList && !viewModel.isCampaignTroupe) {
-            showSaveValidationDialog = true
         } else {
             val isForCampaign = viewModel.pendingCampaignPlayerId != null
             viewModel.onEvent(
@@ -196,27 +196,12 @@ fun AddEditTroupeScreen(
                     theme = theme,
                     expandedCharacterId = expandedCharacterId,
                     onExpandClick = { expandedCharacterId = if (expandedCharacterId == it) null else it },
-                    layoutMode = troupeLayout,
-                    onToggleLayout = {
-                        val next = if (troupeLayout == TroupeLayoutMode.SINGLE_COLUMN)
-                            TroupeLayoutMode.PORTRAIT_COLUMN else TroupeLayoutMode.SINGLE_COLUMN
-                        troupeLayout = next
-                        prefs.edit().putString("troupe_layout_mode", next.name).apply()
-                    },
                     equippedUpgrades = equippedUpgrades,
                     campaignCards = campaignCards,
                     victoryPoints = victoryPoints,
                     onVictoryPointsChange = { victoryPoints = it },
                     onManageUpgrades = { charId -> targetCharIdForUpgrade = charId; showUpgradeDialog = true },
-                    onRemoveUpgrade = { charId, upgradeId ->
-                        val newMap = equippedUpgrades.toMutableMap()
-                        val updated = (newMap[charId] ?: emptyList()) - upgradeId
-                        if (updated.isEmpty()) newMap.remove(charId) else newMap[charId] = updated
-                        equippedUpgrades = newMap
-                    },
                     onManageCampaignCards = { showCampaignCardSheet = true },
-                    onShowTroupeTypeSheet = { showTroupeTypeSheet = true },
-                    onAddCharacters = { temporarySelectedIds = viewModel.selectedCharacterIds; editStage = TroupeEditStage.CHARACTER_SELECTION },
                     onTargetPositioned = onTargetPositioned
                 )
 
@@ -239,6 +224,7 @@ fun AddEditTroupeScreen(
                 viewModel = viewModel,
                 theme = theme,
                 onSave = { doSave() },
+                onAddCharacters = { temporarySelectedIds = viewModel.selectedCharacterIds; editStage = TroupeEditStage.CHARACTER_SELECTION },
                 onTargetPositioned = onTargetPositioned
             )
         } else if (editStage == TroupeEditStage.CHARACTER_SELECTION) {
@@ -259,24 +245,6 @@ fun AddEditTroupeScreen(
             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 80.dp)
         )
 
-        if (showSaveValidationDialog) {
-            SaveValidationDialog(
-                viewModel = viewModel,
-                theme = theme,
-                onDismiss = { showSaveValidationDialog = false },
-                onConfirm = {
-                    viewModel.onEvent(
-                        CharacterEvent.SaveTroupeWithMetadata(
-                            victoryPoints = victoryPoints,
-                            equippedUpgrades = equippedUpgrades,
-                            campaignCards = campaignCards
-                        )
-                    )
-                    showSaveValidationDialog = false
-                    onNavigateBack()
-                }
-            )
-        }
 
         if (showDiscardConfirmation) {
             DiscardConfirmationDialog(
@@ -315,24 +283,23 @@ fun AddEditTroupeScreen(
         }
     }
 
-    if (showTroupeTypeSheet) {
+    if (viewModel.showTroupeTypeSheet) {
         TroupeTypeEditSheet(
-            currentIsTournament = viewModel.isTournamentList,
             currentIsCampaign = viewModel.isCampaignTroupe,
             hasCampaignData = campaignCards.isNotEmpty() || equippedUpgrades.isNotEmpty() || victoryPoints > 0,
             theme = theme,
-            onConfirm = { isTournament, isCampaign ->
+            onConfirm = { isCampaign ->
                 val wasCampaign = viewModel.isCampaignTroupe
-                viewModel.isTournamentList = isTournament
+                viewModel.isTournamentList = false
                 viewModel.isCampaignTroupe = isCampaign
                 if (wasCampaign && !isCampaign) {
                     equippedUpgrades = emptyMap()
                     campaignCards = emptyList()
                     victoryPoints = 0
                 }
-                showTroupeTypeSheet = false
+                viewModel.showTroupeTypeSheet = false
             },
-            onDismiss = { showTroupeTypeSheet = false }
+            onDismiss = { viewModel.showTroupeTypeSheet = false }
         )
     }
 
@@ -340,6 +307,7 @@ fun AddEditTroupeScreen(
         CampaignCardManagementSheet(
             campaignCards = campaignCards,
             allCampaignCards = state.campaignCards,
+            troupeFaction = viewModel.selectedTroupeFaction,
             theme = theme,
             onCampaignCardsChange = { campaignCards = it },
             onDismiss = { showCampaignCardSheet = false }
@@ -418,29 +386,26 @@ private fun CreateTroupeTab(
         )
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Troupe type selection
-        Text("Troupe Type", style = MaterialTheme.typography.labelMedium, modifier = Modifier.align(Alignment.Start))
-        SelectionOption(
-            title = "Normal",
-            subtitle = "Standard casual games.",
-            selected = !viewModel.isTournamentList && !viewModel.isCampaignTroupe,
-            onSelect = { viewModel.isTournamentList = false; viewModel.isCampaignTroupe = false },
-            theme = theme
-        )
-        SelectionOption(
-            title = "Tournament",
-            subtitle = "Structured competitive play. No upgrade or campaign card tracking.",
-            selected = viewModel.isTournamentList && !viewModel.isCampaignTroupe,
-            onSelect = { viewModel.isTournamentList = true; viewModel.isCampaignTroupe = false },
-            theme = theme
-        )
-        SelectionOption(
-            title = "Campaign",
-            subtitle = "Ongoing story play. Tracks upgrades, victory points and campaign cards.",
-            selected = viewModel.isCampaignTroupe,
-            onSelect = { viewModel.isTournamentList = false; viewModel.isCampaignTroupe = true },
-            theme = theme
-        )
+        // Campaign troupe checkbox
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { viewModel.isTournamentList = false; viewModel.isCampaignTroupe = !viewModel.isCampaignTroupe },
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Checkbox(
+                checked = viewModel.isCampaignTroupe,
+                onCheckedChange = { viewModel.isTournamentList = false; viewModel.isCampaignTroupe = it }
+            )
+            Column {
+                Text("Campaign Troupe", style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    "Tracks upgrades, victory points and campaign cards.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
 
         Spacer(modifier = Modifier.height(16.dp))
         Text("Select Faction", style = MaterialTheme.typography.labelMedium)
@@ -589,61 +554,32 @@ private fun DashboardStage(
     expandedCharacterId: Int?,
     onExpandClick: (Int) -> Unit,
     onTargetPositioned: (String, LayoutCoordinates) -> Unit,
-    layoutMode: TroupeLayoutMode,
-    onToggleLayout: () -> Unit,
     equippedUpgrades: Map<Int, List<Int>>,
     campaignCards: List<TroupeCampaignCard>,
     victoryPoints: Int,
     onVictoryPointsChange: (Int) -> Unit,
     onManageUpgrades: (Int) -> Unit,
-    onRemoveUpgrade: (charId: Int, upgradeCardId: Int) -> Unit,
-    onManageCampaignCards: () -> Unit,
-    onShowTroupeTypeSheet: () -> Unit,
-    onAddCharacters: () -> Unit
+    onManageCampaignCards: () -> Unit
 ) {
     val selectedCharacters = remember(state.characters, viewModel.selectedCharacterIds) {
         state.characters.filter { viewModel.selectedCharacterIds.contains(it.id) }
     }
 
-    if (layoutMode == TroupeLayoutMode.SINGLE_COLUMN) {
-        SingleColumnDashboard(
-            viewModel = viewModel,
-            state = state,
-            theme = theme,
-            selectedCharacters = selectedCharacters,
-            expandedCharacterId = expandedCharacterId,
-            onExpandClick = onExpandClick,
-            onToggleLayout = onToggleLayout,
-            onAddCharacters = onAddCharacters,
-            equippedUpgrades = equippedUpgrades,
-            campaignCards = campaignCards,
-            victoryPoints = victoryPoints,
-            onVictoryPointsChange = onVictoryPointsChange,
-            onManageUpgrades = onManageUpgrades,
-            onRemoveUpgrade = onRemoveUpgrade,
-            onManageCampaignCards = onManageCampaignCards,
-            onShowTroupeTypeSheet = onShowTroupeTypeSheet,
-            onTargetPositioned = onTargetPositioned
-        )
-    } else {
-        PortraitColumnDashboard(
-            viewModel = viewModel,
-            state = state,
-            theme = theme,
-            selectedCharacters = selectedCharacters,
-            onToggleLayout = onToggleLayout,
-            equippedUpgrades = equippedUpgrades,
-            campaignCards = campaignCards,
-            victoryPoints = victoryPoints,
-            onVictoryPointsChange = onVictoryPointsChange,
-            onManageUpgrades = onManageUpgrades,
-            onRemoveUpgrade = onRemoveUpgrade,
-            onManageCampaignCards = onManageCampaignCards,
-            onShowTroupeTypeSheet = onShowTroupeTypeSheet,
-            onAddCharacters = onAddCharacters,
-            onTargetPositioned = onTargetPositioned
-        )
-    }
+    SingleColumnDashboard(
+        viewModel = viewModel,
+        state = state,
+        theme = theme,
+        selectedCharacters = selectedCharacters,
+        expandedCharacterId = expandedCharacterId,
+        onExpandClick = onExpandClick,
+        equippedUpgrades = equippedUpgrades,
+        campaignCards = campaignCards,
+        victoryPoints = victoryPoints,
+        onVictoryPointsChange = onVictoryPointsChange,
+        onManageUpgrades = onManageUpgrades,
+        onManageCampaignCards = onManageCampaignCards,
+        onTargetPositioned = onTargetPositioned
+    )
 }
 
 // ── Shared Troupe Header ───────────────────────────────────────────────────────
@@ -656,83 +592,31 @@ private fun TroupeHeader(
     victoryPoints: Int,
     onVictoryPointsChange: (Int) -> Unit,
     onManageCampaignCards: () -> Unit,
-    onShowTroupeTypeSheet: () -> Unit,
-    onToggleLayout: () -> Unit,
-    layoutMode: TroupeLayoutMode,
     onTargetPositioned: (String, LayoutCoordinates) -> Unit
 ) {
+    if (!viewModel.isCampaignTroupe) return
     Column {
-        Spacer(modifier = Modifier.height(16.dp))
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            FactionCircle(faction = viewModel.selectedTroupeFaction, modifier = Modifier.size(32.dp))
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                text = viewModel.newTroupeName,
-                style = LocalAppThemeProperties.current.titleStyle.copy(fontSize = 24.sp),
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.weight(1f)
-            )
-            // Layout toggle
-            IconButton(onClick = onToggleLayout) {
-                Icon(
-                    imageVector = if (layoutMode == TroupeLayoutMode.SINGLE_COLUMN)
-                        Icons.AutoMirrored.Filled.ViewSidebar else Icons.Default.ViewAgenda,
-                    contentDescription = "Toggle layout",
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
-        }
-
-        if (viewModel.isCampaignTroupe) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(start = 44.dp, top = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Victory Points:", style = MaterialTheme.typography.labelMedium)
-                Spacer(modifier = Modifier.width(8.dp))
-                IconButton(onClick = { onVictoryPointsChange((victoryPoints - 1).coerceAtLeast(0)) }, modifier = Modifier.size(24.dp)) {
-                    Icon(Icons.Default.Remove, contentDescription = null)
-                }
-                Text(
-                    text = victoryPoints.toString(),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 8.dp)
-                )
-                IconButton(onClick = { onVictoryPointsChange(victoryPoints + 1) }, modifier = Modifier.size(24.dp)) {
-                    Icon(Icons.Default.Add, contentDescription = null)
-                }
-            }
-        }
-
-        // Troupe type badge with pencil
         Row(
-            modifier = Modifier.padding(start = 44.dp, top = 4.dp, bottom = 4.dp).clickable { onShowTroupeTypeSheet() },
+            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            val typeLabel = when {
-                viewModel.isCampaignTroupe -> "Campaign Troupe"
-                viewModel.isTournamentList -> "Tournament List"
-                else -> "Normal Troupe"
+            Text("Victory Points:", style = MaterialTheme.typography.labelMedium)
+            Spacer(modifier = Modifier.width(8.dp))
+            IconButton(onClick = { onVictoryPointsChange((victoryPoints - 1).coerceAtLeast(0)) }, modifier = Modifier.size(24.dp)) {
+                Icon(Icons.Default.Remove, contentDescription = null)
             }
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.secondaryContainer,
-                modifier = Modifier.onGloballyPositioned { onTargetPositioned("TroupeTypeBadge", it) }
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(typeLabel, style = MaterialTheme.typography.labelSmall, fontStyle = FontStyle.Italic)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Icon(Icons.Default.Edit, contentDescription = "Edit type", modifier = Modifier.size(12.dp))
-                }
+            Text(
+                text = victoryPoints.toString(),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 8.dp)
+            )
+            IconButton(onClick = { onVictoryPointsChange(victoryPoints + 1) }, modifier = Modifier.size(24.dp)) {
+                Icon(Icons.Default.Add, contentDescription = null)
             }
         }
 
-        if (viewModel.isCampaignTroupe) {
-            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
             // Campaign cards strip
             Row(
                 modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
@@ -787,13 +671,12 @@ private fun TroupeHeader(
                     }
                 }
             }
-        }
 
         HorizontalDivider()
     }
 }
 
-// ── Single Column Dashboard ────────────────────────────────────────────────────
+// ── Single Column Dashboard ───────────────────────────────────────────────────
 
 @Composable
 private fun SingleColumnDashboard(
@@ -803,16 +686,12 @@ private fun SingleColumnDashboard(
     selectedCharacters: List<Character>,
     expandedCharacterId: Int?,
     onExpandClick: (Int) -> Unit,
-    onToggleLayout: () -> Unit,
-    onAddCharacters: () -> Unit,
     equippedUpgrades: Map<Int, List<Int>>,
     campaignCards: List<TroupeCampaignCard>,
     victoryPoints: Int,
     onVictoryPointsChange: (Int) -> Unit,
     onManageUpgrades: (Int) -> Unit,
-    onRemoveUpgrade: (charId: Int, upgradeCardId: Int) -> Unit,
     onManageCampaignCards: () -> Unit,
-    onShowTroupeTypeSheet: () -> Unit,
     onTargetPositioned: (String, LayoutCoordinates) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
@@ -823,9 +702,6 @@ private fun SingleColumnDashboard(
             victoryPoints = victoryPoints,
             onVictoryPointsChange = onVictoryPointsChange,
             onManageCampaignCards = onManageCampaignCards,
-            onShowTroupeTypeSheet = onShowTroupeTypeSheet,
-            onToggleLayout = onToggleLayout,
-            layoutMode = TroupeLayoutMode.SINGLE_COLUMN,
             onTargetPositioned = onTargetPositioned
         )
 
@@ -856,31 +732,11 @@ private fun SingleColumnDashboard(
                         equippedUpgrades = equippedUpgrades,
                         upgradeCards = state.upgradeCards,
                         onManageUpgrades = onManageUpgrades,
-                        onRemoveUpgrade = { upgradeId -> onRemoveUpgrade(character.id, upgradeId) },
                         onRemove = { viewModel.selectedCharacterIds = viewModel.selectedCharacterIds - character.id },
                         theme = theme
                     )
                 }
 
-                item {
-                    OutlinedCard(
-                        onClick = onAddCharacters,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = theme.cardShape,
-                        border = CardDefaults.outlinedCardBorder()
-                    ) {
-                        Box(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                "+ Add Character",
-                                style = theme.headerStyle.copy(fontSize = 14.sp),
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
-                }
             }
         }
     }
@@ -896,7 +752,6 @@ private fun SwipeRevealCharacterItem(
     equippedUpgrades: Map<Int, List<Int>>,
     upgradeCards: List<UpgradeCard>,
     onManageUpgrades: (Int) -> Unit,
-    onRemoveUpgrade: (upgradeCardId: Int) -> Unit,
     onRemove: () -> Unit,
     theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties
 ) {
@@ -911,19 +766,19 @@ private fun SwipeRevealCharacterItem(
             .fillMaxWidth()
             .clip(theme.cardShape)
     ) {
-        // Background — error color with trash icon on the right
-        Box(
-            modifier = Modifier.matchParentSize().background(MaterialTheme.colorScheme.error),
-            contentAlignment = Alignment.CenterEnd
-        ) {
-            Icon(
-                Icons.Default.Delete,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onError,
-                modifier = Modifier
-                    .padding(end = 20.dp)
-                    .clickable { onRemove() }
-            )
+        // Background — only visible while the card is actually swiped open
+        if (offsetX.value < 0f) {
+            Box(
+                modifier = Modifier.matchParentSize().background(MaterialTheme.colorScheme.error),
+                contentAlignment = Alignment.CenterEnd
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onError,
+                    modifier = Modifier.padding(end = 20.dp).clickable { onRemove() }
+                )
+            }
         }
 
         // Foreground card — slides left to reveal background
@@ -960,8 +815,6 @@ private fun SwipeRevealCharacterItem(
                 equippedUpgrades = equippedUpgrades,
                 upgradeCards = upgradeCards,
                 onManageUpgrades = onManageUpgrades,
-                onRemoveUpgrade = onRemoveUpgrade,
-                isRevealed = isRevealed,
                 onRemove = onRemove,
                 theme = theme
             )
@@ -978,8 +831,6 @@ private fun DashboardCharacterItem(
     equippedUpgrades: Map<Int, List<Int>>,
     upgradeCards: List<UpgradeCard>,
     onManageUpgrades: (Int) -> Unit,
-    onRemoveUpgrade: (upgradeCardId: Int) -> Unit,
-    isRevealed: Boolean,
     onRemove: () -> Unit,
     theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties
 ) {
@@ -1024,20 +875,11 @@ private fun DashboardCharacterItem(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                if (isRevealed) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "Remove character",
-                        tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(start = 8.dp).clickable { onRemove() }
-                    )
-                } else {
-                    Icon(
-                        imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                        contentDescription = null,
-                        modifier = Modifier.padding(start = 8.dp)
-                    )
-                }
+                Icon(
+                    imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    contentDescription = null,
+                    modifier = Modifier.padding(start = 8.dp)
+                )
             }
 
             if (isExpanded) {
@@ -1065,8 +907,7 @@ private fun DashboardCharacterItem(
                     characterId = character.id,
                     equippedUpgrades = equippedUpgrades,
                     upgradeCards = upgradeCards,
-                    onManageUpgrades = onManageUpgrades,
-                    onRemoveUpgrade = onRemoveUpgrade
+                    onManageUpgrades = onManageUpgrades
                 )
             }
         }
@@ -1078,8 +919,7 @@ private fun UpgradeStrip(
     characterId: Int,
     equippedUpgrades: Map<Int, List<Int>>,
     upgradeCards: List<UpgradeCard>,
-    onManageUpgrades: (Int) -> Unit,
-    onRemoveUpgrade: (upgradeCardId: Int) -> Unit
+    onManageUpgrades: (Int) -> Unit
 ) {
     val charUpgrades = equippedUpgrades[characterId] ?: emptyList()
     val maxUpgrades = 2
@@ -1090,18 +930,6 @@ private fun UpgradeStrip(
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
             .padding(horizontal = 12.dp, vertical = 6.dp)
     ) {
-        // Star indicators
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            repeat(maxUpgrades) { i ->
-                Text(
-                    text = if (i < charUpgrades.size) "\u2605" else "\u2606",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = if (i < charUpgrades.size) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.outlineVariant
-                )
-            }
-        }
-
         when {
             charUpgrades.isEmpty() -> {
                 // Centred "+ Add Upgrade"
@@ -1118,33 +946,26 @@ private fun UpgradeStrip(
                 }
             }
             else -> {
-                // One row per equipped upgrade with ✕ remove
-                upgradeNames.forEach { upgrade ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.Top
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = upgrade.name,
-                                style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.Bold
-                            )
-                            val ability = upgrade.abilities.firstOrNull()
-                            if (ability != null) {
-                                Text(
-                                    text = "${ability.name}: ${ability.description}",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(top = 1.dp)
-                                )
-                            }
-                        }
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Remove ${upgrade.name}",
-                            tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(16.dp).clickable { onRemoveUpgrade(upgrade.id) }
+                upgradeNames.forEachIndexed { index, upgrade ->
+                    if (index > 0) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 4.dp),
+                            thickness = 0.5.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                        )
+                    }
+                    Text(
+                        text = upgrade.name,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                    val ability = upgrade.abilities.firstOrNull()
+                    if (ability != null) {
+                        Text(
+                            text = "${ability.name}: ${ability.description}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 1.dp)
                         )
                     }
                 }
@@ -1165,6 +986,10 @@ private fun UpgradeStrip(
 }
 
 // ── Portrait Column Dashboard ──────────────────────────────────────────────────
+// TODO(dual-layout): This composable is currently unused. It is kept here as a starting point
+// for a future dual-layout update that lets the user switch between a single-column card list
+// and a portrait-sidebar + detail-panel view. Re-enable by restoring TroupeLayoutMode,
+// troupeLayoutSingleColumn (ViewModel), and the routing logic in DashboardStage.
 
 @Composable
 private fun PortraitColumnDashboard(
@@ -1178,10 +1003,7 @@ private fun PortraitColumnDashboard(
     victoryPoints: Int,
     onVictoryPointsChange: (Int) -> Unit,
     onManageUpgrades: (Int) -> Unit,
-    onRemoveUpgrade: (charId: Int, upgradeCardId: Int) -> Unit,
     onManageCampaignCards: () -> Unit,
-    onShowTroupeTypeSheet: () -> Unit,
-    onAddCharacters: () -> Unit,
     onTargetPositioned: (String, LayoutCoordinates) -> Unit
 ) {
     var selectedCharId by remember { mutableStateOf(selectedCharacters.firstOrNull()?.id) }
@@ -1203,9 +1025,6 @@ private fun PortraitColumnDashboard(
             victoryPoints = victoryPoints,
             onVictoryPointsChange = onVictoryPointsChange,
             onManageCampaignCards = onManageCampaignCards,
-            onShowTroupeTypeSheet = onShowTroupeTypeSheet,
-            onToggleLayout = onToggleLayout,
-            layoutMode = TroupeLayoutMode.PORTRAIT_COLUMN,
             onTargetPositioned = onTargetPositioned
         )
 
@@ -1233,16 +1052,6 @@ private fun PortraitColumnDashboard(
                             .clickable { selectedCharId = char.id }
                     ) {
                         CharacterPortrait(character = char, size = 56.dp)
-                    }
-                }
-                item {
-                    Box(
-                        modifier = Modifier.size(56.dp).clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                            .clickable { onAddCharacters() },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = "Add character", tint = MaterialTheme.colorScheme.primary)
                     }
                 }
             }
@@ -1291,8 +1100,7 @@ private fun PortraitColumnDashboard(
                                 characterId = selectedChar.id,
                                 equippedUpgrades = equippedUpgrades,
                                 upgradeCards = state.upgradeCards,
-                                onManageUpgrades = onManageUpgrades,
-                                onRemoveUpgrade = { upgradeId -> onRemoveUpgrade(selectedChar.id, upgradeId) }
+                                onManageUpgrades = onManageUpgrades
                             )
                         }
                     }
@@ -1321,19 +1129,32 @@ private fun DashboardFabColumn(
     viewModel: CharacterViewModel,
     theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties,
     onSave: () -> Unit,
+    onAddCharacters: () -> Unit,
     onTargetPositioned: (String, LayoutCoordinates) -> Unit
 ) {
     Box(modifier = Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.BottomEnd) {
-        FloatingActionButton(
-            onClick = onSave,
-            shape = theme.navItemShape,
-            containerColor = if (viewModel.newTroupeName.isNotBlank() && viewModel.selectedCharacterIds.isNotEmpty())
-                MaterialTheme.colorScheme.primaryContainer
-            else
-                MaterialTheme.colorScheme.surfaceVariant,
-            modifier = Modifier.onGloballyPositioned { onTargetPositioned("SaveButton", it) }
+        Column(
+            horizontalAlignment = Alignment.End,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Icon(Icons.Default.Check, contentDescription = null)
+            SmallFloatingActionButton(
+                onClick = onAddCharacters,
+                shape = theme.navItemShape,
+                containerColor = MaterialTheme.colorScheme.secondaryContainer
+            ) {
+                Icon(Icons.Default.PersonAdd, contentDescription = "Add character")
+            }
+            FloatingActionButton(
+                onClick = onSave,
+                shape = theme.navItemShape,
+                containerColor = if (viewModel.newTroupeName.isNotBlank() && viewModel.selectedCharacterIds.isNotEmpty())
+                    MaterialTheme.colorScheme.primaryContainer
+                else
+                    MaterialTheme.colorScheme.surfaceVariant,
+                modifier = Modifier.onGloballyPositioned { onTargetPositioned("SaveButton", it) }
+            ) {
+                Icon(Icons.Default.Check, contentDescription = null)
+            }
         }
     }
 }
@@ -1343,14 +1164,12 @@ private fun DashboardFabColumn(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TroupeTypeEditSheet(
-    currentIsTournament: Boolean,
     currentIsCampaign: Boolean,
     hasCampaignData: Boolean,
     theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties,
-    onConfirm: (isTournament: Boolean, isCampaign: Boolean) -> Unit,
+    onConfirm: (isCampaign: Boolean) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var selectedTournament by remember { mutableStateOf(currentIsTournament) }
     var selectedCampaign by remember { mutableStateOf(currentIsCampaign) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -1374,22 +1193,15 @@ private fun TroupeTypeEditSheet(
             SelectionOption(
                 title = "Normal",
                 subtitle = "Standard casual games.",
-                selected = !selectedTournament && !selectedCampaign,
-                onSelect = { selectedTournament = false; selectedCampaign = false },
-                theme = theme
-            )
-            SelectionOption(
-                title = "Tournament",
-                subtitle = "Structured competitive play. No upgrade or campaign card tracking.",
-                selected = selectedTournament && !selectedCampaign,
-                onSelect = { selectedTournament = true; selectedCampaign = false },
+                selected = !selectedCampaign,
+                onSelect = { selectedCampaign = false },
                 theme = theme
             )
             SelectionOption(
                 title = "Campaign",
                 subtitle = "Ongoing story play. Tracks upgrades, victory points and campaign cards.",
                 selected = selectedCampaign,
-                onSelect = { selectedTournament = false; selectedCampaign = true },
+                onSelect = { selectedCampaign = true },
                 theme = theme
             )
 
@@ -1444,7 +1256,7 @@ private fun TroupeTypeEditSheet(
                     Text("Cancel")
                 }
                 Button(
-                    onClick = { onConfirm(selectedTournament, selectedCampaign) },
+                    onClick = { onConfirm(selectedCampaign) },
                     modifier = Modifier.weight(1f),
                     shape = theme.cardShape
                 ) {
@@ -1462,17 +1274,39 @@ private fun TroupeTypeEditSheet(
 private fun CampaignCardManagementSheet(
     campaignCards: List<TroupeCampaignCard>,
     allCampaignCards: List<CampaignCard>,
+    troupeFaction: Faction,
     theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties,
     onCampaignCardsChange: (List<TroupeCampaignCard>) -> Unit,
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    var showAddCardDialog by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
 
-    val readyCards = campaignCards.filter { it.usedInGame == null }
-    val usedCards = campaignCards.filter { it.usedInGame != null }.sortedBy { it.usedInGame }
+    val readyIds = campaignCards.filter { it.usedInGame == null }.map { it.cardId }.toSet()
+    val usedTroupeCards = campaignCards.filter { it.usedInGame != null }.sortedBy { it.usedInGame }
     val nextGameNumber = (campaignCards.maxOfOrNull { it.usedInGame ?: 0 } ?: 0) + 1
-    val availableSlots = 3 - readyCards.size
+    val selectedReadyCount = readyIds.size
+
+    val usedCardIds = campaignCards.filter { it.usedInGame != null }.map { it.cardId }.toSet()
+    val availableCards = remember(allCampaignCards, campaignCards, troupeFaction, searchQuery) {
+        allCampaignCards
+            .filter { card -> (card.factions == null || troupeFaction in card.factions) && card.id !in usedCardIds }
+            .filter { it.name.contains(searchQuery, ignoreCase = true) }
+            .sortedBy { it.name }
+    }
+    val usedCardDetails = remember(allCampaignCards, campaignCards, searchQuery) {
+        usedTroupeCards.mapNotNull { troupeCard ->
+            allCampaignCards.find { it.id == troupeCard.cardId }
+                ?.takeIf { it.name.contains(searchQuery, ignoreCase = true) }
+                ?.let { card -> card to troupeCard }
+        }
+    }
+    val unavailableCards = remember(allCampaignCards, campaignCards, troupeFaction, searchQuery) {
+        allCampaignCards
+            .filter { card -> card.factions != null && troupeFaction !in card.factions && card.id !in usedCardIds }
+            .filter { it.name.contains(searchQuery, ignoreCase = true) }
+            .sortedBy { it.name }
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -1488,330 +1322,68 @@ private fun CampaignCardManagementSheet(
         ) {
             Text("Campaign Cards", style = theme.headerStyle, color = MaterialTheme.colorScheme.primary)
             Text(
-                "Track your cards for each game of the campaign.",
+                "Select up to 3 cards for this troupe.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 2.dp, bottom = 12.dp)
+                modifier = Modifier.padding(top = 2.dp, bottom = 8.dp)
+            )
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = { Text("Search cards...") },
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) IconButton(onClick = { searchQuery = "" }) {
+                        Icon(Icons.Default.Clear, contentDescription = null)
+                    }
+                },
+                singleLine = true,
+                shape = theme.cardShape
             )
 
-            LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                // Ready section
-                item {
-                    Surface(
-                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
-                        shape = RoundedCornerShape(4.dp)
-                    ) {
-                        Text(
-                            text = "READY TO USE NEXT GAME  (${readyCards.size} / 3)",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)
-                        )
-                    }
-                }
-
-                items(readyCards, key = { it.cardId }) { troupeCard ->
-                    val card = allCampaignCards.find { it.id == troupeCard.cardId }
-                    if (card != null) {
-                        CampaignCardRow(
-                            card = card,
-                            isUsed = false,
-                            gameNumber = null,
-                            onRemove = {
-                                onCampaignCardsChange(campaignCards.filter { it.cardId != troupeCard.cardId })
-                            },
-                            theme = theme
-                        )
-                    }
-                }
-
-                // Add card slot
-                if (availableSlots > 0) {
-                    item {
-                        OutlinedCard(
-                            onClick = { showAddCardDialog = true },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = theme.cardShape,
-                            border = CardDefaults.outlinedCardBorder()
-                        ) {
-                            Box(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    "+ Add card ($availableSlots slot${if (availableSlots == 1) "" else "s"} remaining)",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        }
-                    }
-                }
-
-                if (availableSlots == 0) {
-                    item {
-                        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                            TextButton(onClick = { showAddCardDialog = true }) {
-                                Text("Manage", style = MaterialTheme.typography.labelMedium)
-                            }
-                        }
-                    }
-                }
-
-                // Transfer button between sections
-                if (readyCards.isNotEmpty() || usedCards.isNotEmpty()) {
-                    item {
-                        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                            Button(
-                                onClick = {
-                                    onCampaignCardsChange(
-                                        campaignCards.map {
-                                            if (it.usedInGame == null) it.copy(usedInGame = nextGameNumber) else it
-                                        }
-                                    )
-                                },
-                                enabled = readyCards.isNotEmpty(),
-                                shape = RoundedCornerShape(50),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.secondary
-                                )
-                            ) {
-                                Text("Transfer used cards ↓", style = MaterialTheme.typography.labelMedium)
-                            }
-                        }
-                    }
-                }
-
-                // Used section
-                if (usedCards.isNotEmpty()) {
+            LazyColumn(modifier = Modifier.weight(1f)) {
+                // Available section
+                if (availableCards.isNotEmpty()) {
                     item {
                         Surface(
-                            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f),
-                            shape = RoundedCornerShape(4.dp)
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                            shape = RoundedCornerShape(4.dp),
+                            modifier = Modifier.padding(bottom = 4.dp)
                         ) {
                             Text(
-                                text = "USED PREVIOUSLY THIS CAMPAIGN",
+                                text = "AVAILABLE  ($selectedReadyCount / 3 selected)",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.error,
+                                color = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)
                             )
                         }
                     }
-
-                    items(usedCards, key = { it.cardId }) { troupeCard ->
-                        val card = allCampaignCards.find { it.id == troupeCard.cardId }
-                        if (card != null) {
-                            CampaignCardRow(
-                                card = card,
-                                isUsed = true,
-                                gameNumber = troupeCard.usedInGame,
-                                onUndo = {
-                                    onCampaignCardsChange(
-                                        campaignCards.map {
-                                            if (it.cardId == troupeCard.cardId) it.copy(usedInGame = null) else it
-                                        }
-                                    )
-                                },
-                                theme = theme
-                            )
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-            Button(
-                onClick = onDismiss,
-                modifier = Modifier.fillMaxWidth(),
-                shape = theme.cardShape
-            ) {
-                Text("Done")
-            }
-        }
-    }
-
-    if (showAddCardDialog) {
-        AddCampaignCardDialog(
-            allCampaignCards = allCampaignCards,
-            selectedIds = campaignCards.map { it.cardId }.toSet(),
-            maxSelectable = 3,
-            theme = theme,
-            onToggle = { cardId ->
-                if (campaignCards.any { it.cardId == cardId }) {
-                    onCampaignCardsChange(campaignCards.filter { it.cardId != cardId })
-                } else {
-                    onCampaignCardsChange(campaignCards + TroupeCampaignCard(cardId))
-                }
-            },
-            onDismiss = { showAddCardDialog = false }
-        )
-    }
-}
-
-@Composable
-private fun CampaignCardRow(
-    card: CampaignCard,
-    isUsed: Boolean,
-    gameNumber: Int?,
-    theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties,
-    onRemove: (() -> Unit)? = null,
-    onUndo: (() -> Unit)? = null
-) {
-    ThemedCard(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.Top,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                    Box(
-                        modifier = Modifier.size(22.dp).clip(CircleShape)
-                            .background(
-                                if (isUsed) MaterialTheme.colorScheme.error
-                                else MaterialTheme.colorScheme.primary
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = if (isUsed) "✓" else "✓",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (isUsed) MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.onPrimary
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Column {
-                        Text(
-                            text = card.name,
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = if (isUsed) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                            else MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = card.timing,
-                            style = MaterialTheme.typography.labelSmall,
-                            fontStyle = FontStyle.Italic,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-                if (gameNumber != null) {
-                    Text(
-                        text = "Game $gameNumber",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontStyle = FontStyle.Italic,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                } else if (onRemove != null) {
-                    IconButton(onClick = onRemove, modifier = Modifier.size(24.dp)) {
-                        Icon(
-                            Icons.Default.Close,
-                            contentDescription = "Remove card",
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.error
-                        )
-                    }
-                }
-            }
-            Text(
-                text = card.description,
-                style = MaterialTheme.typography.bodySmall,
-                color = if (isUsed) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                else MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(top = 6.dp, start = 30.dp)
-            )
-            if (isUsed && onUndo != null) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    OutlinedButton(
-                        onClick = onUndo,
-                        modifier = Modifier.height(28.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                        shape = RoundedCornerShape(50)
-                    ) {
-                        Text("↩ undo", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun AddCampaignCardDialog(
-    allCampaignCards: List<CampaignCard>,
-    selectedIds: Set<Int>,
-    maxSelectable: Int,
-    theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties,
-    onToggle: (Int) -> Unit,
-    onDismiss: () -> Unit
-) {
-    val atMax = selectedIds.size >= maxSelectable
-    var searchQuery by remember { mutableStateOf("") }
-    val cards = remember(allCampaignCards, searchQuery) {
-        allCampaignCards.filter { it.name.contains(searchQuery, ignoreCase = true) }
-    }
-
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
-    ) {
-        Surface(
-            modifier = Modifier.fillMaxWidth().fillMaxHeight(0.85f).padding(horizontal = 16.dp),
-            shape = theme.cardShape,
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 6.dp
-        ) {
-            Column(modifier = Modifier.padding(24.dp)) {
-                Text("Add Campaign Card", style = theme.titleStyle.copy(fontSize = 22.sp))
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    placeholder = { Text("Search cards...") },
-                    modifier = Modifier.fillMaxWidth(),
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                    trailingIcon = {
-                        if (searchQuery.isNotEmpty()) IconButton(onClick = { searchQuery = "" }) {
-                            Icon(Icons.Default.Clear, contentDescription = null)
-                        }
-                    },
-                    singleLine = true,
-                    shape = theme.cardShape
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    items(cards, key = { it.id }) { card ->
-                        val isSelected = card.id in selectedIds
-                        val canSelect = isSelected || !atMax
-                        val contentAlpha = when {
-                            isSelected -> 0.45f
-                            !canSelect -> 0.35f
-                            else -> 1f
-                        }
+                    items(availableCards, key = { "avail_${it.id}" }) { card ->
+                        val isSelected = card.id in readyIds
+                        val atMax = selectedReadyCount >= 3
+                        val canToggle = isSelected || !atMax
+                        val contentAlpha = if (!canToggle) 0.45f else 1f
                         Row(
-                            modifier = Modifier.fillMaxWidth()
-                                .clickable(enabled = canSelect || isSelected) { onToggle(card.id) }
-                                .padding(vertical = 8.dp, horizontal = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(enabled = canToggle) {
+                                    if (isSelected) {
+                                        onCampaignCardsChange(campaignCards.filter { it.cardId != card.id })
+                                    } else {
+                                        onCampaignCardsChange(campaignCards + TroupeCampaignCard(card.id))
+                                    }
+                                }
+                                .padding(vertical = 10.dp, horizontal = 4.dp),
+                            verticalAlignment = Alignment.Top
                         ) {
-                            SelectionCircle(
-                                isSelected = isSelected,
-                                contentAlpha = contentAlpha
-                            )
+                            SelectionCircle(isSelected = isSelected, contentAlpha = contentAlpha)
                             Spacer(modifier = Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     card.name,
-                                    style = MaterialTheme.typography.bodyLarge,
+                                    style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = contentAlpha)
                                 )
@@ -1825,16 +1397,175 @@ private fun AddCampaignCardDialog(
                                     card.description,
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = contentAlpha),
+                                    maxLines = 3
+                                )
+                            }
+                        }
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    }
+                }
+
+                // Used section
+                if (usedCardDetails.isNotEmpty()) {
+                    item {
+                        Surface(
+                            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f),
+                            shape = RoundedCornerShape(4.dp),
+                            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                        ) {
+                            Text(
+                                text = "USED THIS CAMPAIGN",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)
+                            )
+                        }
+                    }
+                    items(usedCardDetails, key = { "used_${it.second.cardId}" }) { (card, troupeCard) ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 10.dp, horizontal = 4.dp),
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            Box(
+                                modifier = Modifier.size(22.dp).clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.error.copy(alpha = 0.2f))
+                                    .border(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Default.Check,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        card.name,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            "Game ${troupeCard.usedInGame}",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontStyle = FontStyle.Italic,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        OutlinedButton(
+                                            onClick = {
+                                                onCampaignCardsChange(campaignCards.map {
+                                                    if (it.cardId == troupeCard.cardId) it.copy(usedInGame = null) else it
+                                                })
+                                            },
+                                            modifier = Modifier.height(28.dp),
+                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                                            shape = RoundedCornerShape(50)
+                                        ) {
+                                            Text("↩ undo", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                                        }
+                                    }
+                                }
+                                Text(
+                                    card.description,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                                    maxLines = 2,
+                                    modifier = Modifier.padding(top = 2.dp)
+                                )
+                            }
+                        }
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    }
+                }
+
+                // Unavailable section
+                if (unavailableCards.isNotEmpty()) {
+                    item {
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            shape = RoundedCornerShape(4.dp),
+                            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                        ) {
+                            Text(
+                                text = "UNAVAILABLE FOR THIS FACTION",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)
+                            )
+                        }
+                    }
+                    items(unavailableCards, key = { "unavail_${it.id}" }) { card ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 10.dp, horizontal = 4.dp),
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            SelectionCircle(isSelected = false, isCompatible = false, contentAlpha = 0.35f)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    card.name,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+                                )
+                                Text(
+                                    card.timing,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontStyle = FontStyle.Italic,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
+                                )
+                                Text(
+                                    card.description,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
                                     maxLines = 2
                                 )
                             }
                         }
-                        HorizontalDivider()
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
                     }
                 }
-                Spacer(modifier = Modifier.height(12.dp))
-                TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) {
-                    Text("Close")
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = {
+                        onCampaignCardsChange(campaignCards.map {
+                            if (it.usedInGame == null) it.copy(usedInGame = nextGameNumber) else it
+                        })
+                    },
+                    modifier = Modifier.weight(1f),
+                    enabled = selectedReadyCount > 0,
+                    shape = theme.cardShape
+                ) {
+                    Text("Transfer Used Cards", style = MaterialTheme.typography.labelMedium)
+                }
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f),
+                    shape = theme.cardShape
+                ) {
+                    Text("Save")
                 }
             }
         }
@@ -1898,10 +1629,14 @@ private fun UpgradeManagementSheet(
         if (cleaned != selectedIds) onSelectionChange(cleaned)
     }
 
+    // Capture selection at open time so sort order doesn't shift while the user taps
+    val initialSelectedIds = remember(character.id) { selectedIds }
+
     val (compatibleUpgrades, incompatibleUpgrades) = remember(state.upgradeCards, searchQuery, character.id) {
         val all = if (searchQuery.isEmpty()) state.upgradeCards
                   else state.upgradeCards.filter { it.name.contains(searchQuery, ignoreCase = true) }
-        val compatible = all.filter { upgradeCompatible(it, character) }.sortedBy { it.name }
+        val compatible = all.filter { upgradeCompatible(it, character) }
+            .sortedWith(compareByDescending<UpgradeCard> { it.id in initialSelectedIds }.thenBy { it.name })
         val incompatible = all.filter { !upgradeCompatible(it, character) }.sortedBy { it.name }
         compatible to incompatible
     }
@@ -2315,34 +2050,6 @@ private fun DiscardConfirmationDialog(
         text = { Text("Unsaved changes will be discarded. Are you sure you want to go back?") },
         confirmButton = { TextButton(onClick = onConfirm) { Text("Discard", color = MaterialTheme.colorScheme.error) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
-    )
-}
-
-@Composable
-private fun SaveValidationDialog(
-    viewModel: CharacterViewModel,
-    theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties,
-    onDismiss: () -> Unit,
-    onConfirm: () -> Unit
-) {
-    val count = viewModel.selectedCharacterIds.size
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        shape = theme.cardShape,
-        title = { Text("Save Troupe") },
-        text = {
-            Column {
-                Text("This troupe will automatically select all members. It will be valid for:")
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("• 2 Players: ${if (count <= 6) "Valid" else "Invalid (Max 6)"}", color = if (count <= 6) theme.readyColor else MaterialTheme.colorScheme.error)
-                Text("• 3 Players: ${if (count <= 4) "Valid" else "Invalid (Max 4)"}", color = if (count <= 4) theme.readyColor else MaterialTheme.colorScheme.error)
-                Text("• 4 Players: ${if (count <= 3) "Valid" else "Invalid (Max 3)"}", color = if (count <= 3) theme.readyColor else MaterialTheme.colorScheme.error)
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("Do you want to save anyway?")
-            }
-        },
-        confirmButton = { Button(onClick = onConfirm, shape = theme.cardShape) { Text("Save") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Back to Edit") } }
     )
 }
 
