@@ -69,7 +69,7 @@ class MainActivity : ComponentActivity() {
             
             // Global coordinate tracking for tutorial
             val tutorialCoords = remember { mutableStateMapOf<String, LayoutCoordinates>() }
-            val isTutorialActive = !state.hasSeenGlobalTutorial || showTutorialForcefully
+            val isTutorialActive = false // disabled
             var currentTutorialStep by remember { mutableStateOf<TutorialStep?>(null) }
 
             // State for manual troupe selection
@@ -159,40 +159,12 @@ class MainActivity : ComponentActivity() {
                                 )
                             )
                             NavigationDrawerItem(
-                                icon = { Icon(Icons.Default.Help, contentDescription = null) },
-                                label = { Text("Tutorial Help", style = theme.headerStyle.copy(fontSize = 18.sp)) },
-                                selected = false,
-                                onClick = {
-                                    scope.launch { drawerState.close() }
-                                    showTutorialForcefully = true
-                                },
-                                shape = theme.navItemShape,
-                                colors = NavigationDrawerItemDefaults.colors(
-                                    unselectedIconColor = MaterialTheme.colorScheme.primary,
-                                    unselectedTextColor = MaterialTheme.colorScheme.primary
-                                )
-                            )
-                            NavigationDrawerItem(
                                 icon = { Icon(Icons.Default.Settings, contentDescription = null) },
                                 label = { Text("Settings", style = theme.headerStyle.copy(fontSize = 18.sp)) },
                                 selected = false,
                                 onClick = {
                                     scope.launch { drawerState.close() }
                                     navController.navigate(Screen.Settings.route)
-                                },
-                                shape = theme.navItemShape,
-                                colors = NavigationDrawerItemDefaults.colors(
-                                    unselectedIconColor = MaterialTheme.colorScheme.primary,
-                                    unselectedTextColor = MaterialTheme.colorScheme.primary
-                                )
-                            )
-                            NavigationDrawerItem(
-                                icon = { Icon(Icons.Default.EmojiEvents, contentDescription = null) },
-                                label = { Text("Setup Local Tournament", style = theme.headerStyle.copy(fontSize = 18.sp)) },
-                                selected = false,
-                                onClick = {
-                                    scope.launch { drawerState.close() }
-                                    navController.navigate(Screen.TournamentSetup.route)
                                 },
                                 shape = theme.navItemShape,
                                 colors = NavigationDrawerItemDefaults.colors(
