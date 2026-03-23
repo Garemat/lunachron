@@ -3,12 +3,14 @@ package io.github.garemat.lunachron.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -16,9 +18,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -67,29 +71,50 @@ fun CampaignDetailsScreen(
                     icon = Icons.Default.EmojiEvents,
                     onClick = { viewModel.currentCampaignSubScreen = CampaignSubScreen.RANKINGS }
                 )
-                
-                val round = campaign.rounds.find { it.roundNumber == campaign.currentRound }
-                val hasScheduled = round?.games?.isNotEmpty() == true || round?.skipPlayerIds?.isNotEmpty() == true
+
+                val isCampaignComplete = campaign.totalRounds > 0 && campaign.currentRound > campaign.totalRounds
+                val currentRound = campaign.rounds.find { it.roundNumber == campaign.currentRound }
+                val nextRoundHeader = campaign.rounds.find { it.roundNumber == campaign.currentRound + 1 }
+                val allGamesPlayed = currentRound?.games?.isNotEmpty() == true && currentRound.games.all { it.isPlayed }
+                val nextRoundMachinationsDoneHeader = nextRoundHeader?.machinations?.isNotEmpty() == true
+                val inEndPhase = campaign.machinationPhaseActive || (allGamesPlayed && !nextRoundMachinationsDoneHeader)
+                val gamesCardTitle = when {
+                    isCampaignComplete -> "Campaign Complete"
+                    inEndPhase -> "Round End Phase"
+                    else -> "Record Results"
+                }
+                val gamesCardDescription = when {
+                    isCampaignComplete -> "All ${campaign.totalRounds} rounds finished"
+                    inEndPhase -> "MP distribution & machinations for Round ${campaign.currentRound + 1}"
+                    else -> "Round ${campaign.currentRound} of ${campaign.totalRounds}"
+                }
                 SetupOptionCard(
-                    title = if (hasScheduled) "Active Games" else "Schedule Games",
-                    description = if (hasScheduled) "Record match results" else "Pair up players for Round ${campaign.currentRound}",
-                    icon = Icons.Default.PlayArrow,
-                    onClick = { viewModel.currentCampaignSubScreen = CampaignSubScreen.GAMES }
+                    title = gamesCardTitle,
+                    description = gamesCardDescription,
+                    icon = if (inEndPhase) Icons.Default.Favorite else Icons.Default.PlayArrow,
+                    onClick = { if (!isCampaignComplete) viewModel.currentCampaignSubScreen = CampaignSubScreen.GAMES }
                 )
-                
+
+                SetupOptionCard(
+                    title = "Schedule",
+                    description = "Full campaign schedule — rounds 1 to ${campaign.totalRounds}",
+                    icon = Icons.Default.CalendarMonth,
+                    onClick = { viewModel.currentCampaignSubScreen = CampaignSubScreen.SCHEDULE }
+                )
+
                 SetupOptionCard(
                     title = "Edit",
                     description = "Update campaign details and players",
                     icon = Icons.Default.Edit,
-                    onClick = { 
+                    onClick = {
                         viewModel.editCampaign(campaignId)
-                        onNavigateToSettings(campaignId) 
+                        onNavigateToSettings(campaignId)
                     }
                 )
-                
+
                 SetupOptionCard(
-                    title = "Round History",
-                    description = "Review previous rounds",
+                    title = "History",
+                    description = "Completed rounds with full detail",
                     icon = Icons.Default.History,
                     onClick = { viewModel.currentCampaignSubScreen = CampaignSubScreen.HISTORY }
                 )
@@ -99,8 +124,7 @@ fun CampaignDetailsScreen(
                 when (viewModel.currentCampaignSubScreen) {
                     CampaignSubScreen.RANKINGS -> RankingsTab(campaign, state, theme)
                     CampaignSubScreen.GAMES -> GamesTab(campaign, state, viewModel, theme)
-                    CampaignSubScreen.MACHINATIONS -> MachinationsTab(campaign, state, viewModel, theme)
-                    CampaignSubScreen.ATTACKS -> AttacksTab(campaign, state, viewModel, theme)
+                    CampaignSubScreen.SCHEDULE -> ScheduleTab(campaign, theme)
                     CampaignSubScreen.HISTORY -> HistoryTab(campaign, state, theme)
                     else -> {}
                 }
@@ -282,32 +306,26 @@ fun GamesTab(
     theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties
 ) {
     val currentRound = campaign.rounds.find { it.roundNumber == campaign.currentRound }
+    val nextRound = campaign.rounds.find { it.roundNumber == campaign.currentRound + 1 }
     val games = currentRound?.games ?: emptyList()
     val skipPlayers = currentRound?.skipPlayerIds ?: emptyList()
-    val hasSchedule = games.isNotEmpty() || skipPlayers.isNotEmpty()
-
-    var isScheduling by remember(campaign.currentRound) { mutableStateOf(!hasSchedule) }
     val isMachinating = viewModel.isCampaignMachinating
 
-    fun saveSchedule(gamesList: List<CampaignGame>, skips: List<String>) {
-        val newRounds = campaign.rounds.toMutableList()
-        val roundIdx = newRounds.indexOfFirst { it.roundNumber == campaign.currentRound }
-        val existing = newRounds.getOrNull(roundIdx)
-        val updatedRound = (existing ?: CampaignRound(campaign.currentRound, emptyList())).copy(
-            games = gamesList, skipPlayerIds = skips
-        )
-        if (roundIdx != -1) newRounds[roundIdx] = updatedRound else newRounds.add(updatedRound)
-        viewModel.updateCampaign(campaign.copy(rounds = newRounds))
-    }
+    // Machinations for THIS round (submitted at end of previous round) — drives MP distribution
+    val hasMachinationsThisRound = currentRound?.machinations?.isNotEmpty() == true
+    // Machinations for NEXT round (submitted at end of this round) — drives card draw summary
+    val nextRoundMachinationsDone = nextRound?.machinations?.isNotEmpty() == true
 
+    // Machinations for this round are stored in currentRound and evaluated with currentRound results
     fun saveMachinationsAndAttacks(machinations: List<CampaignMachination>, attacks: List<CampaignAttack>) {
         val newRounds = campaign.rounds.toMutableList()
-        val roundIdx = newRounds.indexOfFirst { it.roundNumber == campaign.currentRound }
-        val existing = newRounds.getOrNull(roundIdx)
-        val updatedRound = (existing ?: CampaignRound(campaign.currentRound, emptyList())).copy(
+        val nextRoundNumber = campaign.currentRound + 1
+        val nextIdx = newRounds.indexOfFirst { it.roundNumber == nextRoundNumber }
+        val existing = newRounds.getOrNull(nextIdx)
+        val updatedRound = (existing ?: CampaignRound(nextRoundNumber, emptyList())).copy(
             machinations = machinations, attacks = attacks
         )
-        if (roundIdx != -1) newRounds[roundIdx] = updatedRound else newRounds.add(updatedRound)
+        if (nextIdx != -1) newRounds[nextIdx] = updatedRound else newRounds.add(updatedRound)
         val apCosts = attacks.groupBy { it.sourcePlayerId }.mapValues { (_, atks) -> atks.sumOf { it.type.cost } }
         val newPlayers = campaign.players.map { p ->
             val cost = apCosts[p.id] ?: 0
@@ -321,71 +339,108 @@ fun GamesTab(
         ))
     }
 
-    if (isScheduling) {
-        val initialPlayersPerGame = games.firstOrNull()?.playerIds?.size ?: 2
-        val initialAssignments = buildMap {
-            campaign.players.forEach { put(it.id, -1) }
-            games.forEachIndexed { idx, game -> game.playerIds.forEach { put(it, idx + 1) } }
-            skipPlayers.forEach { put(it, 0) }
-        }
-        SchedulingPanel(
-            campaign = campaign,
-            initialPlayersPerGame = initialPlayersPerGame,
-            initialAssignments = initialAssignments,
-            theme = theme,
-            onConfirm = { gamesList, skips ->
-                saveSchedule(gamesList, skips)
-                isScheduling = false
-                viewModel.initMachinationDraft(campaign)
-            },
-            onCancel = if (hasSchedule) { { isScheduling = false } } else null
-        )
-    } else if (isMachinating) {
+    val allGamesPlayed = games.isNotEmpty() && games.all { it.isPlayed }
+    val isLastRound = campaign.totalRounds > 0 && campaign.currentRound >= campaign.totalRounds
+
+    // flowStep controls which sub-screen is shown in the end-of-round flow:
+    // 0 = record results list
+    // 1 = MP distribution (only when hasMachinationsThisRound)
+    // 2 = round rankings (only when hasMachinationsThisRound)
+    // 3 = card draw summary
+    var flowStep by remember(campaign.currentRound) { mutableStateOf(0) }
+    var editingGameIndices by remember(campaign.currentRound) { mutableStateOf(emptySet<Int>()) }
+
+    // Pre-compute MP deltas from this round's machinations + this round's results.
+    // These are shown in MP distribution and rankings before machinations for the next round.
+    val pendingMpDeltas = remember(hasMachinationsThisRound, campaign.currentRound) {
+        if (hasMachinationsThisRound) viewModel.computePendingMpDeltas(campaign) else emptyMap()
+    }
+
+    if (isMachinating) {
         MachinationPhasePanel(
             campaign = campaign,
             state = state,
             currentRound = currentRound,
+            nextRound = nextRound,
             viewModel = viewModel,
             theme = theme,
             onConfirm = { machinations, attacks ->
                 saveMachinationsAndAttacks(machinations, attacks)
                 viewModel.clearMachinationDraft()
+                flowStep = 3
             },
             onSaveDraft = {
                 viewModel.saveMachinationDraft(campaign)
                 viewModel.currentCampaignSubScreen = null
             }
         )
-    } else {
-        var editingGameIndices by remember(campaign.currentRound) { mutableStateOf(emptySet<Int>()) }
-        Column(modifier = Modifier.fillMaxSize().padding(theme.screenPadding)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                TextButton(onClick = { isScheduling = true; viewModel.isCampaignMachinating = false }) {
-                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Edit Pairings")
-                }
+    } else if (allGamesPlayed && hasMachinationsThisRound && flowStep == 1) {
+        MPDistributionScreen(
+            campaign = campaign,
+            pendingMpDeltas = pendingMpDeltas,
+            savedAdjustments = currentRound?.manualMpAdjustments ?: emptyMap(),
+            theme = theme,
+            onBack = { flowStep = 0 },
+            onConfirm = { adjustments ->
+                viewModel.saveManualMpAdjustments(campaign, adjustments)
+                flowStep = 2
             }
-
+        )
+    } else if (allGamesPlayed && hasMachinationsThisRound && flowStep == 2) {
+        RoundRankingsScreen(
+            campaign = campaign,
+            state = state,
+            pendingMpDeltas = pendingMpDeltas,
+            manualAdjustments = currentRound?.manualMpAdjustments ?: emptyMap(),
+            theme = theme,
+            onBack = { flowStep = 1 },
+            onContinue = {
+                viewModel.initMachinationDraft(campaign)
+                viewModel.isCampaignMachinating = true
+            }
+        )
+    } else if (allGamesPlayed && nextRoundMachinationsDone && flowStep == 3) {
+        CampaignCardDrawScreen(
+            campaign = campaign,
+            nextRound = nextRound,
+            isLastRound = isLastRound,
+            theme = theme,
+            onBack = { flowStep = 0 },
+            onProgress = { viewModel.progressCampaignRound(campaign) }
+        )
+    } else {
+        Column(modifier = Modifier.fillMaxSize().padding(theme.screenPadding)) {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(theme.verticalSpacing), modifier = Modifier.weight(1f)) {
                 itemsIndexed(games) { idx, game ->
                     val isEditing = !game.isPlayed || idx in editingGameIndices
                     GameMatchCard(
                         game = game,
                         campaign = campaign,
+                        state = state,
                         isEditing = isEditing,
                         theme = theme,
-                        onRecordResult = { winnerId ->
-                            viewModel.recordCampaignGameResult(campaign, game, winnerId)
+                        onRecordResultWithVP = { vpMap ->
+                            viewModel.recordCampaignGameResultWithVP(campaign, game, vpMap)
                             editingGameIndices = editingGameIndices - idx
                         },
-                        onEditClick = { editingGameIndices = editingGameIndices + idx }
+                        onEditClick = { editingGameIndices = editingGameIndices + idx },
+                        onDrop = { droppedId, joinThreePlayer ->
+                            val vpMap = buildMap<String, Int> {
+                                put(droppedId, 0)
+                                game.playerIds.filter { it != droppedId }.forEach { rid ->
+                                    put(rid, if (joinThreePlayer) 1 else 6)
+                                }
+                            }
+                            val dropped = if (joinThreePlayer) listOf(droppedId) else game.playerIds
+                            viewModel.recordCampaignGameResultWithVP(campaign, game, vpMap, dropped)
+                            editingGameIndices = editingGameIndices - idx
+                        }
                     )
                 }
 
                 if (skipPlayers.isNotEmpty()) {
                     item {
-                        Text("Skipping this round:", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 8.dp))
+                        Text("Bye this round:", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 8.dp))
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             shape = theme.cardShape,
@@ -401,123 +456,742 @@ fun GamesTab(
                 }
             }
 
-            if (games.all { it.isPlayed } && hasSchedule) {
-                Button(
-                    onClick = { viewModel.progressCampaignRound(campaign) },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = theme.cardShape
-                ) {
-                    Text("Progress to Round ${campaign.currentRound + 1}")
+            if (allGamesPlayed) {
+                when {
+                    // Round has prior machinations to review → start with MP distribution
+                    hasMachinationsThisRound && !nextRoundMachinationsDone -> Button(
+                        onClick = { flowStep = 1 },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = theme.cardShape
+                    ) {
+                        Icon(Icons.Default.Stars, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("View Round Summary")
+                    }
+                    // Round 1 (no prior machinations) → go straight to machinations
+                    !hasMachinationsThisRound && !nextRoundMachinationsDone -> Button(
+                        onClick = {
+                            viewModel.initMachinationDraft(campaign)
+                            viewModel.isCampaignMachinating = true
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = theme.cardShape
+                    ) {
+                        Icon(Icons.Default.Favorite, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Proceed to Machinations")
+                    }
+                    // Machinations for next round already submitted → re-enter end-of-round flow
+                    nextRoundMachinationsDone -> OutlinedButton(
+                        onClick = { flowStep = if (hasMachinationsThisRound) 1 else 3 },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = theme.cardShape
+                    ) {
+                        Icon(Icons.Default.Style, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(if (hasMachinationsThisRound) "MP Distribution & Card Draw" else "View Card Draw Summary")
+                    }
                 }
             }
         }
     }
 }
 
+@Composable
+private fun MPDistributionScreen(
+    campaign: Campaign,
+    pendingMpDeltas: Map<String, Int>,
+    savedAdjustments: Map<String, Int>,
+    theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties,
+    onBack: () -> Unit,
+    onConfirm: (Map<String, Int>) -> Unit
+) {
+    val adjustments = remember(savedAdjustments) {
+        mutableStateMapOf<String, Int>().also { map ->
+            campaign.players.forEach { p -> map[p.id] = savedAdjustments[p.id] ?: 0 }
+        }
+    }
+
+    Column(modifier = Modifier.fillMaxSize().padding(theme.screenPadding)) {
+        TextButton(onClick = onBack, contentPadding = PaddingValues(0.dp)) {
+            Icon(Icons.Default.ArrowBack, contentDescription = null, modifier = Modifier.size(16.dp))
+            Spacer(modifier = Modifier.width(4.dp))
+            Text("Back to results", style = MaterialTheme.typography.labelMedium)
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text("MP Distribution", style = theme.headerStyle, color = MaterialTheme.colorScheme.primary)
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(
+            "Review machination points and apply any campaign card bonuses or penalties",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(theme.verticalSpacing))
+
+        LazyColumn(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(theme.verticalSpacing)
+        ) {
+            items(campaign.players) { player ->
+                val earned = pendingMpDeltas[player.id] ?: 0
+                val adj = adjustments[player.id] ?: 0
+                val total = earned + adj
+                ThemedCard(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(theme.cardContentPadding)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    player.name,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                val earnedSign = if (earned >= 0) "+" else ""
+                                Text(
+                                    "From machinations: $earnedSign$earned MP",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            // Total PP display
+                            val totalSign = if (total >= 0) "+" else ""
+                            Text(
+                                "$totalSign$total MP",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = when {
+                                    total > 0 -> theme.positiveColor
+                                    total < 0 -> MaterialTheme.colorScheme.error
+                                    else -> MaterialTheme.colorScheme.onSurface
+                                }
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                "Campaign card adjustment:",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                IconButton(
+                                    onClick = { adjustments[player.id] = adj - 1 },
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Icon(Icons.Default.Remove, contentDescription = "Decrease", modifier = Modifier.size(20.dp))
+                                }
+                                Text(
+                                    "${if (adj >= 0) "+" else ""}$adj",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.widthIn(min = 40.dp),
+                                    textAlign = TextAlign.Center
+                                )
+                                IconButton(
+                                    onClick = { adjustments[player.id] = adj + 1 },
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Icon(Icons.Default.Add, contentDescription = "Increase", modifier = Modifier.size(20.dp))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(theme.verticalSpacing))
+        Button(
+            onClick = { onConfirm(adjustments.toMap()) },
+            modifier = Modifier.fillMaxWidth(),
+            shape = theme.cardShape
+        ) {
+            Text("Confirm & View Rankings")
+        }
+    }
+}
+
+@Composable
+private fun RoundRankingsScreen(
+    campaign: Campaign,
+    state: CharacterState,
+    pendingMpDeltas: Map<String, Int>,
+    manualAdjustments: Map<String, Int>,
+    theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties,
+    onBack: () -> Unit,
+    onContinue: () -> Unit
+) {
+    data class RankedPlayer(
+        val player: CampaignPlayer,
+        val vp: Int,
+        val oldPp: Int,
+        val newPp: Int,
+        val oldRank: Int,
+        val newRank: Int
+    )
+
+    val ranked = remember(campaign.players, pendingMpDeltas, manualAdjustments) {
+        val troupes = state.troupes
+        val entries = campaign.players.map { p ->
+            val vp = troupes.find { it.id == p.troupeId }?.victoryPoints ?: 0
+            val oldPp = vp + p.machinationPoints
+            val totalMpGain = (pendingMpDeltas[p.id] ?: 0) + (manualAdjustments[p.id] ?: 0)
+            val newPp = oldPp + totalMpGain
+            Triple(p, vp to oldPp, newPp)
+        }
+        val oldOrder = entries.sortedByDescending { it.second.second }
+        val newOrder = entries.sortedByDescending { it.third }
+        entries.map { (p, vpOld, newPp) ->
+            val (vp, oldPp) = vpOld
+            val oldRank = oldOrder.indexOfFirst { it.first.id == p.id } + 1
+            val newRank = newOrder.indexOfFirst { it.first.id == p.id } + 1
+            RankedPlayer(p, vp, oldPp, newPp, oldRank, newRank)
+        }.sortedBy { it.newRank }
+    }
+
+    // Tier boundaries based on new PP
+    val n = ranked.size
+    val tierSize = (n / 3).coerceAtLeast(1)
+    val sortedByNew = ranked.sortedByDescending { it.newPp }
+    val topBoundary = sortedByNew.getOrNull(tierSize - 1)?.newPp ?: 0
+    val actualTop = sortedByNew.count { it.newPp >= topBoundary }
+    val remaining = sortedByNew.drop(actualTop)
+    val botIdx = (remaining.size - tierSize).coerceAtLeast(0)
+    val botBoundary = remaining.getOrNull(botIdx)?.newPp ?: Int.MIN_VALUE
+    val tiedAtBot = remaining.getOrNull(botIdx - 1)?.newPp == botBoundary
+
+    fun newTier(pp: Int) = when {
+        pp >= topBoundary -> "Top"
+        tiedAtBot && pp == botBoundary -> "Middle"
+        pp <= botBoundary -> "Bottom"
+        else -> "Middle"
+    }
+
+    Column(modifier = Modifier.fillMaxSize().padding(theme.screenPadding)) {
+        TextButton(onClick = onBack, contentPadding = PaddingValues(0.dp)) {
+            Icon(Icons.Default.ArrowBack, contentDescription = null, modifier = Modifier.size(16.dp))
+            Spacer(modifier = Modifier.width(4.dp))
+            Text("Back to MP distribution", style = MaterialTheme.typography.labelMedium)
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text("Round Rankings", style = theme.headerStyle, color = MaterialTheme.colorScheme.primary)
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(
+            "Standings after Round ${campaign.currentRound} machinations",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(theme.verticalSpacing))
+
+        LazyColumn(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(theme.verticalSpacing)
+        ) {
+            itemsIndexed(ranked) { idx, entry ->
+                val tierColor = when (newTier(entry.newPp)) {
+                    "Top" -> theme.rankingGoldColor
+                    "Bottom" -> theme.rankingBronzeColor
+                    else -> theme.rankingSilverColor
+                }
+                val rankDelta = entry.oldRank - entry.newRank  // positive = moved up
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = theme.cardShape,
+                    colors = CardDefaults.cardColors(
+                        containerColor = tierColor.copy(alpha = if (idx % 2 == 0) 0.07f else 0.13f)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // New rank
+                        Box(modifier = Modifier.size(40.dp), contentAlignment = Alignment.Center) {
+                            if (entry.newRank == 1) {
+                                Icon(Icons.Default.EmojiEvents, contentDescription = "1st", tint = tierColor, modifier = Modifier.size(30.dp))
+                            } else {
+                                Text("#${entry.newRank}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.ExtraBold, color = tierColor)
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        // Position change indicator
+                        Box(modifier = Modifier.size(28.dp), contentAlignment = Alignment.Center) {
+                            when {
+                                rankDelta > 0 -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Up $rankDelta", tint = theme.positiveColor, modifier = Modifier.size(16.dp))
+                                    Text("$rankDelta", style = MaterialTheme.typography.labelSmall, color = theme.positiveColor, fontWeight = FontWeight.Bold)
+                                }
+                                rankDelta < 0 -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("${-rankDelta}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Down ${-rankDelta}", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
+                                }
+                                else -> Icon(Icons.Default.Remove, contentDescription = "No change", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp))
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                entry.player.name,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            val mpGain = (pendingMpDeltas[entry.player.id] ?: 0) + (manualAdjustments[entry.player.id] ?: 0)
+                            val sign = if (mpGain >= 0) "+" else ""
+                            Text(
+                                "${entry.vp} VP · ${entry.player.machinationPoints} MP (${sign}${mpGain})",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            "${entry.newPp}",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(theme.verticalSpacing))
+        Button(
+            onClick = onContinue,
+            modifier = Modifier.fillMaxWidth(),
+            shape = theme.cardShape
+        ) {
+            Icon(Icons.Default.Favorite, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Proceed to Machinations")
+        }
+    }
+}
+
+@Composable
+private fun CampaignCardDrawScreen(
+    campaign: Campaign,
+    nextRound: CampaignRound?,
+    isLastRound: Boolean,
+    theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties,
+    onBack: () -> Unit,
+    onProgress: () -> Unit
+) {
+    val machinations = nextRound?.machinations ?: emptyList()
+    val playerRows = campaign.players.chunked(2)
+
+    Column(modifier = Modifier.fillMaxSize().padding(theme.screenPadding)) {
+        TextButton(
+            onClick = onBack,
+            contentPadding = PaddingValues(0.dp)
+        ) {
+            Icon(Icons.Default.ArrowBack, contentDescription = null, modifier = Modifier.size(16.dp))
+            Spacer(modifier = Modifier.width(4.dp))
+            Text("Back to results", style = MaterialTheme.typography.labelMedium)
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            "Round ${campaign.currentRound} Complete",
+            style = theme.headerStyle,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            "Campaign cards available in Round ${campaign.currentRound + 1}",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(theme.verticalSpacing))
+
+        LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(theme.verticalSpacing)) {
+            items(playerRows) { row ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    CardDrawPlayerCard(
+                        player = row[0],
+                        machinations = machinations,
+                        allPlayers = campaign.players,
+                        isLeft = true,
+                        theme = theme,
+                        modifier = Modifier.weight(1f)
+                    )
+                    val rightPlayer = row.getOrNull(1)
+                    if (rightPlayer != null) {
+                        CardDrawPlayerCard(
+                            player = rightPlayer,
+                            machinations = machinations,
+                            allPlayers = campaign.players,
+                            isLeft = false,
+                            theme = theme,
+                            modifier = Modifier.weight(1f)
+                        )
+                    } else {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(theme.verticalSpacing))
+        Text(
+            "Screenshot this screen to share card draws, then proceed.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(theme.verticalSpacing))
+        Button(
+            onClick = onProgress,
+            modifier = Modifier.fillMaxWidth(),
+            shape = theme.cardShape
+        ) {
+            Text(if (isLastRound) "Complete Campaign" else "Progress to Round ${campaign.currentRound + 1}")
+        }
+    }
+}
+
+@Composable
+private fun CardDrawPlayerCard(
+    player: CampaignPlayer,
+    machinations: List<CampaignMachination>,
+    allPlayers: List<CampaignPlayer>,
+    isLeft: Boolean,
+    theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties,
+    modifier: Modifier = Modifier
+) {
+    val supports = machinations.filter { it.targetPlayerId == player.id && it.type == MachinationType.SUPPORT }
+    val sabotages = machinations.filter { it.targetPlayerId == player.id && it.type == MachinationType.SABOTAGE }
+    val rawCards = 2 + supports.size - sabotages.size
+    val cardDraw = rawCards.coerceIn(1, 3)
+    val bonusMp = (rawCards - 3).coerceAtLeast(0)
+
+    ThemedCard(modifier = modifier) {
+        Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            // Header: card count badge in the appropriate corner
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (isLeft) {
+                    CardCountBadge(cardDraw)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        player.name,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                } else {
+                    Text(
+                        player.name,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.End
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    CardCountBadge(cardDraw)
+                }
+            }
+
+            // Support received
+            supports.forEach { mach ->
+                val sourceName = allPlayers.find { it.id == mach.sourcePlayerId }?.name ?: mach.sourcePlayerId
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Icon(Icons.Default.Favorite, contentDescription = null, modifier = Modifier.size(12.dp), tint = MaterialTheme.colorScheme.primary)
+                    Text(sourceName, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+
+
+            // Bonus MP from support over the card cap
+            if (bonusMp > 0) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(12.dp), tint = theme.moonstoneColor)
+                    Text(
+                        "+$bonusMp bonus MP",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = theme.moonstoneColor,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CardCountBadge(count: Int, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .size(28.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.primary)
+            .border(1.5.dp, Color.White, CircleShape),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            "$count",
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.ExtraBold,
+            color = MaterialTheme.colorScheme.onPrimary
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GameMatchCard(
     game: CampaignGame,
     campaign: Campaign,
+    state: CharacterState,
     isEditing: Boolean,
     theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties,
-    onRecordResult: (String?) -> Unit,
-    onEditClick: () -> Unit
+    onRecordResultWithVP: (Map<String, Int>) -> Unit,
+    onEditClick: () -> Unit,
+    onDrop: (droppedPlayerId: String, joinThreePlayer: Boolean) -> Unit
 ) {
     val players = game.playerIds.mapNotNull { pid -> campaign.players.find { it.id == pid } }
-    val isTie = game.isPlayed && game.winnerId == null
+    val troupes = players.map { p -> state.troupes.find { it.id == p.troupeId } }
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = theme.cardShape,
-        colors = CardDefaults.cardColors(containerColor = theme.cardBackground)
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    when {
-                        isTie -> "Result: Draw"
-                        game.isPlayed -> "Result recorded"
-                        else -> "Select winner"
-                    },
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                if (game.isPlayed && !isEditing) {
-                    TextButton(
-                        onClick = onEditClick,
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
-                        Icon(Icons.Default.Edit, contentDescription = "Edit result", modifier = Modifier.size(14.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Edit", style = MaterialTheme.typography.labelSmall)
+    // VP entry state — initialised from any previously recorded values
+    val vpState = remember(game.playerIds, game.isPlayed) {
+        mutableStateMapOf<String, Int>().also { map ->
+            players.forEach { p -> map[p.id] = game.playerVictoryPoints[p.id] ?: 0 }
+        }
+    }
+
+    // Build PlayerStat list so we can reuse QuadrantLayout + ScoreCircle from StatsScreen
+    val playerStats = players.mapIndexed { i, player ->
+        val troupe = troupes.getOrNull(i)
+        PlayerStat(
+            playerName = player.name,
+            troupeName = troupe?.troupeName ?: "",
+            faction = troupe?.faction ?: Faction.COMMONWEALTH,
+            totalStones = game.playerVictoryPoints[player.id] ?: 0,
+            characterStats = emptyList()
+        )
+    }
+    val winnerIndex = if (game.isPlayed && game.winnerId != null)
+        players.indexOfFirst { it.id == game.winnerId }.takeIf { it != -1 }
+    else null
+
+    // Drop bottom sheet state
+    var showDropSheet by remember { mutableStateOf(false) }
+    var dropSelectedPlayer by remember { mutableStateOf<String?>(null) }
+    val dropSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        // Stats-style banner card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = theme.cardShape,
+            elevation = CardDefaults.cardElevation(defaultElevation = theme.surfaceElevation)
+        ) {
+            Box(modifier = Modifier.height(160.dp).fillMaxWidth()) {
+                // Faction background quadrants — reuses PlayerQuadrant/QuadrantLayout from StatsScreen
+                QuadrantLayout(playerStats, winnerIndex)
+
+                // Dim loser halves when result is recorded and there's a winner
+                if (!isEditing && winnerIndex != null) {
+                    Row(modifier = Modifier.fillMaxSize()) {
+                        players.forEachIndexed { i, _ ->
+                            Box(
+                                modifier = Modifier.weight(1f).fillMaxHeight()
+                                    .then(
+                                        if (i != winnerIndex)
+                                            Modifier.background(Color.Black.copy(alpha = 0.4f))
+                                        else Modifier
+                                    )
+                            )
+                        }
                     }
                 }
+
+                // Center: large VP steppers when editing, ScoreCircle when recorded
+                if (isEditing) {
+                    Row(modifier = Modifier.fillMaxSize()) {
+                        players.forEachIndexed { i, player ->
+                            Box(
+                                modifier = Modifier.weight(1f).fillMaxHeight(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                val vp = vpState[player.id] ?: 0
+                                CampaignVPStepper(
+                                    value = vp,
+                                    onDecrement = { if (vp > 0) vpState[player.id] = vp - 1 },
+                                    onIncrement = { vpState[player.id] = vp + 1 }
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    ScoreCircle(playerStats, Modifier.align(Alignment.Center))
+                }
+
+                // Player name + troupe overlay in top corners
+                Box(modifier = Modifier.fillMaxSize().padding(8.dp)) {
+                    players.getOrNull(0)?.let { p ->
+                        CampaignPlayerLabel(
+                            playerName = p.name,
+                            troupeName = troupes.getOrNull(0)?.troupeName,
+                            textAlign = TextAlign.Start,
+                            modifier = Modifier.align(Alignment.TopStart)
+                                .fillMaxWidth(0.42f)
+                                .padding(start = 34.dp)
+                        )
+                    }
+                    players.getOrNull(1)?.let { p ->
+                        CampaignPlayerLabel(
+                            playerName = p.name,
+                            troupeName = troupes.getOrNull(1)?.troupeName,
+                            textAlign = TextAlign.End,
+                            modifier = Modifier.align(Alignment.TopEnd)
+                                .fillMaxWidth(0.42f)
+                                .padding(end = 34.dp)
+                        )
+                    }
+                }
+
+                // Campaign card count badges — top-left for left player, top-right for right
+                players.getOrNull(0)?.let { p ->
+                    CardCountBadge(count = p.campaignCardDraw, modifier = Modifier.align(Alignment.TopStart).padding(6.dp))
+                }
+                players.getOrNull(1)?.let { p ->
+                    CardCountBadge(count = p.campaignCardDraw, modifier = Modifier.align(Alignment.TopEnd).padding(6.dp))
+                }
             }
+        }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            if (players.size == 2) {
-                val p1 = players[0]
-                val p2 = players[1]
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
+        // Action buttons below the banner
+        if (isEditing) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = { showDropSheet = true },
+                    modifier = Modifier.weight(1f),
+                    shape = theme.cardShape
                 ) {
-                    PlayerSelectCard(
-                        name = p1.name,
-                        isWinner = game.isPlayed && game.winnerId == p1.id,
-                        isClickable = isEditing,
-                        onClick = { onRecordResult(p1.id) },
-                        modifier = Modifier.weight(1f),
-                        theme = theme
-                    )
+                    Icon(Icons.Default.PersonOff, contentDescription = null, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Drop player")
+                }
+                Button(
+                    onClick = { onRecordResultWithVP(vpState.toMap()) },
+                    modifier = Modifier.weight(1f),
+                    shape = theme.cardShape
+                ) {
+                    Text("Record Result")
+                }
+            }
+        } else {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton(
+                    onClick = onEditClick,
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Edit", style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        }
+    }
+
+    // Drop bottom sheet
+    if (showDropSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showDropSheet = false; dropSelectedPlayer = null },
+            sheetState = dropSheetState
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(theme.screenPadding)
+                    .padding(bottom = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(theme.verticalSpacing)
+            ) {
+                if (dropSelectedPlayer == null) {
+                    Text("Who was unable to play?", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Text(
-                        "VS",
-                        modifier = Modifier.padding(horizontal = 8.dp),
-                        style = MaterialTheme.typography.labelSmall,
+                        "They automatically lose with 0 VP. Machinations targeting them will not be applied.",
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    PlayerSelectCard(
-                        name = p2.name,
-                        isWinner = game.isPlayed && game.winnerId == p2.id,
-                        isClickable = isEditing,
-                        onClick = { onRecordResult(p2.id) },
-                        modifier = Modifier.weight(1f),
-                        theme = theme
+                    Spacer(modifier = Modifier.height(4.dp))
+                    players.forEach { player ->
+                        OutlinedButton(
+                            onClick = { dropSelectedPlayer = player.id },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = theme.cardShape
+                        ) {
+                            Text(player.name)
+                        }
+                    }
+                    TextButton(onClick = { showDropSheet = false }) {
+                        Text("Cancel")
+                    }
+                } else {
+                    val droppedName = campaign.players.find { it.id == dropSelectedPlayer }?.name ?: "?"
+                    val remainingNames = players.filter { it.id != dropSelectedPlayer }.map { it.name }.joinToString(", ")
+                    Text("$droppedName cannot play", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(
+                        "$droppedName loses with 0 VP. What happens to $remainingNames?",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                }
-                if (isEditing) {
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
                     OutlinedButton(
-                        onClick = { onRecordResult(null) },
+                        onClick = {
+                            onDrop(dropSelectedPlayer!!, false)
+                            showDropSheet = false; dropSelectedPlayer = null
+                        },
                         modifier = Modifier.fillMaxWidth(),
                         shape = theme.cardShape
                     ) {
-                        Text("Tie / Draw")
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("Skip game — auto-win (6 VP)", fontWeight = FontWeight.SemiBold)
+                            Text(
+                                "Machinations targeting $remainingNames are not applied",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
-                }
-            } else {
-                players.forEach { player ->
-                    PlayerSelectCard(
-                        name = player.name,
-                        isWinner = game.isPlayed && game.winnerId == player.id,
-                        isClickable = isEditing,
-                        onClick = { onRecordResult(player.id) },
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                        theme = theme
-                    )
-                }
-                if (isEditing) {
                     OutlinedButton(
-                        onClick = { onRecordResult(null) },
-                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                        onClick = {
+                            onDrop(dropSelectedPlayer!!, true)
+                            showDropSheet = false; dropSelectedPlayer = null
+                        },
+                        modifier = Modifier.fillMaxWidth(),
                         shape = theme.cardShape
                     ) {
-                        Text("Tie / No Winner")
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("Join a 3-player game (+1 VP)", fontWeight = FontWeight.SemiBold)
+                            Text(
+                                "All participants in the new game receive +1 VP",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    TextButton(onClick = { dropSelectedPlayer = null }) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Back")
                     }
                 }
             }
@@ -526,46 +1200,45 @@ fun GameMatchCard(
 }
 
 @Composable
-private fun PlayerSelectCard(
-    name: String,
-    isWinner: Boolean,
-    isClickable: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties
+private fun CampaignPlayerLabel(
+    playerName: String,
+    troupeName: String?,
+    textAlign: TextAlign,
+    modifier: Modifier = Modifier
 ) {
-    val containerColor = when {
-        isWinner -> MaterialTheme.colorScheme.primaryContainer
-        isClickable -> MaterialTheme.colorScheme.surfaceContainerHigh
-        else -> MaterialTheme.colorScheme.surfaceContainerLow
-    }
-    Card(
-        onClick = onClick,
-        enabled = isClickable,
-        modifier = modifier,
-        shape = theme.cardShape,
-        colors = CardDefaults.cardColors(containerColor = containerColor),
-        border = if (isWinner) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
-    ) {
-        Column(
-            modifier = Modifier.padding(12.dp).fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            if (isWinner) {
-                Icon(
-                    Icons.Default.EmojiEvents,
-                    contentDescription = "Winner",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-            }
-            Text(
-                name,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = if (isWinner) FontWeight.Bold else FontWeight.Normal,
-                color = if (isWinner) MaterialTheme.colorScheme.primary else Color.Unspecified
-            )
+    val displayName = if (!troupeName.isNullOrBlank()) "$playerName – $troupeName" else playerName
+    Text(
+        text = displayName,
+        color = Color.White,
+        fontWeight = FontWeight.Bold,
+        fontSize = 13.sp,
+        textAlign = textAlign,
+        maxLines = 2,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier
+    )
+}
+
+@Composable
+private fun CampaignVPStepper(
+    value: Int,
+    onDecrement: () -> Unit,
+    onIncrement: () -> Unit
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onClick = onDecrement, modifier = Modifier.size(40.dp)) {
+            Icon(Icons.Default.Remove, contentDescription = "Decrease VP", tint = Color.White, modifier = Modifier.size(22.dp))
+        }
+        Text(
+            text = "$value",
+            color = Color.White,
+            fontWeight = FontWeight.ExtraBold,
+            fontSize = 40.sp,
+            modifier = Modifier.widthIn(min = 48.dp),
+            textAlign = TextAlign.Center
+        )
+        IconButton(onClick = onIncrement, modifier = Modifier.size(40.dp)) {
+            Icon(Icons.Default.Add, contentDescription = "Increase VP", tint = Color.White, modifier = Modifier.size(22.dp))
         }
     }
 }
@@ -1337,8 +2010,148 @@ fun PlayerDropdown(players: List<CampaignPlayer>, selectedId: String, onSelected
 }
 
 @Composable
+fun ScheduleTab(
+    campaign: Campaign,
+    theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties
+) {
+    val rounds = campaign.rounds.sortedBy { it.roundNumber }
+
+    if (rounds.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(
+                    Icons.Default.CalendarMonth,
+                    contentDescription = null,
+                    modifier = Modifier.size(48.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("No schedule yet", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        return
+    }
+
+    // Auto-expand current round
+    var expandedRounds by remember { mutableStateOf(setOf(campaign.currentRound)) }
+
+    LazyColumn(contentPadding = PaddingValues(theme.screenPadding), verticalArrangement = Arrangement.spacedBy(theme.verticalSpacing)) {
+        items(rounds) { round ->
+            val isExpanded = round.roundNumber in expandedRounds
+            val isCurrent = round.roundNumber == campaign.currentRound
+            val isPast = round.roundNumber < campaign.currentRound
+            val allPlayed = round.games.isNotEmpty() && round.games.all { it.isPlayed }
+
+            val roundLabel = when {
+                isCurrent -> "Round ${round.roundNumber} — Current"
+                isPast -> "Round ${round.roundNumber} — Complete"
+                else -> "Round ${round.roundNumber}"
+            }
+            val roundLabelColor = when {
+                isCurrent -> MaterialTheme.colorScheme.primary
+                isPast -> MaterialTheme.colorScheme.onSurfaceVariant
+                else -> MaterialTheme.colorScheme.onSurface
+            }
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = theme.cardShape,
+                colors = CardDefaults.cardColors(
+                    containerColor = if (isCurrent)
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                    else theme.cardBackground
+                )
+            ) {
+                Column {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                expandedRounds = if (isExpanded)
+                                    expandedRounds - round.roundNumber
+                                else
+                                    expandedRounds + round.roundNumber
+                            }
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(roundLabel, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = roundLabelColor)
+                            if (round.games.isNotEmpty()) {
+                                Text(
+                                    "${round.games.size} game(s)${if (round.skipPlayerIds.isNotEmpty()) " · ${round.skipPlayerIds.size} bye(s)" else ""}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        if (allPlayed) {
+                            Icon(Icons.Default.CheckCircle, contentDescription = "Complete", tint = theme.positiveColor, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                        }
+                        Icon(
+                            if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    if (isExpanded) {
+                        HorizontalDivider()
+                        Column(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            round.games.forEach { game ->
+                                val p1 = campaign.players.find { it.id == game.playerIds.getOrNull(0) }
+                                val p2 = campaign.players.find { it.id == game.playerIds.getOrNull(1) }
+                                val p1Name = game.playerNameOverrides[game.playerIds.getOrNull(0) ?: ""]
+                                    ?.let { "$it (sub)" } ?: (p1?.name ?: "?")
+                                val p2Name = game.playerNameOverrides[game.playerIds.getOrNull(1) ?: ""]
+                                    ?.let { "$it (sub)" } ?: (p2?.name ?: "?")
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(p1Name, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f), fontWeight = FontWeight.Medium)
+                                    Text("vs", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 8.dp))
+                                    Text(p2Name, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f), fontWeight = FontWeight.Medium)
+                                    val scoreStr = if (game.playerVictoryPoints.isNotEmpty()) {
+                                        val scores = game.playerIds.mapNotNull { pid -> game.playerVictoryPoints[pid] }
+                                        " ${scores.joinToString("–")}"
+                                    } else ""
+                                    val resultText = when {
+                                        !game.isPlayed -> "Pending"
+                                        game.winnerId == null -> "Draw$scoreStr"
+                                        else -> "${campaign.players.find { it.id == game.winnerId }?.name ?: "Win"}$scoreStr"
+                                    }
+                                    val resultColor = when {
+                                        !game.isPlayed -> MaterialTheme.colorScheme.onSurfaceVariant
+                                        else -> theme.positiveColor
+                                    }
+                                    Text(resultText, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = resultColor)
+                                }
+                            }
+                            if (round.skipPlayerIds.isNotEmpty()) {
+                                val byeNames = round.skipPlayerIds.mapNotNull { pid -> campaign.players.find { it.id == pid }?.name }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Pause, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Bye: ${byeNames.joinToString(", ")}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun HistoryTab(campaign: Campaign, state: CharacterState, theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties) {
-    val rounds = campaign.rounds.reversed()
+    // Only show completed rounds (rounds before the current one)
+    val rounds = campaign.rounds.filter { it.roundNumber < campaign.currentRound }.sortedBy { it.roundNumber }
 
     if (rounds.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -1351,7 +2164,7 @@ fun HistoryTab(campaign: Campaign, state: CharacterState, theme: io.github.garem
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    "No round history yet",
+                    "No completed rounds yet",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -1360,8 +2173,9 @@ fun HistoryTab(campaign: Campaign, state: CharacterState, theme: io.github.garem
         return
     }
 
-    val mostRecentRound = rounds.firstOrNull()?.roundNumber
-    var expandedRounds by remember { mutableStateOf(if (mostRecentRound != null) setOf(mostRecentRound) else emptySet()) }
+    // Auto-expand the most recently completed round (last in chronological order)
+    val mostRecentCompleted = rounds.lastOrNull()?.roundNumber
+    var expandedRounds by remember { mutableStateOf(if (mostRecentCompleted != null) setOf(mostRecentCompleted) else emptySet()) }
 
     LazyColumn(contentPadding = PaddingValues(theme.screenPadding), verticalArrangement = Arrangement.spacedBy(theme.verticalSpacing)) {
         items(rounds) { round ->
@@ -1550,36 +2364,24 @@ private fun HistorySectionHeader(title: String, icon: ImageVector) {
     }
 }
 
-private enum class MachCombo { SS, S_SAB, SAB_SAB, SKIP }
-
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun MachinationPhasePanel(
     campaign: Campaign,
     state: CharacterState,
     currentRound: CampaignRound?,
+    nextRound: CampaignRound?,
     viewModel: CharacterViewModel,
     theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties,
     onConfirm: (List<CampaignMachination>, List<CampaignAttack>) -> Unit,
     onSaveDraft: () -> Unit
 ) {
-    val games = currentRound?.games ?: emptyList()
-    fun opponentsOf(playerId: String) = games
+    // Opponents are determined by the UPCOMING round's schedule, not the round just played
+    val upcomingGames = nextRound?.games ?: emptyList()
+    fun opponentsOf(playerId: String) = upcomingGames
         .filter { playerId in it.playerIds }
         .flatMap { it.playerIds }
         .filter { it != playerId }
         .toSet()
-
-    fun comboOf(playerId: String): MachCombo {
-        val t1 = viewModel.machinationType1[playerId]
-        val t2 = viewModel.machinationType2[playerId]
-        return when {
-            t1 == null -> MachCombo.SKIP
-            t1 == MachinationType.SUPPORT && t2 == MachinationType.SUPPORT -> MachCombo.SS
-            t1 == MachinationType.SUPPORT -> MachCombo.S_SAB
-            else -> MachCombo.SAB_SAB
-        }
-    }
 
     Column(modifier = Modifier.fillMaxSize().padding(theme.screenPadding)) {
         Text("Machinations & Attacks", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -1595,20 +2397,24 @@ private fun MachinationPhasePanel(
                 if (index > 0) {
                     HorizontalDivider(modifier = Modifier.padding(vertical = theme.verticalSpacing))
                 }
-                val combo = comboOf(player.id)
+                val type1 = viewModel.machinationType1[player.id]
+                val type2 = viewModel.machinationType2[player.id]
                 val eligibleTargets = campaign.players.filter { it.id != player.id && it.id !in opponentsOf(player.id) }
                 PlayerMachinationCard(
                     player = player,
-                    combo = combo,
-                    onComboChange = { newCombo ->
-                        when (newCombo) {
-                            MachCombo.SKIP -> { viewModel.machinationType1[player.id] = null; viewModel.machinationType2[player.id] = null }
-                            MachCombo.SS -> { viewModel.machinationType1[player.id] = MachinationType.SUPPORT; viewModel.machinationType2[player.id] = MachinationType.SUPPORT }
-                            MachCombo.S_SAB -> { viewModel.machinationType1[player.id] = MachinationType.SUPPORT; viewModel.machinationType2[player.id] = MachinationType.SABOTAGE }
-                            MachCombo.SAB_SAB -> { viewModel.machinationType1[player.id] = MachinationType.SABOTAGE; viewModel.machinationType2[player.id] = MachinationType.SABOTAGE }
+                    type1 = type1,
+                    onType1Change = { newType ->
+                        viewModel.machinationType1[player.id] = newType
+                        if (newType == null) {
+                            viewModel.machinationType2[player.id] = null
+                            viewModel.machinationTarget1.remove(player.id)
+                            viewModel.machinationTarget2.remove(player.id)
                         }
-                        viewModel.machinationTarget1.remove(player.id)
-                        viewModel.machinationTarget2.remove(player.id)
+                    },
+                    type2 = type2,
+                    onType2Change = { newType ->
+                        viewModel.machinationType2[player.id] = newType
+                        if (newType == null) viewModel.machinationTarget2.remove(player.id)
                     },
                     target1 = viewModel.machinationTarget1[player.id] ?: "",
                     onTarget1Change = { viewModel.machinationTarget1[player.id] = it },
@@ -1670,12 +2476,13 @@ private fun MachinationPhasePanel(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PlayerMachinationCard(
     player: CampaignPlayer,
-    combo: MachCombo,
-    onComboChange: (MachCombo) -> Unit,
+    type1: MachinationType?,
+    onType1Change: (MachinationType?) -> Unit,
+    type2: MachinationType?,
+    onType2Change: (MachinationType?) -> Unit,
     target1: String,
     onTarget1Change: (String) -> Unit,
     target2: String,
@@ -1696,87 +2503,80 @@ private fun PlayerMachinationCard(
 ) {
     val attackTargetTroupe = state.troupes.find { it.id == allPlayers.find { p -> p.id == attackTargetPlayer }?.troupeId }
     val attackTargetCharacters = attackTargetTroupe?.characterIds?.mapNotNull { id -> state.characters.find { it.id == id } } ?: emptyList()
+    // For row 2: exclude same player targeted with same type as row 1
+    val eligibleTargets2 = if (type1 != null && type1 == type2 && target1.isNotEmpty())
+        eligibleTargets.filter { it.id != target1 }
+    else eligibleTargets
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = theme.cardShape,
-        colors = CardDefaults.cardColors(containerColor = theme.cardBackground)
-    ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    ThemedCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            // Header: name + AP + attack toggle
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(player.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                Text(
+                    player.name,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f)
+                )
                 if (attacksEnabled) {
                     Text(
                         "${player.attackPoints} AP",
                         style = MaterialTheme.typography.labelSmall,
                         color = if (player.attackPoints > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                     )
-                }
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text("Machinations", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (attacksEnabled && player.attackPoints > 0) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Attack", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Switch(checked = isAttacking, onCheckedChange = onIsAttackingChange)
-                    }
-                }
-            }
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                FilterChip(selected = combo == MachCombo.SS, onClick = { onComboChange(MachCombo.SS) }, label = { Text("Support × 2") })
-                FilterChip(selected = combo == MachCombo.S_SAB, onClick = { onComboChange(MachCombo.S_SAB) }, label = { Text("Support + Sabotage") })
-                FilterChip(selected = combo == MachCombo.SAB_SAB, onClick = { onComboChange(MachCombo.SAB_SAB) }, label = { Text("Sabotage × 2") })
-                FilterChip(selected = combo == MachCombo.SKIP, onClick = { onComboChange(MachCombo.SKIP) }, label = { Text("Skip") })
-            }
-
-            if (combo != MachCombo.SKIP) {
-                val mach1Label = when (combo) {
-                    MachCombo.SS -> "Support 1"; MachCombo.S_SAB -> "Support"
-                    MachCombo.SAB_SAB -> "Sabotage 1"; MachCombo.SKIP -> ""
-                }
-                val mach2Label = when (combo) {
-                    MachCombo.SS -> "Support 2"; MachCombo.S_SAB -> "Sabotage"
-                    MachCombo.SAB_SAB -> "Sabotage 2"; MachCombo.SKIP -> ""
-                }
-                if (eligibleTargets.isEmpty()) {
-                    Text(
-                        "No eligible targets (all opponents this round)",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                } else {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(mach1Label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            PlayerDropdownSmall(players = eligibleTargets, selectedId = target1, onSelected = onTarget1Change)
-                        }
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(mach2Label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            PlayerDropdownSmall(players = eligibleTargets, selectedId = target2, onSelected = onTarget2Change)
+                    if (player.attackPoints > 0) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("Attack", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Switch(checked = isAttacking, onCheckedChange = onIsAttackingChange)
                         }
                     }
                 }
             }
 
+            // Machination row 1
+            MachinationRowItem(
+                selectedType = type1,
+                onTypeChange = onType1Change,
+                target = target1,
+                onTargetChange = onTarget1Change,
+                eligibleTargets = eligibleTargets,
+                theme = theme
+            )
+
+            // Machination row 2 — hidden when row 1 is Skip
+            if (type1 != null) {
+                MachinationRowItem(
+                    selectedType = type2,
+                    onTypeChange = onType2Change,
+                    target = target2,
+                    onTargetChange = onTarget2Change,
+                    eligibleTargets = eligibleTargets2,
+                    theme = theme
+                )
+            }
+
+            // Attack section
             if (isAttacking && attacksEnabled && player.attackPoints > 0) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(
+                    MachTypeIconButton(
+                        icon = Icons.Default.Bolt,
+                        label = "Assault",
+                        subtitle = "(1 AP)",
                         selected = attackType == AttackType.ASSAULT,
+                        enabled = player.attackPoints >= 1,
                         onClick = { onAttackTypeChange(AttackType.ASSAULT) },
-                        label = { Text("Assault (1 AP)") },
-                        enabled = player.attackPoints >= 1
+                        theme = theme
                     )
-                    FilterChip(
+                    MachTypeIconButton(
+                        icon = Icons.Default.PersonRemove,
+                        label = "Abduction",
+                        subtitle = "(2 AP)",
                         selected = attackType == AttackType.ABDUCTION,
+                        enabled = player.attackPoints >= 2,
                         onClick = { onAttackTypeChange(AttackType.ABDUCTION) },
-                        label = { Text("Abduction (2 AP)") },
-                        enabled = player.attackPoints >= 2
+                        theme = theme
                     )
                 }
                 val attackEligible = allPlayers.filter { it.id != player.id }
@@ -1787,9 +2587,150 @@ private fun PlayerMachinationCard(
                     if (attackTargetCharacters.isEmpty()) {
                         Text("No troupe assigned to this player", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     } else {
-                        CharacterDropdownSmall(characters = attackTargetCharacters, selectedId = attackTargetChar, onSelected = onAttackTargetCharChange)
+                        CharacterPortraitSelector(
+                            characters = attackTargetCharacters,
+                            selectedId = attackTargetChar,
+                            onSelected = onAttackTargetCharChange,
+                            state = state
+                        )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MachinationRowItem(
+    selectedType: MachinationType?,
+    onTypeChange: (MachinationType?) -> Unit,
+    target: String,
+    onTargetChange: (String) -> Unit,
+    eligibleTargets: List<CampaignPlayer>,
+    theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        MachTypeIconButton(
+            icon = Icons.Default.Block,
+            label = "Sabotage",
+            subtitle = null,
+            selected = selectedType == MachinationType.SABOTAGE,
+            enabled = true,
+            onClick = { onTypeChange(MachinationType.SABOTAGE) },
+            theme = theme
+        )
+        MachTypeIconButton(
+            icon = Icons.Default.Favorite,
+            label = "Support",
+            subtitle = null,
+            selected = selectedType == MachinationType.SUPPORT,
+            enabled = true,
+            onClick = { onTypeChange(MachinationType.SUPPORT) },
+            theme = theme
+        )
+        MachTypeIconButton(
+            icon = Icons.Default.Remove,
+            label = "Skip",
+            subtitle = null,
+            selected = selectedType == null,
+            enabled = true,
+            onClick = { onTypeChange(null) },
+            theme = theme
+        )
+        if (selectedType != null) {
+            if (eligibleTargets.isEmpty()) {
+                Text(
+                    "No eligible targets",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
+                )
+            } else {
+                Box(modifier = Modifier.weight(1f)) {
+                    PlayerDropdownSmall(
+                        players = eligibleTargets,
+                        selectedId = target,
+                        onSelected = onTargetChange
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MachTypeIconButton(
+    icon: ImageVector,
+    label: String,
+    subtitle: String?,
+    selected: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties
+) {
+    val borderColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+    val bgColor = if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
+    val contentColor = when {
+        selected -> MaterialTheme.colorScheme.onPrimaryContainer
+        enabled -> MaterialTheme.colorScheme.onSurfaceVariant
+        else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+    }
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+        modifier = Modifier
+            .clip(theme.cardShape)
+            .border(1.dp, borderColor, theme.cardShape)
+            .background(bgColor)
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 6.dp)
+    ) {
+        Icon(imageVector = icon, contentDescription = label, tint = contentColor, modifier = Modifier.size(18.dp))
+        Text(label, style = MaterialTheme.typography.labelSmall, color = contentColor)
+        if (subtitle != null) {
+            Text(subtitle, style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp), color = contentColor)
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun CharacterPortraitSelector(
+    characters: List<Character>,
+    selectedId: Int,
+    onSelected: (Int) -> Unit,
+    state: CharacterState
+) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        characters.forEach { char ->
+            val isSelected = char.id == selectedId
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+                modifier = Modifier.clickable { onSelected(char.id) }
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .border(
+                            width = if (isSelected) 2.dp else 1.dp,
+                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                            shape = CircleShape
+                        )
+                ) {
+                    CharacterPortrait(character = char, size = 48.dp)
+                }
+                Text(
+                    char.name,
+                    style = MaterialTheme.typography.labelSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.widthIn(max = 56.dp)
+                )
             }
         }
     }
@@ -1825,36 +2766,7 @@ private fun PlayerDropdownSmall(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun CharacterDropdownSmall(
-    characters: List<Character>,
-    selectedId: Int,
-    onSelected: (Int) -> Unit
-) {
-    var expanded by remember { mutableStateOf(false) }
-    val selectedChar = characters.find { it.id == selectedId }
-    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = !expanded }) {
-        OutlinedTextField(
-            value = selectedChar?.name ?: "—",
-            onValueChange = {},
-            readOnly = true,
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier.menuAnchor().fillMaxWidth(),
-            textStyle = MaterialTheme.typography.bodySmall,
-            singleLine = true
-        )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            characters.forEach { char ->
-                DropdownMenuItem(
-                    text = { Text(char.name, style = MaterialTheme.typography.bodySmall) },
-                    onClick = { onSelected(char.id); expanded = false }
-                )
-            }
-        }
-    }
-}
 
 enum class CampaignSubScreen {
-    RANKINGS, GAMES, MACHINATIONS, ATTACKS, HISTORY
+    RANKINGS, GAMES, SCHEDULE, HISTORY
 }
