@@ -87,7 +87,7 @@ fun GameResultBanner(result: GameResult) {
 }
 
 @Composable
-private fun ScoreCircle(playerStats: List<PlayerStat>, modifier: Modifier = Modifier) {
+fun ScoreCircle(playerStats: List<PlayerStat>, modifier: Modifier = Modifier) {
     val theme = LocalAppThemeProperties.current
     Box(
         modifier = modifier
@@ -118,7 +118,7 @@ private fun ScoreCircle(playerStats: List<PlayerStat>, modifier: Modifier = Modi
 }
 
 @Composable
-private fun ScoreText(score: Int, modifier: Modifier, fontSize: androidx.compose.ui.unit.TextUnit = 22.sp) {
+fun ScoreText(score: Int, modifier: Modifier, fontSize: androidx.compose.ui.unit.TextUnit = 22.sp) {
     Text(
         text = score.toString(),
         color = Color.White,

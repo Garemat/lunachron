@@ -258,10 +258,9 @@ class MainActivity : ComponentActivity() {
                                                         val r = camp?.currentRound
                                                         when (viewModel.currentCampaignSubScreen) {
                                                             CampaignSubScreen.RANKINGS -> "Rankings"
-                                                            CampaignSubScreen.GAMES -> if (r != null) "Round $r — Games" else "Games"
-                                                            CampaignSubScreen.MACHINATIONS -> if (r != null) "Round $r — Machinations" else "Machinations"
-                                                            CampaignSubScreen.ATTACKS -> if (r != null) "Round $r — Attacks" else "Attacks"
-                                                            CampaignSubScreen.HISTORY -> "Round History"
+                                                            CampaignSubScreen.GAMES -> if (r != null) "Round $r" else "Games"
+                                                            CampaignSubScreen.SCHEDULE -> "Schedule"
+                                                            CampaignSubScreen.HISTORY -> "History"
                                                             null -> camp?.name ?: "Campaign"
                                                         }
                                                     }
