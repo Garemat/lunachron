@@ -50,8 +50,8 @@ import java.io.File
 // --- Base Utilities ---
 
 /**
- * Circular character portrait. Loads from internal storage (downloaded images) first,
- * falls back to bundled drawable resources, then shows first initial.
+ * Circular character portrait. Prefers {imageName}-head.png (zoomed head crop) for the
+ * circular display, then falls back to the full portrait variants, then shows first initial.
  */
 @Composable
 fun CharacterPortrait(character: Character, size: Dp, modifier: Modifier = Modifier) {
@@ -59,9 +59,8 @@ fun CharacterPortrait(character: Character, size: Dp, modifier: Modifier = Modif
     val imageFile = remember(character.imageName) {
         character.imageName?.let { name ->
             val dir = File(context.filesDir, "images")
-            listOf("", ".jpg", ".png", ".webp").firstNotNullOfOrNull { ext ->
-                File(dir, "$name$ext").takeIf { it.exists() }
-            }
+            listOf("$name-head.png", name, "$name.jpg", "$name.png", "$name.webp")
+                .firstNotNullOfOrNull { candidate -> File(dir, candidate).takeIf { it.exists() } }
         }
     }
     Box(

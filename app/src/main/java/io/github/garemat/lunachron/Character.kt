@@ -190,7 +190,7 @@ data class CampaignCard(
 @Serializable
 data class TroupeCampaignCard(
     val cardId: Int,
-    val used: Boolean = false
+    val usedInGame: Int? = null
 )
 
 @Entity
@@ -218,6 +218,11 @@ data class Campaign(
     val description: String,
     val players: List<CampaignPlayer>,
     val currentRound: Int = 1,
+    val totalRounds: Int = 0,
+    val gameSize: Int = 6,
+    val startingCharacters: Int = 6,
+    val characterGrowthEvery: Int = 1,
+    val upgradeGrowthEvery: Int = 3,
     val rounds: List<CampaignRound> = emptyList(),
     val attacksEnabled: Boolean = false,
     val machinationPhaseActive: Boolean = false,
@@ -241,14 +246,18 @@ data class CampaignRound(
     val machinations: List<CampaignMachination> = emptyList(),
     val attacks: List<CampaignAttack> = emptyList(),
     val skipPlayerIds: List<String> = emptyList(),
-    val mpDeltas: Map<String, Int> = emptyMap()
+    val mpDeltas: Map<String, Int> = emptyMap(),
+    val manualMpAdjustments: Map<String, Int> = emptyMap()
 )
 
 @Serializable
 data class CampaignGame(
     val playerIds: List<String>,
     val winnerId: String? = null,
-    val isPlayed: Boolean = false
+    val isPlayed: Boolean = false,
+    val playerNameOverrides: Map<String, String> = emptyMap(),
+    val playerVictoryPoints: Map<String, Int> = emptyMap(),
+    val droppedPlayerIds: List<String> = emptyList()
 )
 
 @Serializable

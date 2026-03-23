@@ -207,6 +207,12 @@ fun SettingsScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            } else if (state.installerSource == InstallerSource.PLAY_STORE) {
+                Text(
+                    text = "Installed via Google Play — updates are managed by the Play Store.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             } else {
                 Row(
                     modifier = Modifier

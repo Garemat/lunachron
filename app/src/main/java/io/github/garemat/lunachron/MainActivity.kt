@@ -193,37 +193,55 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.fillMaxSize(),
                         topBar = {
                             if (showNavBars) {
+                                val isTroupeDashboard = currentDestination?.route == Screen.AddEditTroupe.route && viewModel.troupeDashboardActive
                                 CenterAlignedTopAppBar(
-                                    title = { Text(
-                                        text = when {
-                                            currentDestination?.route == Screen.Home.route -> "Lunachron"
-                                            currentDestination?.route == Screen.Compendium.route -> "Compendium"
-                                            currentDestination?.route == Screen.Characters.route -> "Character List"
-                                            currentDestination?.route == Screen.Upgrades.route -> "Upgrades"
-                                            currentDestination?.route == Screen.CampaignCards.route -> "Campaign Cards"
-                                            currentDestination?.route == Screen.Troupes.route -> "My Troupes"
-                                            currentDestination?.route == Screen.AddEditTroupe.route -> if (viewModel.editingTroupeId == null) "Build Troupe" else "Edit Troupe"
-                                            currentDestination?.route == Screen.GameSetup.route -> "Game Setup"
-                                            currentDestination?.route == Screen.CampaignManagement.route -> "Wizard Chamberlain"
-                                            currentDestination?.route == Screen.AddEditCampaign.route -> "New Campaign"
-                                            currentDestination?.route?.startsWith("edit_campaign") == true -> "Campaign Settings"
-                                            currentDestination?.route?.startsWith("campaign_details") == true -> {
-                                                val cId = navController.currentBackStackEntry?.arguments?.getInt("campaignId")
-                                                val camp = state.campaigns.find { it.id == cId }
-                                                val r = camp?.currentRound
-                                                when (viewModel.currentCampaignSubScreen) {
-                                                    CampaignSubScreen.RANKINGS -> "Rankings"
-                                                    CampaignSubScreen.GAMES -> if (r != null) "Round $r — Games" else "Games"
-                                                    CampaignSubScreen.MACHINATIONS -> if (r != null) "Round $r — Machinations" else "Machinations"
-                                                    CampaignSubScreen.ATTACKS -> if (r != null) "Round $r — Attacks" else "Attacks"
-                                                    CampaignSubScreen.HISTORY -> "Round History"
-                                                    null -> camp?.name ?: "Campaign"
-                                                }
+                                    title = {
+                                        if (isTroupeDashboard) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                FactionCircle(
+                                                    faction = viewModel.selectedTroupeFaction,
+                                                    modifier = Modifier.size(26.dp)
+                                                )
+                                                Text(
+                                                    text = viewModel.newTroupeName.ifBlank { if (viewModel.editingTroupeId == null) "New Troupe" else "Edit Troupe" },
+                                                    style = theme.titleStyle
+                                                )
                                             }
-                                            else -> "Lunachron"
-                                        },
-                                        style = theme.titleStyle
-                                    ) },
+                                        } else {
+                                            Text(
+                                                text = when {
+                                                    currentDestination?.route == Screen.Home.route -> "Lunachron"
+                                                    currentDestination?.route == Screen.Compendium.route -> "Compendium"
+                                                    currentDestination?.route == Screen.Characters.route -> "Character List"
+                                                    currentDestination?.route == Screen.Upgrades.route -> "Upgrades"
+                                                    currentDestination?.route == Screen.CampaignCards.route -> "Campaign Cards"
+                                                    currentDestination?.route == Screen.Troupes.route -> "My Troupes"
+                                                    currentDestination?.route == Screen.AddEditTroupe.route -> viewModel.newTroupeName.ifBlank { if (viewModel.editingTroupeId == null) "New Troupe" else "Edit Troupe" }
+                                                    currentDestination?.route == Screen.GameSetup.route -> "Game Setup"
+                                                    currentDestination?.route == Screen.CampaignManagement.route -> "Wizard Chamberlain"
+                                                    currentDestination?.route == Screen.AddEditCampaign.route -> "New Campaign"
+                                                    currentDestination?.route?.startsWith("edit_campaign") == true -> "Campaign Settings"
+                                                    currentDestination?.route?.startsWith("campaign_details") == true -> {
+                                                        val cId = navController.currentBackStackEntry?.arguments?.getInt("campaignId")
+                                                        val camp = state.campaigns.find { it.id == cId }
+                                                        val r = camp?.currentRound
+                                                        when (viewModel.currentCampaignSubScreen) {
+                                                            CampaignSubScreen.RANKINGS -> "Rankings"
+                                                            CampaignSubScreen.GAMES -> if (r != null) "Round $r" else "Games"
+                                                            CampaignSubScreen.SCHEDULE -> "Schedule"
+                                                            CampaignSubScreen.HISTORY -> "History"
+                                                            null -> camp?.name ?: "Campaign"
+                                                        }
+                                                    }
+                                                    else -> "Lunachron"
+                                                },
+                                                style = theme.titleStyle
+                                            )
+                                        }
+                                    },
                                     navigationIcon = {
                                         if (currentDestination?.route in listOf(Screen.AddEditTroupe.route, Screen.Characters.route, Screen.Upgrades.route, Screen.CampaignCards.route, Screen.Rules.route, Screen.Settings.route, Screen.TournamentSetup.route, Screen.AddEditCampaign.route) || currentDestination?.route?.startsWith("edit_campaign") == true || currentDestination?.route?.startsWith("campaign_details") == true) {
                                             IconButton(onClick = { backDispatcher?.onBackPressed() }) {
@@ -239,7 +257,16 @@ class MainActivity : ComponentActivity() {
                                         }
                                     },
                                     actions = {
-                                        // actions removed as tutorial button was migrated to drawer
+                                        if (isTroupeDashboard) {
+                                            val typeLabel = if (viewModel.isCampaignTroupe) "Campaign" else "Normal"
+                                            TextButton(onClick = { viewModel.showTroupeTypeSheet = true }) {
+                                                Text(
+                                                    text = "$typeLabel ✎",
+                                                    style = MaterialTheme.typography.labelMedium,
+                                                    color = MaterialTheme.colorScheme.primary
+                                                )
+                                            }
+                                        }
                                     },
                                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                                         containerColor = MaterialTheme.colorScheme.surfaceVariant,

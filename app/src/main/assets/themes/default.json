@@ -72,5 +72,9 @@
     "showCardDivider":            true,
     "useDamageTypeIcons":         false
   },
-  "showFactionBackgrounds": false
+  "showFactionBackgrounds": false,
+  "gameplayPreferences": {
+    "defaultLayoutMode":   "COMPACT_GRID",
+    "defaultTrackingMode": "LOW_DETAIL"
+  }
 }

@@ -53,18 +53,8 @@ jobs:
       - name: Run lint
         run: ./gradlew lint
 
-      - name: Decode CI keystore
-        env:
-          CI_KEYSTORE: ${{ secrets.CI_KEYSTORE }}
-        run: echo "$CI_KEYSTORE" | tr -d '[:space:]' | base64 -d > app/ci.keystore
-
       - name: Build with Gradle
-        env:
-          KEYSTORE_PATH: ci.keystore
-          KEYSTORE_PASSWORD: ${{ secrets.CI_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.CI_KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.CI_KEY_PASSWORD }}
-        run: ./gradlew build
+        run: ./gradlew assembleDebug
 
       - name: Run tests
         run: ./gradlew test
