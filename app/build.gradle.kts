@@ -73,6 +73,12 @@ android {
     }
 }
 
+ksp {
+    // Export Room schema JSON to app/schemas/ so MigrationTestHelper can validate
+    // future UserDatabase migrations against the previous schema version.
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 // ---------------------------------------------------------------------------
 // Task: download the pinned lunachron-data release assets into
 // app/src/main/assets/ so the bundled seed is deterministic at build time.
@@ -183,6 +189,7 @@ dependencies {
     testImplementation(libs.mockk)
     testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.room.testing)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
