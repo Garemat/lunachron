@@ -79,6 +79,11 @@ ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
 }
 
+android.sourceSets.getByName("androidTest") {
+    // Make exported Room schema JSONs available to MigrationTestHelper at runtime.
+    assets.srcDirs("schemas")
+}
+
 // ---------------------------------------------------------------------------
 // Task: download the pinned lunachron-data release assets into
 // app/src/main/assets/ so the bundled seed is deterministic at build time.
