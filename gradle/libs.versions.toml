@@ -51,6 +51,7 @@ androidx-camera-view = { group = "androidx.camera", name = "camera-view", versio
 jsoup = { group = "org.jsoup", name = "jsoup", version.ref = "jsoup" }
 ktor-client-core = { group = "io.ktor", name = "ktor-client-core", version.ref = "ktor" }
 ktor-client-android = { group = "io.ktor", name = "ktor-client-android", version.ref = "ktor" }
+ktor-client-mock = { group = "io.ktor", name = "ktor-client-mock", version.ref = "ktor" }
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
 
 [plugins]

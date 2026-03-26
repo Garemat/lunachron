@@ -199,6 +199,27 @@ fun SettingsScreen(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Spacer(modifier = Modifier.height(theme.verticalSpacing))
 
+            Text("News", style = theme.titleStyle.copy(fontSize = 20.sp), color = MaterialTheme.colorScheme.primary)
+            Spacer(modifier = Modifier.height(theme.verticalSpacing / 4))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onEvent(CharacterEvent.SetAutoFetchNews(!state.autoFetchNews)) }
+                    .padding(vertical = theme.verticalSpacing / 4),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Auto-fetch news", style = theme.headerStyle.copy(fontSize = 18.sp))
+                    Text("Load the latest Moonstone news on startup.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(checked = state.autoFetchNews, onCheckedChange = { onEvent(CharacterEvent.SetAutoFetchNews(it)) })
+            }
+
+            Spacer(modifier = Modifier.height(theme.verticalSpacing))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Spacer(modifier = Modifier.height(theme.verticalSpacing))
+
             Text("App Updates", style = theme.titleStyle.copy(fontSize = 20.sp), color = MaterialTheme.colorScheme.primary)
             Spacer(modifier = Modifier.height(theme.verticalSpacing / 4))
             if (state.installerSource == InstallerSource.FDROID) {

@@ -57,18 +57,36 @@ fun HomeScreen(
                     .onGloballyPositioned { onTargetPositioned("Latest News", it) }
             )
 
-            if (state.isFetchingNews && state.newsItems.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+            when {
+                state.isFetchingNews && state.newsItems.isEmpty() -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
                 }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = theme.verticalSpacing),
-                    verticalArrangement = Arrangement.spacedBy(theme.verticalSpacing)
-                ) {
-                    items(state.newsItems) { item ->
-                        NewsCard(item = item, onClick = { uriHandler.openUri(item.url) })
+                state.newsItems.isEmpty() -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = "News not loaded",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(theme.verticalSpacing))
+                            Button(onClick = { onEvent(CharacterEvent.RefreshNews) }) {
+                                Text("Load news", style = theme.buttonTextStyle)
+                            }
+                        }
+                    }
+                }
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(bottom = theme.verticalSpacing),
+                        verticalArrangement = Arrangement.spacedBy(theme.verticalSpacing)
+                    ) {
+                        items(state.newsItems) { item ->
+                            NewsCard(item = item, onClick = { uriHandler.openUri(item.url) })
+                        }
                     }
                 }
             }

@@ -129,6 +129,7 @@ data class CharacterState(
     // News Feed
     val newsItems: List<NewsItem> = emptyList(),
     val isFetchingNews: Boolean = false,
+    val autoFetchNews: Boolean = false,
 
     // Tutorial State
     val hasSeenGlobalTutorial: Boolean = false,
