@@ -11,7 +11,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 @Database(
     entities = [Troupe::class, Campaign::class, GameResult::class],
     version = 2,
-    exportSchema = false
+    exportSchema = true  // required for MigrationTestHelper in future migration tests
 )
 @TypeConverters(Converters::class)
 abstract class UserDatabase : RoomDatabase() {

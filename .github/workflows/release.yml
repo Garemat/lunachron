@@ -91,6 +91,10 @@ jobs:
       if: steps.bump_type.outputs.type != 'none'
       run: chmod +x gradlew
 
+    - name: Run tests
+      if: steps.bump_type.outputs.type != 'none'
+      run: ./gradlew test
+
     - name: Decode Keystore
       if: steps.bump_type.outputs.type != 'none'
       run: |
