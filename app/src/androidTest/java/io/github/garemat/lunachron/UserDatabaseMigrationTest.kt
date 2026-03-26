@@ -46,7 +46,7 @@ class UserDatabaseMigrationTest {
         }
 
         // Run the migration and validate the schema.
-        helper.runMigrationsAndValidate("test_migration", 2, true).use { db ->
+        helper.runMigrationsAndValidate("test_migration", 2, true, UserDatabase.MIGRATION_1_2).use { db ->
             val cursor = db.query("SELECT * FROM Campaign WHERE id = 1")
             cursor.moveToFirst()
 
