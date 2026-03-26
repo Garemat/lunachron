@@ -152,7 +152,7 @@ class DataUpdateRepository(
         prefs.edit { putBoolean("auto_check_data_updates", enabled) }
     }
 
-    fun loadAutoCheck(): Boolean = prefs.getBoolean("auto_check_data_updates", true)
+    fun loadAutoCheck(): Boolean = prefs.getBoolean("auto_check_data_updates", false)
 
     /**
      * Checks GitHub releases for a newer app version than the one currently installed.

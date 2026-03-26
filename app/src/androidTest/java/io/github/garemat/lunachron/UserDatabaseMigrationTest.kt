@@ -30,7 +30,8 @@ class UserDatabaseMigrationTest {
     /**
      * MIGRATION_1_2 adds five columns to the Campaign table.
      * A Campaign row written at v1 must be readable at v2 with the new
-     * columns defaulting to 0.
+     * columns carrying their migration defaults (totalRounds=0, gameSize=6,
+     * startingCharacters=6, characterGrowthEvery=1, upgradeGrowthEvery=3).
      */
     @Test
     @Throws(IOException::class)
@@ -46,18 +47,18 @@ class UserDatabaseMigrationTest {
         }
 
         // Run the migration and validate the schema.
-        helper.runMigrationsAndValidate("test_migration", 2, true).use { db ->
+        helper.runMigrationsAndValidate("test_migration", 2, true, UserDatabase.MIGRATION_1_2).use { db ->
             val cursor = db.query("SELECT * FROM Campaign WHERE id = 1")
             cursor.moveToFirst()
 
             assertEquals("Test Campaign", cursor.getString(cursor.getColumnIndexOrThrow("name")))
 
-            // New columns should default to 0.
+            // New columns must carry the defaults from the migration SQL.
             assertEquals(0, cursor.getInt(cursor.getColumnIndexOrThrow("totalRounds")))
-            assertEquals(0, cursor.getInt(cursor.getColumnIndexOrThrow("gameSize")))
-            assertEquals(0, cursor.getInt(cursor.getColumnIndexOrThrow("startingCharacters")))
-            assertEquals(0, cursor.getInt(cursor.getColumnIndexOrThrow("characterGrowthEvery")))
-            assertEquals(0, cursor.getInt(cursor.getColumnIndexOrThrow("upgradeGrowthEvery")))
+            assertEquals(6, cursor.getInt(cursor.getColumnIndexOrThrow("gameSize")))
+            assertEquals(6, cursor.getInt(cursor.getColumnIndexOrThrow("startingCharacters")))
+            assertEquals(1, cursor.getInt(cursor.getColumnIndexOrThrow("characterGrowthEvery")))
+            assertEquals(3, cursor.getInt(cursor.getColumnIndexOrThrow("upgradeGrowthEvery")))
 
             cursor.close()
         }

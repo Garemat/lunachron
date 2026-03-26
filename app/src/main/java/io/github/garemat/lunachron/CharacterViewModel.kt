@@ -36,7 +36,8 @@ import java.util.UUID
 class CharacterViewModel(
     application: Application,
     private val repository: CharacterRepository,
-    private val dataUpdateRepository: DataUpdateRepository
+    private val dataUpdateRepository: DataUpdateRepository,
+    newsClient: HttpClient? = null
 ) : AndroidViewModel(application) {
 
     private val prefs = run {
@@ -63,7 +64,7 @@ class CharacterViewModel(
     }
     private val themeRepository = ThemeRepository(application)
     private val nearbyManager = NearbyManager(application)
-    private val client = HttpClient(Android) {
+    private val client = newsClient ?: HttpClient(Android) {
         install(HttpTimeout) {
             requestTimeoutMillis = 15000
             connectTimeoutMillis = 15000
@@ -92,6 +93,7 @@ class CharacterViewModel(
         gameTrackingMode = GameTrackingMode.valueOf(prefs.getString("game_tracking_mode", GameTrackingMode.LOW_DETAIL.name) ?: GameTrackingMode.LOW_DETAIL.name),
         gameLayoutMode = GameLayoutMode.valueOf(prefs.getString("game_layout_mode", GameLayoutMode.COMPACT_GRID.name) ?: GameLayoutMode.COMPACT_GRID.name),
         newsItems = loadCachedNews(),
+        autoFetchNews = prefs.getBoolean("auto_fetch_news", false),
         autoCheckDataUpdates = dataUpdateRepository.loadAutoCheck(),
         installedDataVersion = CharacterData.getInstalledVersion(application),
         imageDownloadPreference = dataUpdateRepository.loadImagePreference(),
@@ -143,7 +145,7 @@ class CharacterViewModel(
 
     init {
         loadRules()
-        fetchNews()
+        if (_state.value.autoFetchNews) fetchNews()
         checkForUpdatesOnStartup()
         nearbyManager.setPayloadListener { endpointId, message -> handleSessionMessage(endpointId, message) }
     }
@@ -329,6 +331,10 @@ class CharacterViewModel(
                 prefs.edit { putBoolean(if (event.tutorialKey == "global") "has_seen_global_tutorial" else "has_seen_${event.tutorialKey}_tutorial", event.seen) }
             }
             CharacterEvent.RefreshNews -> fetchNews()
+            is CharacterEvent.SetAutoFetchNews -> {
+                _state.update { it.copy(autoFetchNews = event.enabled) }
+                prefs.edit { putBoolean("auto_fetch_news", event.enabled) }
+            }
             is CharacterEvent.UpdateCharacterHealth -> {
                 updateCharacterState(event.playerIndex, event.charIndex) { it.copy(currentHealth = event.health) }
                 broadcastGameplayUpdate(SessionMessage.GameplayUpdate(event.playerIndex, event.charIndex, health = event.health))

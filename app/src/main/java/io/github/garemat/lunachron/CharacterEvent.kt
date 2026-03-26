@@ -35,6 +35,7 @@ sealed interface CharacterEvent {
 
     // News
     data object RefreshNews : CharacterEvent
+    data class SetAutoFetchNews(val enabled: Boolean) : CharacterEvent
 
     // Gameplay Events
     data class UpdateCharacterHealth(val playerIndex: Int, val charIndex: Int, val health: Int) : CharacterEvent
