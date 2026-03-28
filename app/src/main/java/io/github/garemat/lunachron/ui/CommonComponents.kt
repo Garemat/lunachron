@@ -1,14 +1,17 @@
 package io.github.garemat.lunachron.ui
 
-import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.InlineTextContent
@@ -23,10 +26,13 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.Placeholder
@@ -37,6 +43,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.BaselineShift
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -241,12 +248,52 @@ fun FactionSymbol(faction: Faction, modifier: Modifier = Modifier, tint: Color? 
         Faction.SHADES -> R.drawable.shades
     }
     if (resId != 0) Image(
-        painter = painterResource(id = resId), 
-        contentDescription = faction.name, 
+        painter = painterResource(id = resId),
+        contentDescription = faction.name,
         modifier = modifier.fillMaxSize(),
         contentScale = ContentScale.Crop
     )
     else Icon(imageVector = getFactionIcon(faction), contentDescription = faction.name, modifier = modifier, tint = tint ?: Color.Unspecified)
+}
+
+/**
+ * Standard faction symbol with no background or border.
+ * [size] sets the layout footprint. Leshavult's antlers are rendered slightly larger
+ * so the inner circle matches the other factions visually, with antlers allowed to spill.
+ */
+// Per-faction scale factors so the inner circle of each icon matches visually.
+// Commonwealth sun rays and Leshavult antlers extend well beyond the body circle,
+// so we render them larger and let the spikes/antlers spill outside the layout bounds.
+private fun factionVisualScale(faction: Faction) = when (faction) {
+    Faction.LESHAVULT    -> 4f / 3f   // antlers extend ~33% above head
+    Faction.COMMONWEALTH -> 1.25f     // sun-ray spikes extend ~25% beyond body circle
+    else                 -> 1f
+}
+
+@Composable
+fun FactionIcon(faction: Faction, size: Dp = 40.dp, modifier: Modifier = Modifier) {
+    val visualSize = size * factionVisualScale(faction)
+    Box(modifier = modifier.size(size), contentAlignment = Alignment.Center) {
+        FactionSymbol(faction = faction, modifier = Modifier.size(visualSize))
+    }
+}
+
+/**
+ * Displays one or two faction symbols blended together, matching the official dual-faction
+ * card art. Both icons are centered in the [size] footprint with a small diagonal drift so
+ * the primary sits slightly lower-left and the secondary upper-right. The secondary is
+ * rendered with [BlendMode.Multiply] so its dark symbol elements show through the lighter
+ * areas of the primary, approximating the translucent overlap in the physical card art.
+ * For single-faction characters, delegates to [FactionIcon].
+ */
+/**
+ * Displays the primary faction symbol for a character. Multi-faction blending is
+ * deferred to a later patch — for now only factions[0] is shown via [FactionIcon].
+ */
+@Composable
+fun MultiFactionIcon(factions: List<Faction>, size: Dp = 40.dp, modifier: Modifier = Modifier) {
+    if (factions.isEmpty()) return
+    FactionIcon(faction = factions[0], size = size, modifier = modifier)
 }
 
 @Composable
@@ -275,18 +322,17 @@ fun FactionCircle(
 
 @Composable
 fun FactionSelector(selectedFactions: Set<Faction>, onFactionsChange: (Set<Faction>) -> Unit, modifier: Modifier = Modifier, singleSelect: Boolean = false, onPositioned: (LayoutCoordinates) -> Unit = {}) {
+    val anySelected = selectedFactions.isNotEmpty()
     Row(modifier = modifier.fillMaxWidth().padding(vertical = 8.dp).onGloballyPositioned { onPositioned(it) }, horizontalArrangement = Arrangement.SpaceBetween) {
         Faction.entries.forEach { faction ->
             val isSelected = selectedFactions.contains(faction)
-            FactionCircle(
+            val iconAlpha = if (!anySelected || isSelected) 1f else 0.25f
+            FactionIcon(
                 faction = faction,
+                size = 48.dp,
                 modifier = Modifier
-                    .size(48.dp)
-                    .clickable {
-                        onFactionsChange(if (singleSelect) setOf(faction) else if (isSelected) selectedFactions - faction else selectedFactions + faction)
-                    },
-                isSelected = isSelected,
-                showBorder = true
+                    .clickable { onFactionsChange(if (singleSelect) setOf(faction) else if (isSelected) selectedFactions - faction else selectedFactions + faction) }
+                    .alpha(iconAlpha)
             )
         }
     }
@@ -333,23 +379,38 @@ fun CommonStatBox(label: String, value: String, modifier: Modifier = Modifier, h
 }
 
 @Composable
-fun CommonAbilityItem(name: String, description: String, searchQuery: String = "", oncePerTurn: Boolean = false, oncePerGame: Boolean = false, reloadable: Boolean = false, isUsed: Boolean = false, onUsedChange: ((Boolean) -> Unit)? = null, isEditable: Boolean = true) {
+fun CommonAbilityItem(name: String, description: String, searchQuery: String = "", oncePerTurn: Boolean = false, oncePerGame: Boolean = false, reloadable: Boolean = false, isUsed: Boolean = false, onUsedChange: ((Boolean) -> Unit)? = null, isEditable: Boolean = true, passive: Boolean = false, showColon: Boolean = true) {
     val theme = LocalAppThemeProperties.current
-    Column(modifier = Modifier.padding(vertical = theme.verticalSpacing / 4)) {
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-            val title = buildAnnotatedString {
+    if (passive) {
+        Text(
+            text = buildAnnotatedString {
                 withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) { appendWithHighlight(name, searchQuery); append(": ") }
-                if (oncePerTurn) withStyle(style = SpanStyle(fontStyle = FontStyle.Italic, fontWeight = FontWeight.Normal)) { append(" - Once per turn") }
-                if (oncePerGame) withStyle(style = SpanStyle(fontStyle = FontStyle.Italic, fontWeight = FontWeight.Normal)) { append(if (reloadable) " - Once per game, unless reloaded" else " - Once per game") }
-            }
-            Text(text = title, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-            if (oncePerGame && onUsedChange != null) {
-                Box(modifier = Modifier.padding(start = 8.dp).size(16.dp).clip(CircleShape).background(if (isUsed) MaterialTheme.colorScheme.onSurfaceVariant else Color.Transparent).border(1.2.dp, if (isEditable) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, CircleShape).then(if (isEditable) Modifier.clickable { onUsedChange(!isUsed) } else Modifier), contentAlignment = Alignment.Center) {
-                    if (isUsed) Icon(imageVector = Icons.Default.Close, contentDescription = null, modifier = Modifier.size(10.dp), tint = Color.White)
+                append(parseAbilityDescription(description, searchQuery))
+            },
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.padding(vertical = theme.verticalSpacing / 4),
+            inlineContent = getMoonstoneInlineContent()
+        )
+    } else {
+        Column(modifier = Modifier.padding(vertical = theme.verticalSpacing / 4)) {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                val title = buildAnnotatedString {
+                    withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
+                        appendWithHighlight(name, searchQuery)
+                        if (showColon) append(": ")
+                    }
+                    if (oncePerTurn) withStyle(style = SpanStyle(fontStyle = FontStyle.Italic, fontWeight = FontWeight.Normal)) { append(" - Once per turn") }
+                    if (oncePerGame) withStyle(style = SpanStyle(fontStyle = FontStyle.Italic, fontWeight = FontWeight.Normal)) { append(if (reloadable) " - Once per game, unless reloaded" else " - Once per game") }
+                }
+                Text(text = title, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                if (oncePerGame && onUsedChange != null) {
+                    Box(modifier = Modifier.padding(start = 8.dp).size(16.dp).clip(CircleShape).background(if (isUsed) MaterialTheme.colorScheme.onSurfaceVariant else Color.Transparent).border(1.2.dp, if (isEditable) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, CircleShape).then(if (isEditable) Modifier.clickable { onUsedChange(!isUsed) } else Modifier), contentAlignment = Alignment.Center) {
+                        if (isUsed) Icon(imageVector = Icons.Default.Close, contentDescription = null, modifier = Modifier.size(10.dp), tint = Color.White)
+                    }
                 }
             }
+            Text(text = parseAbilityDescription(description, searchQuery), style = MaterialTheme.typography.bodySmall, inlineContent = getMoonstoneInlineContent())
         }
-        Text(text = parseAbilityDescription(description, searchQuery), style = MaterialTheme.typography.bodySmall, inlineContent = getMoonstoneInlineContent())
     }
 }
 
@@ -357,27 +418,30 @@ fun CommonAbilityItem(name: String, description: String, searchQuery: String = "
 fun CharacterFront(character: Character, searchQuery: String, onFlip: () -> Unit, onFlipPositioned: (LayoutCoordinates) -> Unit = {}) {
     val theme = LocalAppThemeProperties.current
     Column {
-        if (theme.showExpandedStatsHeader) MoonstoneHeader(character, searchQuery, onFlip, onFlipPositioned)
-        else Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.SpaceEvenly) {
-                CommonStatBox("Melee", character.melee.toString(), showDivider = true)
-                CommonStatBox("Range", "${character.meleeRange}\"", showDivider = true)
-                CommonStatBox("Arcane", character.arcane.toString(), showDivider = true)
-                CommonStatBox("Evade", character.evade.toString(), showDivider = true)
-            }
-            IconButton(onClick = onFlip, modifier = Modifier.onGloballyPositioned { onFlipPositioned(it) }) { Icon(Icons.Default.Refresh, contentDescription = "Flip", tint = MaterialTheme.colorScheme.primary) }
+        if (theme.showExpandedStatsHeader) MoonstoneHeader(character, searchQuery)
+        else Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+            CommonStatBox("Melee", character.melee.toString(), showDivider = true)
+            CommonStatBox("Range", "${character.meleeRange}\"", showDivider = true)
+            CommonStatBox("Arcane", character.arcane.toString(), showDivider = true)
+            CommonStatBox("Evade", character.evade.toString(), showDivider = true)
         }
         if (theme.showExpandedStatsHeader) MoonstoneStats(character)
         Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
         val passiveAbilities = character.abilities.filter { it.abilityType == "Passive" }
         val activeAbilities = character.abilities.filter { it.abilityType == "Active" }
         val arcaneAbilities = character.abilities.filter { it.abilityType == "Arcane" }
-        passiveAbilities.forEach { CommonAbilityItem(it.name, it.description, searchQuery, it.oncePerTurn, it.oncePerGame) }
-        if (activeAbilities.isNotEmpty()) { AbilityTypeSeparator(); activeAbilities.forEach { CommonAbilityItem("${it.name} (${it.energyCost ?: 0}) ${it.range ?: ""}", it.description, searchQuery, it.oncePerTurn, it.oncePerGame) } }
-        if (arcaneAbilities.isNotEmpty()) { AbilityTypeSeparator(); arcaneAbilities.forEach { CommonAbilityItem("${it.name} (${it.energyCost ?: 0}) ${it.range ?: ""}", buildArcaneDescription(it), searchQuery, it.oncePerTurn, it.oncePerGame) } }
+        passiveAbilities.forEach { CommonAbilityItem(it.name, it.description, searchQuery, it.oncePerTurn, it.oncePerGame, passive = true) }
+        if (activeAbilities.isNotEmpty()) { AbilityTypeSeparator(); activeAbilities.forEach { CommonAbilityItem("${it.name} (${it.energyCost ?: 0}) ${it.range ?: ""}", it.description, searchQuery, it.oncePerTurn, it.oncePerGame, showColon = false) } }
+        if (arcaneAbilities.isNotEmpty()) { AbilityTypeSeparator(); arcaneAbilities.forEach { CommonAbilityItem("${it.name} (${it.energyCost ?: 0}) ${it.range ?: ""}", buildArcaneDescription(it), searchQuery, it.oncePerTurn, it.oncePerGame, showColon = false) } }
         character.signatureMove?.let { sigMove ->
             Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
-            Text(text = buildAnnotatedString { append(if (theme.showExpandedStatsHeader) "Signature Move on a " else "Signature Move: "); withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { appendWithHighlight(if (theme.showExpandedStatsHeader) sigMove.upgradeFor else sigMove.name, searchQuery) }; append(".") }, style = MaterialTheme.typography.bodyMedium, fontStyle = FontStyle.Italic, modifier = Modifier.clickable { onFlip() }.fillMaxWidth(), textAlign = if (theme.showExpandedStatsHeader) TextAlign.Start else TextAlign.Center, color = if (theme.showExpandedStatsHeader) Color.Unspecified else MaterialTheme.colorScheme.secondary)
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable { onFlip() }.onGloballyPositioned { onFlipPositioned(it) },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = buildAnnotatedString { append(if (theme.showExpandedStatsHeader) "Signature Move on a " else "Signature Move: "); withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { appendWithHighlight(if (theme.showExpandedStatsHeader) sigMove.upgradeFor else sigMove.name, searchQuery) }; append(".") }, style = MaterialTheme.typography.bodyMedium, fontStyle = FontStyle.Italic, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.secondary)
+                Icon(imageVector = Icons.Default.KeyboardArrowRight, contentDescription = "View signature move", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.secondary)
+            }
             Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
         }
         HealthTracker(character.health, character.health, character.energyTrack, {}, isEditable = false)
@@ -386,16 +450,28 @@ fun CharacterFront(character: Character, searchQuery: String, onFlip: () -> Unit
 }
 
 @Composable
-private fun MoonstoneHeader(character: Character, searchQuery: String, onFlip: () -> Unit, onFlipPositioned: (LayoutCoordinates) -> Unit) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = buildAnnotatedString { appendWithHighlight(character.name, searchQuery); append(",") }, style = MaterialTheme.typography.displayLarge.copy(fontSize = 32.sp), color = MaterialTheme.colorScheme.primary)
-            Text(text = character.keywords.joinToString(", "), style = MaterialTheme.typography.bodyLarge.copy(fontStyle = FontStyle.Italic), color = MaterialTheme.colorScheme.primary)
-        }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            character.factions.firstOrNull()?.let { FactionSymbol(faction = it, modifier = Modifier.size(48.dp).padding(end = 8.dp)) }
-            IconButton(onClick = onFlip, modifier = Modifier.onGloballyPositioned { onFlipPositioned(it) }) { Icon(Icons.Default.Refresh, contentDescription = "Flip", tint = MaterialTheme.colorScheme.secondary) }
-        }
+private fun MoonstoneHeader(character: Character, searchQuery: String) {
+    val nameParts = character.name.split(",", limit = 2)
+    val mainName = nameParts[0].trim()
+    val subtitle = nameParts.getOrNull(1)?.trim()
+    var scaleFactor by remember(character.name) { mutableStateOf(1f) }
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = buildAnnotatedString {
+                withStyle(SpanStyle(fontSize = (32 * scaleFactor).sp)) { appendWithHighlight(mainName, searchQuery) }
+                if (subtitle != null) {
+                    withStyle(SpanStyle(fontSize = (32 * scaleFactor).sp)) { append(", ") }
+                    withStyle(SpanStyle(fontSize = (20 * scaleFactor).sp)) { appendWithHighlight(subtitle, searchQuery) }
+                }
+            },
+            style = MaterialTheme.typography.displayLarge,
+            color = MaterialTheme.colorScheme.primary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            onTextLayout = { if (it.hasVisualOverflow && scaleFactor > 0.6f) scaleFactor *= 0.9f },
+            modifier = Modifier.padding(end = 36.dp)
+        )
+        Text(text = character.keywords.joinToString(", "), style = MaterialTheme.typography.bodyLarge.copy(fontStyle = FontStyle.Italic), color = MaterialTheme.colorScheme.primary)
     }
 }
 
@@ -423,10 +499,7 @@ fun CharacterBack(character: Character, searchQuery: String, onFlip: () -> Unit,
     val theme = LocalAppThemeProperties.current
     Column {
         val sigMove = character.signatureMove
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
-            Text(text = highlightText(sigMove?.name ?: "", searchQuery), style = if (theme.showExpandedStatsHeader) MaterialTheme.typography.displayLarge.copy(fontSize = 28.sp) else MaterialTheme.typography.titleLarge, fontWeight = if (theme.showExpandedStatsHeader) null else FontWeight.Bold, color = if (theme.showExpandedStatsHeader) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
-            IconButton(onClick = onFlip, modifier = Modifier.onGloballyPositioned { onFlipPositioned(it) }) { Icon(Icons.Default.Refresh, contentDescription = "Flip", tint = if (theme.showExpandedStatsHeader) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary) }
-        }
+        Text(text = highlightText(sigMove?.name ?: "", searchQuery), style = if (theme.showExpandedStatsHeader) MaterialTheme.typography.displayLarge.copy(fontSize = 28.sp) else MaterialTheme.typography.titleLarge, fontWeight = if (theme.showExpandedStatsHeader) null else FontWeight.Bold, color = if (theme.showExpandedStatsHeader) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.fillMaxWidth().onGloballyPositioned { onFlipPositioned(it) })
         if (sigMove == null) {
             Text(text = "No signature move.", style = MaterialTheme.typography.bodyMedium, fontStyle = FontStyle.Italic, color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
@@ -447,15 +520,26 @@ fun CharacterBack(character: Character, searchQuery: String, onFlip: () -> Unit,
                 if (sigMove.extraText.isNotEmpty()) Text(text = parseAbilityDescription(sigMove.extraText, searchQuery), style = MaterialTheme.typography.bodyMedium, inlineContent = getMoonstoneInlineContent())
                 if (sigMove.endStepEffect.isNotEmpty()) Text(text = buildAnnotatedString { withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("End Step Effect: ") }; append(parseAbilityDescription(sigMove.endStepEffect, searchQuery)) }, style = MaterialTheme.typography.bodyMedium, inlineContent = getMoonstoneInlineContent())
             }
+            Spacer(modifier = Modifier.height(theme.verticalSpacing))
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable { onFlip() },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Icon(imageVector = Icons.Default.KeyboardArrowLeft, contentDescription = "Back to character stats", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.secondary)
+                Text(text = "Character stats", style = MaterialTheme.typography.labelMedium, fontStyle = FontStyle.Italic, color = MaterialTheme.colorScheme.secondary)
+            }
         }
     }
 }
 
 @Composable
-fun CommonCharacterCard(character: Character, searchQuery: String, isExpanded: Boolean, onExpandClick: () -> Unit, modifier: Modifier = Modifier, cardTargetName: String = "CharacterCard", onPositioned: (String, LayoutCoordinates) -> Unit = { _, _ -> }, forceFlipped: Boolean? = null, selectionControl: @Composable (RowScope.() -> Unit)? = null) {
+fun CommonCharacterCard(character: Character, searchQuery: String, isExpanded: Boolean, onExpandClick: () -> Unit, modifier: Modifier = Modifier, cardTargetName: String = "CharacterCard", onPositioned: (String, LayoutCoordinates) -> Unit = { _, _ -> }, forceFlipped: Boolean? = null, selectionControl: @Composable (RowScope.() -> Unit)? = null, bottomContent: (@Composable () -> Unit)? = null) {
     var isFlippedState by remember { mutableStateOf(false) }; val isFlipped = forceFlipped ?: isFlippedState
     val context = LocalContext.current
     val theme = LocalAppThemeProperties.current
+    val density = LocalDensity.current
+    var frontHeightPx by remember { mutableStateOf(0) }
     val bgImageFile = remember(character.imageName) {
         character.imageName?.let { name ->
             val dir = File(context.filesDir, "images")
@@ -473,8 +557,8 @@ fun CommonCharacterCard(character: Character, searchQuery: String, isExpanded: B
                 }
                 Spacer(modifier = Modifier.width(if (selectionControl != null) 12.dp else 16.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(text = highlightText(character.name, searchQuery), style = if (selectionControl != null) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                    Text(text = character.keywords.joinToString(", "), style = MaterialTheme.typography.bodySmall, fontStyle = FontStyle.Italic, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(text = highlightText(character.name, searchQuery), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(text = character.keywords.joinToString(", "), style = MaterialTheme.typography.bodySmall, fontStyle = FontStyle.Italic, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
                 }
                 Icon(imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, contentDescription = null, modifier = Modifier.padding(start = 8.dp))
             }
@@ -484,12 +568,26 @@ fun CommonCharacterCard(character: Character, searchQuery: String, isExpanded: B
                     if (theme.showBackgroundImageOverlay && bgImageFile != null) {
                         AsyncImage(model = bgImageFile, contentDescription = null, modifier = Modifier.matchParentSize().alpha(0.25f), contentScale = ContentScale.Crop)
                     }
-                    Box(modifier = Modifier.padding(theme.cardContentPadding)) {
+                    // Faction symbol(s) peeking from top-right corner, half-clipped by card edge
+                    if (character.factions.isNotEmpty()) {
+                        MultiFactionIcon(
+                            factions = character.factions,
+                            size = 64.dp,
+                            modifier = Modifier.align(Alignment.TopEnd).offset(x = 32.dp)
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .padding(theme.cardContentPadding)
+                            .then(if (!isFlipped) Modifier.onSizeChanged { frontHeightPx = it.height }
+                                  else Modifier.heightIn(min = with(density) { frontHeightPx.toDp() }))
+                    ) {
                         if (!isFlipped) CharacterFront(character = character, searchQuery = searchQuery, onFlip = { isFlippedState = true }, onFlipPositioned = { onPositioned("FlipButton", it) })
                         else CharacterBack(character = character, searchQuery = searchQuery, onFlip = { isFlippedState = false }, onFlipPositioned = { onPositioned("FlipButton", it) })
                     }
                 }
             }
+            bottomContent?.invoke()
         }
     }
 }
@@ -723,24 +821,96 @@ fun HealthPip(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CharacterFilterHeader(searchQuery: String, onSearchQueryChange: (String) -> Unit, selectedFactions: Set<Faction>, onFactionsChange: (Set<Faction>) -> Unit, selectedTags: Set<String>, onTagsChange: (Set<String>) -> Unit, availableTags: List<String>, modifier: Modifier = Modifier, isFactionFixed: Boolean = false, showCollapseAll: Boolean = false, onCollapseAll: () -> Unit = {}, onClearAll: () -> Unit = {}, onTargetPositioned: (String, LayoutCoordinates) -> Unit = { _, _ -> }) { // showCollapseAll retained for API compat but no longer rendered
     val theme = LocalAppThemeProperties.current
     Column(modifier = modifier.padding(theme.screenPadding)) {
         OutlinedTextField(value = searchQuery, onValueChange = onSearchQueryChange, modifier = Modifier.fillMaxWidth().onGloballyPositioned { onTargetPositioned("SearchField", it) }, placeholder = { Text("Search name or abilities...") }, leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) }, trailingIcon = { if (searchQuery.isNotEmpty()) IconButton(onClick = { onSearchQueryChange("") }) { Icon(Icons.Default.Clear, contentDescription = "Clear") } }, singleLine = true, shape = theme.cardShape)
-        if (!isFactionFixed) { Spacer(modifier = Modifier.height(theme.verticalSpacing)); Text("Factions:", style = MaterialTheme.typography.labelMedium); FactionSelector(selectedFactions = selectedFactions, onFactionsChange = onFactionsChange, onPositioned = { onTargetPositioned("FactionFilter", it) }) }
-        Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
+        if (!isFactionFixed) { Spacer(modifier = Modifier.height(theme.verticalSpacing)); FactionSelector(selectedFactions = selectedFactions, onFactionsChange = onFactionsChange, onPositioned = { onTargetPositioned("FactionFilter", it) }) }
         if (availableTags.isNotEmpty()) {
-            Text("Tags:", style = MaterialTheme.typography.labelMedium)
-            LazyRow(modifier = Modifier.fillMaxWidth().padding(vertical = theme.verticalSpacing / 4).onGloballyPositioned { onTargetPositioned("TagFilter", it) }, horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(end = theme.screenPadding)) {
-                items(availableTags) { tag ->
-                    val isSelected = selectedTags.contains(tag)
-                    FilterChip(selected = isSelected, onClick = { onTagsChange(if (isSelected) selectedTags - tag else selectedTags + tag) }, label = { Text(tag) }, leadingIcon = if (isSelected) { { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) } } else null, shape = theme.cardShape)
+            var showKeywordsDialog by remember { mutableStateOf(false) }
+            Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
+            Row(
+                modifier = Modifier.fillMaxWidth().onGloballyPositioned { onTargetPositioned("TagFilter", it) },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = { showKeywordsDialog = true },
+                    shape = theme.cardShape
+                ) {
+                    Text("Keywords")
+                }
+                if (selectedTags.isNotEmpty()) {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(selectedTags.toList()) { tag ->
+                            FilterChip(
+                                selected = true,
+                                onClick = { onTagsChange(selectedTags - tag) },
+                                label = { Text(tag) },
+                                leadingIcon = { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                                shape = theme.cardShape
+                            )
+                        }
+                    }
+                }
+            }
+            if (showKeywordsDialog) {
+                val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+                ModalBottomSheet(
+                    onDismissRequest = { showKeywordsDialog = false },
+                    sheetState = sheetState,
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+                ) {
+                    Column(modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 32.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Keywords", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+                            if (selectedTags.isNotEmpty()) {
+                                TextButton(onClick = { onTagsChange(emptySet()) }) { Text("Clear") }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Column(modifier = Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            availableTags.chunked(2).forEach { pair ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    pair.forEach { tag ->
+                                        val isSelected = selectedTags.contains(tag)
+                                        if (isSelected) {
+                                            Button(
+                                                onClick = { onTagsChange(selectedTags - tag) },
+                                                modifier = Modifier.weight(1f),
+                                                shape = theme.cardShape
+                                            ) { Text(tag, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                                        } else {
+                                            OutlinedButton(
+                                                onClick = { onTagsChange(selectedTags + tag) },
+                                                modifier = Modifier.weight(1f),
+                                                shape = theme.cardShape
+                                            ) { Text(tag, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                                        }
+                                    }
+                                    // Fill empty cell if odd number of tags
+                                    if (pair.size == 1) Spacer(modifier = Modifier.weight(1f))
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-            if (searchQuery.isNotEmpty() || selectedFactions.isNotEmpty() || selectedTags.isNotEmpty()) TextButton(onClick = onClearAll) { Text("Clear All") }
+        if (searchQuery.isNotEmpty() || selectedFactions.isNotEmpty() || selectedTags.isNotEmpty()) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton(onClick = onClearAll) { Text("Clear All") }
+            }
         }
     }
 }

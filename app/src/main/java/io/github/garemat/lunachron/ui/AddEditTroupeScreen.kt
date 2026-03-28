@@ -140,10 +140,10 @@ fun AddEditTroupeScreen(
             .filter { it.factions.contains(viewModel.selectedTroupeFaction) }
             .flatMap { it.keywords }.distinct().sorted()
     }
-    val selectedTags = remember { mutableStateListOf<String>() }
+    var selectedTags by remember { mutableStateOf(setOf<String>()) }
 
     LaunchedEffect(availableTags) {
-        selectedTags.filter { it !in availableTags }.forEach { selectedTags.remove(it) }
+        selectedTags = selectedTags.filter { it in availableTags }.toSet()
     }
 
     BackHandler {
@@ -209,7 +209,9 @@ fun AddEditTroupeScreen(
                 TroupeEditStage.CHARACTER_SELECTION -> CharacterSelectionStage(
                     state, theme, searchQuery,
                     onSearchQueryChange = { searchQuery = it },
-                    selectedTags, availableTags,
+                    selectedTags = selectedTags,
+                    onTagsChange = { selectedTags = it },
+                    availableTags = availableTags,
                     temporarySelectedIds,
                     onSelectionChange = { temporarySelectedIds = it },
                     expandedCharacterId,
@@ -410,28 +412,12 @@ private fun CreateTroupeTab(
 
         Spacer(modifier = Modifier.height(16.dp))
         Text("Select Faction", style = MaterialTheme.typography.labelMedium)
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)
-                .onGloballyPositioned { onTargetPositioned("FactionSymbols", it) },
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            Faction.entries.forEach { faction ->
-                val isSelected = viewModel.selectedTroupeFaction == faction
-                Box(
-                    modifier = Modifier.size(56.dp).clip(CircleShape)
-                        .background(if (isSelected) getFactionColor(faction) else Color.Transparent)
-                        .border(2.dp, getFactionColor(faction), CircleShape)
-                        .clickable { viewModel.selectedTroupeFaction = faction; viewModel.selectedCharacterIds = emptySet() },
-                    contentAlignment = Alignment.Center
-                ) {
-                    FactionSymbol(
-                        faction = faction,
-                        modifier = Modifier.fillMaxSize().padding(8.dp),
-                        tint = if (isSelected) Color.White else getFactionColor(faction)
-                    )
-                }
-            }
-        }
+        FactionSelector(
+            selectedFactions = setOf(viewModel.selectedTroupeFaction),
+            onFactionsChange = { if (it.isNotEmpty()) { viewModel.selectedTroupeFaction = it.first(); viewModel.selectedCharacterIds = emptySet() } },
+            singleSelect = true,
+            onPositioned = { onTargetPositioned("FactionSymbols", it) }
+        )
         Spacer(modifier = Modifier.height(32.dp))
         Button(onClick = onNext, modifier = Modifier.fillMaxWidth().height(56.dp), shape = theme.cardShape) {
             Text("Next", style = MaterialTheme.typography.titleMedium)
@@ -808,112 +794,27 @@ private fun SwipeRevealCharacterItem(
                     }
                 )
         ) {
-            DashboardCharacterItem(
+            CommonCharacterCard(
                 character = character,
+                searchQuery = "",
                 isExpanded = isExpanded,
                 onExpandClick = onExpandClick,
-                isCampaignTroupe = isCampaignTroupe,
-                equippedUpgrades = equippedUpgrades,
-                upgradeCards = upgradeCards,
-                onManageUpgrades = onManageUpgrades,
-                onRemove = onRemove,
-                theme = theme
+                bottomContent = if (isCampaignTroupe) {
+                    {
+                        HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+                        UpgradeStrip(
+                            characterId = character.id,
+                            equippedUpgrades = equippedUpgrades,
+                            upgradeCards = upgradeCards,
+                            onManageUpgrades = onManageUpgrades
+                        )
+                    }
+                } else null
             )
         }
     }
 }
 
-@Composable
-private fun DashboardCharacterItem(
-    character: Character,
-    isExpanded: Boolean,
-    onExpandClick: () -> Unit,
-    isCampaignTroupe: Boolean,
-    equippedUpgrades: Map<Int, List<Int>>,
-    upgradeCards: List<UpgradeCard>,
-    onManageUpgrades: (Int) -> Unit,
-    onRemove: () -> Unit,
-    theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties
-) {
-    var isFlipped by remember { mutableStateOf(false) }
-    val context = LocalContext.current
-    val bgImageFile = remember(character.imageName) {
-        character.imageName?.let { name ->
-            val dir = File(context.filesDir, "images")
-            listOf("", ".jpg", ".png", ".webp").firstNotNullOfOrNull { ext ->
-                File(dir, "$name$ext").takeIf { it.exists() }
-            }
-        }
-    }
-
-    ThemedCard(modifier = Modifier.fillMaxWidth().animateContentSize()) {
-        Column {
-            // Header row (no checkbox - swipe to remove)
-            Row(
-                modifier = Modifier.fillMaxWidth().clickable { onExpandClick() }.padding(theme.cardContentPadding),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier.size(40.dp).clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surfaceVariant),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CharacterPortrait(character = character, size = 40.dp)
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = character.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = character.keywords.joinToString(", "),
-                        style = MaterialTheme.typography.bodySmall,
-                        fontStyle = FontStyle.Italic,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Icon(
-                    imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                    contentDescription = null,
-                    modifier = Modifier.padding(start = 8.dp)
-                )
-            }
-
-            if (isExpanded) {
-                if (theme.showCardDivider) HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                Box(modifier = Modifier.fillMaxWidth()) {
-                    if (theme.showBackgroundImageOverlay && bgImageFile != null) {
-                        AsyncImage(
-                            model = bgImageFile,
-                            contentDescription = null,
-                            modifier = Modifier.matchParentSize().alpha(0.25f),
-                            contentScale = ContentScale.Crop
-                        )
-                    }
-                    Box(modifier = Modifier.padding(theme.cardContentPadding)) {
-                        if (!isFlipped) CharacterFront(character = character, searchQuery = "", onFlip = { isFlipped = true })
-                        else CharacterBack(character = character, searchQuery = "", onFlip = { isFlipped = false })
-                    }
-                }
-            }
-
-            // Upgrade strip — always at bottom of card when campaign troupe
-            if (isCampaignTroupe) {
-                HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
-                UpgradeStrip(
-                    characterId = character.id,
-                    equippedUpgrades = equippedUpgrades,
-                    upgradeCards = upgradeCards,
-                    onManageUpgrades = onManageUpgrades
-                )
-            }
-        }
-    }
-}
 
 @Composable
 private fun UpgradeStrip(
@@ -1957,7 +1858,8 @@ private fun CharacterSelectionStage(
     theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties,
     searchQuery: String,
     onSearchQueryChange: (String) -> Unit,
-    selectedTags: MutableList<String>,
+    selectedTags: Set<String>,
+    onTagsChange: (Set<String>) -> Unit,
     availableTags: List<String>,
     selectedIds: Set<Int>,
     onSelectionChange: (Set<Int>) -> Unit,
@@ -1966,7 +1868,7 @@ private fun CharacterSelectionStage(
     onTargetPositioned: (String, LayoutCoordinates) -> Unit,
     selectedTroupeFaction: Faction
 ) {
-    val factionCharacters = remember(state.characters, selectedTroupeFaction, searchQuery, selectedTags.toList()) {
+    val factionCharacters = remember(state.characters, selectedTroupeFaction, searchQuery, selectedTags) {
         state.characters.filter { it.factions.contains(selectedTroupeFaction) }.filter { char ->
             val matchesSearch = searchQuery.isEmpty() || char.name.contains(searchQuery, ignoreCase = true) || char.keywords.any { it.contains(searchQuery, ignoreCase = true) }
             val matchesTags = selectedTags.isEmpty() || selectedTags.all { it in char.keywords }
@@ -1974,43 +1876,19 @@ private fun CharacterSelectionStage(
         }
     }
     Column(modifier = Modifier.fillMaxSize()) {
-        Spacer(modifier = Modifier.height(16.dp))
-        Text("Add Characters", style = theme.titleStyle.copy(fontSize = 24.sp), modifier = Modifier.padding(bottom = 8.dp))
-        OutlinedTextField(
-            value = searchQuery,
-            onValueChange = onSearchQueryChange,
-            placeholder = { Text("Search by name...") },
-            modifier = Modifier.fillMaxWidth(),
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-            trailingIcon = {
-                if (searchQuery.isNotEmpty()) IconButton(onClick = { onSearchQueryChange("") }) {
-                    Icon(Icons.Default.Clear, contentDescription = null)
-                }
-            },
-            singleLine = true,
-            shape = theme.cardShape
+        Text("Add Characters", style = theme.titleStyle.copy(fontSize = 24.sp), modifier = Modifier.padding(top = 16.dp, bottom = 8.dp))
+        CharacterFilterHeader(
+            searchQuery = searchQuery,
+            onSearchQueryChange = onSearchQueryChange,
+            selectedFactions = emptySet(),
+            onFactionsChange = {},
+            selectedTags = selectedTags,
+            onTagsChange = onTagsChange,
+            availableTags = availableTags,
+            isFactionFixed = true,
+            onClearAll = { onSearchQueryChange(""); onTagsChange(emptySet()) },
+            onTargetPositioned = { name, coords -> onTargetPositioned(name, coords) }
         )
-        if (availableTags.isNotEmpty()) {
-            LazyRow(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
-                    .onGloballyPositioned { onTargetPositioned("CharacterTags", it) },
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(vertical = 4.dp)
-            ) {
-                items(availableTags) { tag ->
-                    val isSelected = selectedTags.contains(tag)
-                    FilterChip(
-                        selected = isSelected,
-                        onClick = { if (isSelected) selectedTags.remove(tag) else selectedTags.add(tag) },
-                        label = { Text(tag) },
-                        leadingIcon = if (isSelected) {
-                            { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                        } else null,
-                        shape = theme.cardShape
-                    )
-                }
-            }
-        }
         LazyColumn(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(12.dp),
