@@ -201,9 +201,9 @@ class MainActivity : ComponentActivity() {
                                                 verticalAlignment = Alignment.CenterVertically,
                                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                                             ) {
-                                                FactionCircle(
+                                                FactionIcon(
                                                     faction = viewModel.selectedTroupeFaction,
-                                                    modifier = Modifier.size(26.dp)
+                                                    size = 26.dp
                                                 )
                                                 Text(
                                                     text = viewModel.newTroupeName.ifBlank { if (viewModel.editingTroupeId == null) "New Troupe" else "Edit Troupe" },

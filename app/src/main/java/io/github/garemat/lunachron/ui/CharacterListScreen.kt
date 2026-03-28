@@ -1,20 +1,29 @@
 package io.github.garemat.lunachron.ui
 
-import androidx.compose.animation.*
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 import io.github.garemat.lunachron.*
 import io.github.garemat.lunachron.ui.theme.LocalAppThemeProperties
 
@@ -39,7 +48,8 @@ fun CharacterListScreen(
     }
     
     var selectedTags by remember { mutableStateOf(setOf<String>()) }
-    var showFilterBar by remember { mutableStateOf(true) }
+    var showFilterExpanded by remember { mutableStateOf(true) }
+    val filtersActive = selectedFactions.isNotEmpty() || selectedTags.isNotEmpty() || searchQuery.isNotEmpty()
 
     LaunchedEffect(searchQuery) {
         if (searchQuery.isEmpty()) {
@@ -54,6 +64,8 @@ fun CharacterListScreen(
     }
 
     val listState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
+    val screenHeight = LocalConfiguration.current.screenHeightDp.dp
 
     LaunchedEffect(availableTags) {
         selectedTags = selectedTags.filter { it in availableTags }.toSet()
@@ -67,42 +79,56 @@ fun CharacterListScreen(
                 character.name.contains(searchQuery, ignoreCase = true) ||
                 character.abilities.any { it.name.contains(searchQuery, ignoreCase = true) || it.description.contains(searchQuery, ignoreCase = true) }
             matchesFaction && matchesTags && matchesSearch
+        }.sortedBy { it.name }
+    }
+
+    val letterIndex = remember(filteredCharacters) {
+        buildList {
+            var lastLetter: Char? = null
+            filteredCharacters.forEachIndexed { index, character ->
+                val letter = character.name.first().uppercaseChar()
+                if (letter != lastLetter) { add(letter to index); lastLetter = letter }
+            }
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            if (showFilterBar) {
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    tonalElevation = 2.dp,
-                    shadowElevation = theme.surfaceElevation
-                ) {
-                    CharacterFilterHeader(
-                        searchQuery = searchQuery,
-                        onSearchQueryChange = { searchQuery = it },
-                        selectedFactions = selectedFactions,
-                        onFactionsChange = { selectedFactions = it },
-                        selectedTags = selectedTags,
-                        onTagsChange = { selectedTags = it },
-                        availableTags = availableTags,
-                        showCollapseAll = expandedCharacterIds.isNotEmpty(),
-                        onCollapseAll = { expandedCharacterIds = emptySet() },
-                        onClearAll = {
-                            searchQuery = ""
-                            selectedFactions = emptySet()
-                            selectedTags = emptySet()
-                            expandedCharacterIds = emptySet()
-                        },
-                        onTargetPositioned = onTargetPositioned
-                    )
-                }
+    Column(modifier = Modifier.fillMaxSize()) {
+        AnimatedVisibility(visible = showFilterExpanded) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                tonalElevation = 2.dp,
+                shadowElevation = theme.surfaceElevation
+            ) {
+                CharacterFilterHeader(
+                    searchQuery = searchQuery,
+                    onSearchQueryChange = { searchQuery = it },
+                    selectedFactions = selectedFactions,
+                    onFactionsChange = { selectedFactions = it },
+                    selectedTags = selectedTags,
+                    onTagsChange = { selectedTags = it },
+                    availableTags = availableTags,
+                    showCollapseAll = expandedCharacterIds.isNotEmpty(),
+                    onCollapseAll = { expandedCharacterIds = emptySet() },
+                    onClearAll = {
+                        searchQuery = ""
+                        selectedFactions = emptySet()
+                        selectedTags = emptySet()
+                        expandedCharacterIds = emptySet()
+                    },
+                    onTargetPositioned = onTargetPositioned
+                )
             }
+        }
 
+        val hasStrip = letterIndex.size > 1
+        var isDraggingStrip by remember { mutableStateOf(false) }
+        var activeLetter by remember { mutableStateOf<Char?>(null) }
+
+        Box(modifier = Modifier.weight(1f)) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(theme.verticalSpacing / 2),
-                contentPadding = PaddingValues(top = theme.verticalSpacing / 2, bottom = 100.dp, start = theme.screenPadding, end = theme.screenPadding),
+                contentPadding = PaddingValues(top = theme.verticalSpacing / 2, bottom = screenHeight * 0.6f, start = theme.screenPadding, end = theme.screenPadding),
                 state = listState
             ) {
                 if (filteredCharacters.isEmpty()) {
@@ -119,24 +145,102 @@ fun CharacterListScreen(
                         searchQuery = searchQuery,
                         isExpanded = expandedCharacterIds.contains(character.id),
                         onExpandClick = {
-                            expandedCharacterIds = if (expandedCharacterIds.contains(character.id)) expandedCharacterIds - character.id else expandedCharacterIds + character.id
+                            val isCurrentlyExpanded = expandedCharacterIds.contains(character.id)
+                            expandedCharacterIds = if (isCurrentlyExpanded) expandedCharacterIds - character.id else expandedCharacterIds + character.id
+                            if (!isCurrentlyExpanded) {
+                                val index = filteredCharacters.indexOfFirst { it.id == character.id }
+                                if (index >= 0) coroutineScope.launch { listState.animateScrollToItem(index) }
+                            }
                         },
                         cardTargetName = if (isFirst) "FirstCharacterCard" else "CharacterCard",
                         onPositioned = { name, coords -> if (isFirst || name == "FlipButton") onTargetPositioned(name, coords) }
                     )
                 }
             }
-        }
 
-        FloatingActionButton(
-            onClick = { showFilterBar = !showFilterBar },
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(16.dp)
-                .onGloballyPositioned { onTargetPositioned("FilterButtonOpen", it) },
-            containerColor = if (selectedFactions.isNotEmpty() || selectedTags.isNotEmpty() || searchQuery.isNotEmpty()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer
-        ) {
-            Icon(imageVector = if (showFilterBar) Icons.Default.FilterListOff else Icons.Default.FilterList, contentDescription = null)
+            // Alphabetical fast-scroll: thin drag handle on the left
+            if (hasStrip) {
+                // Letter carousel — visible only while dragging
+                if (isDraggingStrip) {
+                    Surface(
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .padding(end = 28.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shadowElevation = 8.dp
+                    ) {
+                        Column(
+                            modifier = Modifier.width(40.dp).padding(vertical = 8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            letterIndex.forEach { (letter, _) ->
+                                val isActive = letter == activeLetter
+                                Text(
+                                    text = letter.toString(),
+                                    style = if (isActive) MaterialTheme.typography.titleLarge else MaterialTheme.typography.labelSmall,
+                                    color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(vertical = 1.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Thin handle bar — touch target is 28dp wide, visual bar is 4dp
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .fillMaxHeight()
+                        .width(28.dp)
+                        .pointerInput(letterIndex) {
+                            awaitEachGesture {
+                                val down = awaitFirstDown()
+                                down.consume()
+                                isDraggingStrip = true
+                                fun jumpTo(y: Float) {
+                                    val fraction = (y / size.height.toFloat()).coerceIn(0f, 1f)
+                                    val idx = (fraction * letterIndex.size).toInt().coerceIn(0, letterIndex.size - 1)
+                                    activeLetter = letterIndex[idx].first
+                                    coroutineScope.launch { listState.scrollToItem(letterIndex[idx].second) }
+                                }
+                                jumpTo(down.position.y)
+                                drag(down.id) { change -> change.consume(); jumpTo(change.position.y) }
+                                isDraggingStrip = false
+                                activeLetter = null
+                            }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .width(4.dp)
+                            .fillMaxHeight(0.5f)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    )
+                }
+            }
+
+            // Small floating toggle button — collapses to just this when filter is hidden
+            Surface(
+                onClick = { showFilterExpanded = !showFilterExpanded },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(end = 8.dp, top = 8.dp)
+                    .onGloballyPositioned { onTargetPositioned("FilterButtonOpen", it) },
+                shape = RoundedCornerShape(8.dp),
+                tonalElevation = 2.dp,
+                shadowElevation = 4.dp,
+                color = if (filtersActive) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
+            ) {
+                Icon(
+                    imageVector = Icons.Default.FilterList,
+                    contentDescription = if (showFilterExpanded) "Collapse filters" else "Expand filters",
+                    modifier = Modifier.padding(8.dp).size(20.dp),
+                    tint = if (filtersActive) MaterialTheme.colorScheme.primary else LocalContentColor.current
+                )
+            }
         }
     }
 }

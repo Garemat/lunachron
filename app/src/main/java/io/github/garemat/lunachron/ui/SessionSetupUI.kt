@@ -1,10 +1,8 @@
 package io.github.garemat.lunachron.ui
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -13,7 +11,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -179,19 +176,7 @@ fun PlayerSlotCard(
 
                 if (player.troupe != null) {
                     Spacer(modifier = Modifier.weight(1f))
-                    Box(
-                        modifier = Modifier
-                            .size(24.dp)
-                            .clip(CircleShape)
-                            .background(getFactionColor(player.troupe.faction)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        FactionSymbol(
-                            faction = player.troupe.faction,
-                            modifier = Modifier.fillMaxSize(),
-                            tint = Color.White
-                        )
-                    }
+                    FactionIcon(faction = player.troupe.faction, size = 24.dp)
                 }
             }
 
