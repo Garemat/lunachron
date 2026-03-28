@@ -6,6 +6,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -36,6 +37,10 @@ fun SettingsScreen(
     val context = LocalContext.current
     val availableThemes = remember(context) { ThemeRepository(context).listAvailable() }
 
+    val autoSynchronise = state.autoFetchNews &&
+            state.autoCheckDataUpdates &&
+            state.imageDownloadPreference == ImageDownloadPreference.ENABLED
+
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -50,6 +55,13 @@ fun SettingsScreen(
                     titleContentColor = MaterialTheme.colorScheme.primary,
                     navigationIconContentColor = MaterialTheme.colorScheme.primary
                 )
+            )
+        },
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                onClick = { onEvent(CharacterEvent.UpdateUserName(name)); onNavigateBack() },
+                icon = { Icon(Icons.Default.Check, contentDescription = null) },
+                text = { Text("Save", style = theme.buttonTextStyle) }
             )
         }
     ) { padding ->
@@ -70,14 +82,14 @@ fun SettingsScreen(
                 singleLine = true,
                 shape = theme.cardShape
             )
-            
+
             Spacer(modifier = Modifier.height(theme.verticalSpacing))
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Spacer(modifier = Modifier.height(theme.verticalSpacing))
-            
+
             Text("App Theme", style = theme.titleStyle.copy(fontSize = 20.sp), color = MaterialTheme.colorScheme.primary)
             Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
-            
+
             Column {
                 availableThemes.forEach { definition ->
                     ThemeOption(
@@ -154,20 +166,27 @@ fun SettingsScreen(
             Text("Game View", style = theme.titleStyle.copy(fontSize = 20.sp), color = MaterialTheme.colorScheme.primary)
             Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
 
-            Column {
-                SelectionOption(
-                    title = "No tracking",
-                    selected = state.gameTrackingMode == GameTrackingMode.LOW_DETAIL,
-                    onSelect = { onEvent(CharacterEvent.ChangeGameTrackingMode(GameTrackingMode.LOW_DETAIL)) },
-                    theme = theme,
-                    subtitle = "Stats at a glance, track resources physically"
-                )
-                SelectionOption(
-                    title = "Track Resources in App",
-                    selected = state.gameTrackingMode == GameTrackingMode.FULL_TRACKING,
-                    onSelect = { onEvent(CharacterEvent.ChangeGameTrackingMode(GameTrackingMode.FULL_TRACKING)) },
-                    theme = theme,
-                    subtitle = "Energy, moonstones, and ability used markers"
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        val newMode = if (state.gameTrackingMode == GameTrackingMode.FULL_TRACKING)
+                            GameTrackingMode.LOW_DETAIL else GameTrackingMode.FULL_TRACKING
+                        onEvent(CharacterEvent.ChangeGameTrackingMode(newMode))
+                    }
+                    .padding(vertical = theme.verticalSpacing / 4),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Enable resource tracking", style = theme.headerStyle.copy(fontSize = 18.sp))
+                    Text("Track energy, moonstones, and ability used markers in the app.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(
+                    checked = state.gameTrackingMode == GameTrackingMode.FULL_TRACKING,
+                    onCheckedChange = { enabled ->
+                        onEvent(CharacterEvent.ChangeGameTrackingMode(if (enabled) GameTrackingMode.FULL_TRACKING else GameTrackingMode.LOW_DETAIL))
+                    }
                 )
             }
 
@@ -193,27 +212,6 @@ fun SettingsScreen(
                     theme = theme,
                     subtitle = "Single column, expandable cards with full stats"
                 )
-            }
-
-            Spacer(modifier = Modifier.height(theme.verticalSpacing))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            Spacer(modifier = Modifier.height(theme.verticalSpacing))
-
-            Text("News", style = theme.titleStyle.copy(fontSize = 20.sp), color = MaterialTheme.colorScheme.primary)
-            Spacer(modifier = Modifier.height(theme.verticalSpacing / 4))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onEvent(CharacterEvent.SetAutoFetchNews(!state.autoFetchNews)) }
-                    .padding(vertical = theme.verticalSpacing / 4),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Auto-fetch news", style = theme.headerStyle.copy(fontSize = 18.sp))
-                    Text("Load the latest Moonstone news on startup.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Switch(checked = state.autoFetchNews, onCheckedChange = { onEvent(CharacterEvent.SetAutoFetchNews(it)) })
             }
 
             Spacer(modifier = Modifier.height(theme.verticalSpacing))
@@ -263,10 +261,10 @@ fun SettingsScreen(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Spacer(modifier = Modifier.height(theme.verticalSpacing))
 
-            Text("Data Updates", style = theme.titleStyle.copy(fontSize = 20.sp), color = MaterialTheme.colorScheme.primary)
+            Text("Sync & Updates", style = theme.titleStyle.copy(fontSize = 20.sp), color = MaterialTheme.colorScheme.primary)
             Spacer(modifier = Modifier.height(theme.verticalSpacing / 4))
             Text(
-                text = "Installed version: ${state.installedDataVersion.ifEmpty { "bundled" }}",
+                text = "Game data version: ${state.installedDataVersion.ifEmpty { "bundled" }}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -275,16 +273,16 @@ fun SettingsScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { onEvent(CharacterEvent.SetAutoCheckDataUpdates(!state.autoCheckDataUpdates)) }
+                    .clickable { onEvent(CharacterEvent.SetAutoSynchronise(!autoSynchronise)) }
                     .padding(vertical = theme.verticalSpacing / 4),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Auto-check for updates", style = theme.headerStyle.copy(fontSize = 18.sp))
-                    Text("Check for new game data on startup.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Synchronise updates", style = theme.headerStyle.copy(fontSize = 18.sp))
+                    Text("Auto-check for news, game data, and portrait updates on startup.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Switch(checked = state.autoCheckDataUpdates, onCheckedChange = { onEvent(CharacterEvent.SetAutoCheckDataUpdates(it)) })
+                Switch(checked = autoSynchronise, onCheckedChange = { onEvent(CharacterEvent.SetAutoSynchronise(it)) })
             }
 
             Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
@@ -297,57 +295,31 @@ fun SettingsScreen(
                 Text("Check for updates now", style = theme.buttonTextStyle)
             }
 
-            Spacer(modifier = Modifier.height(theme.verticalSpacing))
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        val newPref = if (state.imageDownloadPreference == ImageDownloadPreference.ENABLED)
-                            ImageDownloadPreference.DISABLED else ImageDownloadPreference.ENABLED
-                        onEvent(CharacterEvent.SetImageDownloadPreference(newPref))
-                    }
-                    .padding(vertical = theme.verticalSpacing / 4),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Download character portraits", style = theme.headerStyle.copy(fontSize = 18.sp))
-                    Text("Automatically check for new portrait images.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Switch(
-                    checked = state.imageDownloadPreference == ImageDownloadPreference.ENABLED,
-                    onCheckedChange = { enabled ->
-                        onEvent(CharacterEvent.SetImageDownloadPreference(if (enabled) ImageDownloadPreference.ENABLED else ImageDownloadPreference.DISABLED))
-                    }
-                )
-            }
-
             Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
 
             OutlinedButton(
                 onClick = { onEvent(CharacterEvent.DownloadCharacterImages) },
+                enabled = !state.isDownloadingImages,
                 modifier = Modifier.fillMaxWidth(),
                 shape = theme.cardShape
             ) {
-                Text("Download portraits now", style = theme.buttonTextStyle)
+                if (state.isDownloadingImages) {
+                    PortraitDownloadProgress(
+                        downloaded = state.imageDownloadedBytes,
+                        total = state.imageTotalBytes,
+                        speedBps = state.imageDownloadSpeedBps
+                    )
+                } else {
+                    Text("Download portraits now", style = theme.buttonTextStyle)
+                }
             }
 
-            Spacer(modifier = Modifier.height(theme.verticalSpacing * 2))
-
-            Button(
-                onClick = { onEvent(CharacterEvent.UpdateUserName(name)); onNavigateBack() },
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                shape = theme.cardShape
-            ) {
-                Text(
-                    text = "Save Settings",
-                    style = theme.buttonTextStyle
-                )
-            }
+            // Extra bottom padding so the FAB never covers the last item
+            Spacer(modifier = Modifier.height(88.dp))
         }
     }
 }
+
 
 @Composable
 fun SelectionOption(title: String, selected: Boolean, onSelect: () -> Unit, theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties, subtitle: String? = null) {

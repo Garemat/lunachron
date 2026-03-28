@@ -159,12 +159,12 @@ class MainActivity : ComponentActivity() {
                                 )
                             )
                             NavigationDrawerItem(
-                                icon = { Icon(Icons.Default.Settings, contentDescription = null) },
-                                label = { Text("Settings", style = theme.headerStyle.copy(fontSize = 18.sp)) },
+                                icon = { Icon(Icons.Default.BarChart, contentDescription = null) },
+                                label = { Text("Stats", style = theme.headerStyle.copy(fontSize = 18.sp)) },
                                 selected = false,
                                 onClick = {
                                     scope.launch { drawerState.close() }
-                                    navController.navigate(Screen.Settings.route)
+                                    navController.navigate(Screen.Stats.route)
                                 },
                                 shape = theme.navItemShape,
                                 colors = NavigationDrawerItemDefaults.colors(
@@ -172,13 +172,15 @@ class MainActivity : ComponentActivity() {
                                     unselectedTextColor = MaterialTheme.colorScheme.primary
                                 )
                             )
-                             NavigationDrawerItem(
-                                icon = { Icon(Icons.Default.BarChart, contentDescription = null) },
-                                label = { Text("Stats", style = theme.headerStyle.copy(fontSize = 18.sp)) },
+                            Spacer(Modifier.weight(1f))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                            NavigationDrawerItem(
+                                icon = { Icon(Icons.Default.Settings, contentDescription = null) },
+                                label = { Text("Settings", style = theme.headerStyle.copy(fontSize = 18.sp)) },
                                 selected = false,
                                 onClick = {
                                     scope.launch { drawerState.close() }
-                                    navController.navigate(Screen.Stats.route)
+                                    navController.navigate(Screen.Settings.route)
                                 },
                                 shape = theme.navItemShape,
                                 colors = NavigationDrawerItemDefaults.colors(
@@ -729,7 +731,12 @@ private fun DataUpdateDialogs(
                     shape = theme.cardShape
                 ) {
                     if (state.isDownloadingImages) {
-                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                        PortraitDownloadProgress(
+                            downloaded = state.imageDownloadedBytes,
+                            total = state.imageTotalBytes,
+                            speedBps = state.imageDownloadSpeedBps,
+                            tintOnPrimary = true
+                        )
                     } else {
                         Text("Download")
                     }
@@ -764,7 +771,12 @@ private fun DataUpdateDialogs(
                     shape = theme.cardShape
                 ) {
                     if (state.isDownloadingImages) {
-                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                        PortraitDownloadProgress(
+                            downloaded = state.imageDownloadedBytes,
+                            total = state.imageTotalBytes,
+                            speedBps = state.imageDownloadSpeedBps,
+                            tintOnPrimary = true
+                        )
                     } else {
                         Text("Download")
                     }

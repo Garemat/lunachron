@@ -914,3 +914,43 @@ fun CharacterFilterHeader(searchQuery: String, onSearchQueryChange: (String) -> 
         }
     }
 }
+
+/**
+ * Inline progress indicator shown inside the "Download portraits" button while
+ * a portrait download is in progress. Displays downloaded/total MB, current
+ * speed, and an estimated time to completion.
+ *
+ * @param tintOnPrimary When true, colours the spinner and text with
+ *   [MaterialTheme.colorScheme.onPrimary] (suitable for use inside a [Button]).
+ */
+@Composable
+fun PortraitDownloadProgress(
+    downloaded: Long,
+    total: Long,
+    speedBps: Long,
+    tintOnPrimary: Boolean = false
+) {
+    val tint = if (tintOnPrimary) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+    val downloadedMb = downloaded / (1024f * 1024f)
+    val totalMb = if (total > 0) total / (1024f * 1024f) else null
+    val speedMbps = speedBps / (1024f * 1024f)
+
+    val progressText = buildString {
+        append("%.1f MB".format(downloadedMb))
+        if (totalMb != null) append(" / %.1f MB".format(totalMb))
+        if (speedBps > 0) {
+            append("  •  %.2f MB/s".format(speedMbps))
+            if (totalMb != null) {
+                val remaining = (total - downloaded).coerceAtLeast(0L)
+                val etaSecs = remaining / speedBps
+                val eta = if (etaSecs < 60) "${etaSecs}s" else "${etaSecs / 60}m ${etaSecs % 60}s"
+                append("  •  $eta")
+            }
+        }
+    }
+
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = tint)
+        Text(progressText, style = MaterialTheme.typography.bodySmall, color = tint)
+    }
+}
