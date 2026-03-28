@@ -75,6 +75,9 @@ sealed interface CharacterEvent {
     data object CheckForAppUpdate : CharacterEvent
     data object DismissAppUpdate : CharacterEvent
 
+    // Sync / auto-update (collapses news, data, and portrait checks into one toggle)
+    data class SetAutoSynchronise(val enabled: Boolean) : CharacterEvent
+
     // Image download events
     data class SetImageDownloadPreference(val pref: ImageDownloadPreference) : CharacterEvent
     data object DownloadCharacterImages : CharacterEvent

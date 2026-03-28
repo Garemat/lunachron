@@ -11,6 +11,8 @@ import io.ktor.client.engine.android.Android
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
+import io.ktor.http.HttpHeaders
+import io.ktor.utils.io.readAvailable
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -106,17 +108,50 @@ class DataUpdateRepository(
         Log.d(TAG, "applyDataUpdate: complete, version now ${release.tagName}")
     }
 
-    suspend fun downloadImages(releaseTag: String) {
+    suspend fun downloadImages(
+        releaseTag: String,
+        onProgress: (downloaded: Long, total: Long, speedBps: Long) -> Unit = { _, _, _ -> }
+    ) {
         val url = "https://api.github.com/repos/$DATA_REPO/releases/tags/$releaseTag"
         val body = client.get(url).bodyAsText()
         val release = json.decodeFromString<ApiRelease>(body)
         val zipAsset = release.assets.firstOrNull { it.name == "character_images.zip" }
             ?: throw IllegalStateException("character_images.zip not found in release $releaseTag")
 
-        val zipBytes = client.get(zipAsset.browserDownloadUrl).readBytes()
-        val imagesDir = File(context.filesDir, "images").also { it.mkdirs() }
+        val response = client.get(zipAsset.browserDownloadUrl)
+        val contentLength = response.headers[HttpHeaders.ContentLength]?.toLongOrNull() ?: -1L
+        val channel = response.bodyAsChannel()
 
-        ZipInputStream(zipBytes.inputStream()).use { zis ->
+        val tempZip = File(context.cacheDir, "portraits_temp.zip")
+        var downloaded = 0L
+        var speedWindowStart = System.currentTimeMillis()
+        var speedWindowBytes = 0L
+        val readBuffer = ByteArray(DEFAULT_BUFFER_SIZE)
+
+        tempZip.outputStream().use { out ->
+            while (!channel.isClosedForRead) {
+                val read = channel.readAvailable(readBuffer)
+                if (read <= 0) break
+                out.write(readBuffer, 0, read)
+                downloaded += read
+                speedWindowBytes += read
+                val now = System.currentTimeMillis()
+                val elapsed = now - speedWindowStart
+                val speedBps = if (elapsed >= 500L) {
+                    val bps = speedWindowBytes * 1000L / elapsed
+                    speedWindowStart = now
+                    speedWindowBytes = 0L
+                    bps
+                } else -1L // sentinel: don't update speed yet
+                onProgress(downloaded, contentLength, speedBps)
+            }
+        }
+
+        // Report 100% before extracting
+        onProgress(downloaded, contentLength, 0L)
+
+        val imagesDir = File(context.filesDir, "images").also { it.mkdirs() }
+        ZipInputStream(tempZip.inputStream()).use { zis ->
             var entry = zis.nextEntry
             while (entry != null) {
                 if (!entry.isDirectory) {
@@ -126,6 +161,7 @@ class DataUpdateRepository(
                 entry = zis.nextEntry
             }
         }
+        tempZip.delete()
         prefs.edit { putString(KEY_IMAGE_VERSION, releaseTag) }
     }
 

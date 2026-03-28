@@ -466,6 +466,17 @@ class CharacterViewModel(
             }
             CharacterEvent.DismissAppUpdate -> _state.update { it.copy(pendingAppUpdate = null) }
 
+            // Sync toggle — collapses news, data, and portrait auto-update into one setting
+            is CharacterEvent.SetAutoSynchronise -> {
+                val enabled = event.enabled
+                val pref = if (enabled) ImageDownloadPreference.ENABLED else ImageDownloadPreference.DISABLED
+                _state.update { it.copy(autoFetchNews = enabled, autoCheckDataUpdates = enabled, imageDownloadPreference = pref) }
+                prefs.edit { putBoolean("auto_fetch_news", enabled) }
+                dataUpdateRepository.persistAutoCheck(enabled)
+                dataUpdateRepository.persistImagePreference(pref)
+                if (enabled) fetchNews()
+            }
+
             // Data update events
             is CharacterEvent.SetAutoCheckDataUpdates -> {
                 _state.update { it.copy(autoCheckDataUpdates = event.enabled) }
@@ -503,7 +514,7 @@ class CharacterViewModel(
             }
             CharacterEvent.DownloadCharacterImages -> {
                 viewModelScope.launch(Dispatchers.IO) {
-                    _state.update { it.copy(isDownloadingImages = true) }
+                    _state.update { it.copy(isDownloadingImages = true, imageDownloadedBytes = 0L, imageTotalBytes = -1L, imageDownloadSpeedBps = 0L) }
                     try {
                         val tag = _state.value.pendingImageUpdate?.takeIf { it != "FIRST_LAUNCH" }
                             ?: dataUpdateRepository.checkForImageUpdate()
@@ -512,13 +523,21 @@ class CharacterViewModel(
                                 dataUpdateRepository.checkForDataUpdate()?.tagName
                             }
                         if (tag != null) {
-                            dataUpdateRepository.downloadImages(tag)
+                            dataUpdateRepository.downloadImages(tag) { downloaded, total, speedBps ->
+                                _state.update { s ->
+                                    s.copy(
+                                        imageDownloadedBytes = downloaded,
+                                        imageTotalBytes = total,
+                                        imageDownloadSpeedBps = if (speedBps >= 0L) speedBps else s.imageDownloadSpeedBps
+                                    )
+                                }
+                            }
                         }
                         _state.update { it.copy(pendingImageUpdate = null) }
                     } catch (e: Exception) {
                         _state.update { it.copy(errorMessage = "Image download failed: ${e.message}") }
                     } finally {
-                        _state.update { it.copy(isDownloadingImages = false) }
+                        _state.update { it.copy(isDownloadingImages = false, imageDownloadedBytes = 0L, imageTotalBytes = -1L, imageDownloadSpeedBps = 0L) }
                     }
                 }
             }

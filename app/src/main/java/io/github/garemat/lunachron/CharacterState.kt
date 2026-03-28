@@ -172,13 +172,16 @@ data class CharacterState(
     val activeCampaign: Campaign? = null,
 
     // Data / image update state
-    val autoCheckDataUpdates: Boolean = true,
+    val autoCheckDataUpdates: Boolean = false,
     val installedDataVersion: String = "",
     val pendingDataUpdate: GitHubRelease? = null,
     val isInstallingDataUpdate: Boolean = false,
     val imageDownloadPreference: ImageDownloadPreference = ImageDownloadPreference.PROMPT,
     val pendingImageUpdate: String? = null,
     val isDownloadingImages: Boolean = false,
+    val imageDownloadedBytes: Long = 0L,
+    val imageTotalBytes: Long = -1L,
+    val imageDownloadSpeedBps: Long = 0L,
 
     // App update state (opt-in, off by default — F-Droid manages updates for F-Droid installs)
     val autoCheckAppUpdates: Boolean = false,
