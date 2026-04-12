@@ -9,10 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Themes can now specify preferred game layout and tracking modes; switching themes applies the theme's preference unless you've already customised those settings under that theme.
+- Favourite troupes: tap the star on any troupe card to mark it as a favourite. Favourites appear in a Quick Start bar at the top of the Home screen for one-tap game launch.
+- Quick Start bar auto-hides when scrolling through the news feed and reappears when you scroll back to the top.
+- New local game setup flow: Player Count → Troupe Selection → Ready to Play. Troupe selection uses a bottom sheet with character portrait previews. Troupes with more characters than the game size allows show an inline character picker for trimming the roster.
 
 ### Changed
-- Bumped Ktor from 3.0.1 to 3.4.1
-- Bumped Kotlin from 2.3.10 to 2.3.20
+- Game setup entry point redesigned: "Local Game" is the primary hero card; multiplayer and tournament modes are secondary.
+- Removed "Skip Game Mode Selection" and "Only track 1 player" settings — the new setup flow handles this inline.
+- Multiplayer and tournament mode buttons now show an "upcoming update" notice instead of launching the (work-in-progress) flow.
 
 ## [2.2.7] - 2026-03-19
 

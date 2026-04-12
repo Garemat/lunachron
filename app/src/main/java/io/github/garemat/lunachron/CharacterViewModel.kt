@@ -91,7 +91,6 @@ class CharacterViewModel(
         useSinglePlayerMode = prefs.getBoolean("use_single_player_mode", false),
         hasSeenGlobalTutorial = prefs.getBoolean("has_seen_global_tutorial", false),
         gameTrackingMode = GameTrackingMode.valueOf(prefs.getString("game_tracking_mode", GameTrackingMode.LOW_DETAIL.name) ?: GameTrackingMode.LOW_DETAIL.name),
-        gameLayoutMode = GameLayoutMode.valueOf(prefs.getString("game_layout_mode", GameLayoutMode.COMPACT_GRID.name) ?: GameLayoutMode.COMPACT_GRID.name),
         newsItems = loadCachedNews(),
         autoFetchNews = prefs.getBoolean("auto_fetch_news", false),
         autoCheckDataUpdates = dataUpdateRepository.loadAutoCheck(),
@@ -277,6 +276,10 @@ class CharacterViewModel(
     fun onEvent(event: CharacterEvent) {
         when (event) {
             is CharacterEvent.DeleteTroupe -> viewModelScope.launch { repository.deleteTroupe(event.troupe) }
+            is CharacterEvent.ToggleTroupeFavourite -> viewModelScope.launch {
+                val troupe = state.value.troupes.find { it.id == event.troupeId } ?: return@launch
+                repository.upsertTroupe(troupe.copy(isFavourite = !troupe.isFavourite))
+            }
             is CharacterEvent.EditTroupe -> {
                 editingTroupeId = event.troupe.id; newTroupeName = event.troupe.troupeName
                 selectedTroupeFaction = event.troupe.faction; selectedCharacterIds = event.troupe.characterIds.toSet()
@@ -295,18 +298,9 @@ class CharacterViewModel(
             is CharacterEvent.SetActiveTheme -> {
                 _state.update { it.copy(activeThemeId = event.themeId) }
                 prefs.edit { putString("app_theme", event.themeId) }
-                // Clear override flags so theme preferences apply fresh on this switch.
-                prefs.edit {
-                    putBoolean("layout_mode_overridden", false)
-                    putBoolean("tracking_mode_overridden", false)
-                }
+                // Clear override flag so theme preferences apply fresh on this switch.
+                prefs.edit { putBoolean("tracking_mode_overridden", false) }
                 val gp = runCatching { themeRepository.resolve(event.themeId).gameplayPreferences }.getOrNull()
-                gp?.defaultLayoutMode?.let { name ->
-                    runCatching { GameLayoutMode.valueOf(name) }.getOrNull()?.let { mode ->
-                        _state.update { it.copy(gameLayoutMode = mode) }
-                        prefs.edit { putString("game_layout_mode", mode.name) }
-                    }
-                }
                 gp?.defaultTrackingMode?.let { name ->
                     runCatching { GameTrackingMode.valueOf(name) }.getOrNull()?.let { mode ->
                         _state.update { it.copy(gameTrackingMode = mode) }
@@ -357,13 +351,6 @@ class CharacterViewModel(
                 prefs.edit {
                     putString("game_tracking_mode", event.mode.name)
                     putBoolean("tracking_mode_overridden", true)
-                }
-            }
-            is CharacterEvent.ChangeGameLayoutMode -> {
-                _state.update { it.copy(gameLayoutMode = event.mode) }
-                prefs.edit {
-                    putString("game_layout_mode", event.mode.name)
-                    putBoolean("layout_mode_overridden", true)
                 }
             }
             is CharacterEvent.AddSummonedCharacter -> {

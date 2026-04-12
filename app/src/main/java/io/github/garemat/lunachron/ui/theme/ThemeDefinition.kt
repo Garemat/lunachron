@@ -146,10 +146,9 @@ data class GameColorDefinition(
     val catastrophe: String? = null,
 )
 
-/** Preferred game layout and tracking modes applied when the user switches to this theme. */
+/** Preferred game tracking mode applied when the user switches to this theme. */
 @Serializable
 data class GameplayPreferencesDefinition(
-    val defaultLayoutMode: String? = null,   // "COMPACT_GRID" | "DETAILED_LIST"
     val defaultTrackingMode: String? = null, // "LOW_DETAIL" | "FULL_TRACKING"
 )
 

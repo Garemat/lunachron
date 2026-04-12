@@ -1,156 +1,193 @@
 package io.github.garemat.lunachron.ui
 
-import androidx.compose.animation.*
-import androidx.compose.foundation.Image
+import android.widget.Toast
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.garemat.lunachron.HostMode
-import io.github.garemat.lunachron.R
 import io.github.garemat.lunachron.ui.theme.LocalAppThemeProperties
 
 @Composable
-fun SetupModeSelection(
+fun GameModeHeroUI(
     onLocalSelected: () -> Unit,
     onHostSelected: () -> Unit,
     onJoinSelected: () -> Unit,
     onJoinTournamentSelected: () -> Unit,
     onTargetPositioned: (String, LayoutCoordinates) -> Unit = { _, _ -> }
 ) {
-    val isMoonstone = LocalAppThemeProperties.current.showExpandedStatsHeader
-    
-    Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = "Choose Game Mode",
-            style = if (isMoonstone) MaterialTheme.typography.displayLarge.copy(fontSize = 32.sp) else MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            color = if (isMoonstone) MaterialTheme.colorScheme.primary else Color.Unspecified
-        )
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        SetupOptionCard(
-            title = "Local Game",
-            description = "Play on a single device with 2-4 players.",
-            icon = Icons.Default.Smartphone,
-            backgroundType = "commonwealth",
-            onClick = onLocalSelected,
-            modifier = Modifier.onGloballyPositioned { onTargetPositioned("LocalGameOption", it) }
-        )
-        
-        Spacer(modifier = Modifier.height(12.dp))
-        
-        SetupOptionCard(
-            title = "Host Game",
-            description = "Start a multiplayer session for others to join.",
-            icon = Icons.Default.WifiTethering,
-            backgroundType = "dominion",
-            onClick = onHostSelected
-        )
-        
-        Spacer(modifier = Modifier.height(12.dp))
-        
-        SetupOptionCard(
-            title = "Join Game",
-            description = "Connect to an existing multiplayer session nearby.",
-            icon = Icons.Default.Wifi,
-            backgroundType = "leshavult",
-            onClick = onJoinSelected
-        )
+    val theme = LocalAppThemeProperties.current
+    val context = LocalContext.current
 
-        Spacer(modifier = Modifier.height(12.dp))
-        
-        SetupOptionCard(
-            title = "Join Local Tournament",
-            description = "Connect to a tournament session nearby.",
-            icon = Icons.Default.EmojiEvents,
-            backgroundType = "shades",
-            onClick = onJoinTournamentSelected
+    // Cycling faction colour tint for hero card background
+    val infiniteTransition = rememberInfiniteTransition(label = "heroFaction")
+    val phase by infiniteTransition.animateFloat(
+        initialValue = 0f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(14000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "heroPhase"
+    )
+    val factionTints = remember {
+        listOf(
+            Color(0xFFC0392B), // Dominion
+            Color(0xFF4A90D9), // Commonwealth
+            Color(0xFF27AE60), // Leshavult
+            Color(0xFF8E44AD), // Shades
         )
+    }
+    val tintIndex = ((phase * 4f).toInt()).coerceIn(0, 3)
+    val nextTintIndex = (tintIndex + 1) % 4
+    val tintFraction = (phase * 4f) - tintIndex.toFloat()
+    val heroTint = lerp(factionTints[tintIndex], factionTints[nextTintIndex], tintFraction)
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        Text(
+            "Choose Mode",
+            style = MaterialTheme.typography.labelSmall.copy(
+                letterSpacing = 3.sp, fontWeight = FontWeight.Bold
+            ),
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
+            modifier = Modifier.padding(horizontal = 2.dp, vertical = 4.dp)
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // ── Hero card — Local Game ───────────────────────────────────────────
+        Card(
+            onClick = onLocalSelected,
+            modifier = Modifier.fillMaxWidth()
+                .onGloballyPositioned { onTargetPositioned("LocalGameOption", it) },
+            shape = theme.cardShape,
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Box(
+                modifier = Modifier.fillMaxWidth().background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            heroTint.copy(alpha = 0.10f),
+                            heroTint.copy(alpha = 0.20f)
+                        ),
+                        start = Offset(0f, 0f),
+                        end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
+                    )
+                )
+            ) {
+                Column(modifier = Modifier.padding(start = 22.dp, top = 24.dp, end = 22.dp, bottom = 20.dp)) {
+                    Text("⚔️", style = MaterialTheme.typography.headlineLarge)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text("Local Game", style = theme.titleStyle.copy(fontSize = 26.sp))
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        "Play at the table with friends",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(18.dp))
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.20f),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 7.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                "Begin Setup",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 1.sp
+                                ),
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowForward,
+                                contentDescription = null,
+                                modifier = Modifier.size(12.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            "Other Modes",
+            style = MaterialTheme.typography.labelSmall.copy(
+                letterSpacing = 2.5.sp, fontWeight = FontWeight.Bold
+            ),
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f),
+            modifier = Modifier.padding(horizontal = 2.dp, vertical = 4.dp)
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+
+        // ── Secondary modes ─────────────────────────────────────────────────
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = theme.cardShape,
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        ) {
+            Column {
+                SecondaryModeRow("📡", "Host Game", "Invite players over Wi-Fi") {
+                    Toast.makeText(context, "These features are getting improved in an upcoming update", Toast.LENGTH_SHORT).show()
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                SecondaryModeRow("🔗", "Join Game", "Connect to a hosted session") {
+                    Toast.makeText(context, "These features are getting improved in an upcoming update", Toast.LENGTH_SHORT).show()
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                SecondaryModeRow("🏆", "Local Tournament", "Round-robin bracket play") {
+                    Toast.makeText(context, "These features are getting improved in an upcoming update", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
     }
 }
 
 @Composable
-fun SetupOptionCard(
-    title: String,
-    description: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    backgroundType: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val isMoonstone = LocalAppThemeProperties.current.showExpandedStatsHeader
-    val backgroundRes = when (backgroundType) {
-        "commonwealth" -> R.drawable.commonwealth
-        "dominion" -> R.drawable.dominion
-        "leshavult" -> R.drawable.leshavult
-        "shades" -> R.drawable.shades
-        else -> 0
-    }
-    
-    Card(
-        onClick = onClick,
-        modifier = modifier.fillMaxWidth().height(80.dp),
-        shape = RoundedCornerShape(if (isMoonstone) 0.dp else 12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isMoonstone) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (isMoonstone) 2.dp else 4.dp)
+private fun SecondaryModeRow(icon: String, title: String, description: String, onClick: () -> Unit) {
+    val theme = LocalAppThemeProperties.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .alpha(0.5f)
+            .clickable { onClick() }
+            .padding(horizontal = 16.dp, vertical = 13.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            if (isMoonstone && backgroundRes != 0) {
-                Image(
-                    painter = painterResource(id = backgroundRes),
-                    contentDescription = null,
-                    modifier = Modifier.matchParentSize().alpha(0.1f),
-                    contentScale = ContentScale.Crop
-                )
-            }
-            Row(
-                modifier = Modifier.fillMaxSize().padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    modifier = Modifier.size(32.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-                Spacer(modifier = Modifier.width(16.dp))
-                Column {
-                    Text(
-                        text = title, 
-                        style = if (isMoonstone) MaterialTheme.typography.displayLarge.copy(fontSize = 20.sp) else MaterialTheme.typography.titleLarge, 
-                        fontWeight = FontWeight.Bold,
-                        color = if (isMoonstone) MaterialTheme.colorScheme.primary else androidx.compose.ui.graphics.Color.Unspecified
-                    )
-                    Text(
-                        text = description, 
-                        style = MaterialTheme.typography.bodySmall, 
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
+        Text(icon, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.width(26.dp))
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = theme.headerStyle.copy(fontSize = 13.sp))
+            Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+        Text("›", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
