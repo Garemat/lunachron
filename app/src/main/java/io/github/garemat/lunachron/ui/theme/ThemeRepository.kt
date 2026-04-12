@@ -323,7 +323,6 @@ private fun CharacterCardDefinition?.mergeOver(base: CharacterCardDefinition?) =
 
 private fun GameplayPreferencesDefinition?.mergeOver(base: GameplayPreferencesDefinition?) =
     GameplayPreferencesDefinition(
-        defaultLayoutMode   = this?.defaultLayoutMode   ?: base?.defaultLayoutMode,
         defaultTrackingMode = this?.defaultTrackingMode ?: base?.defaultTrackingMode,
     )
 

@@ -1,6 +1,8 @@
 package io.github.garemat.lunachron.ui
 
 import androidx.compose.animation.*
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -26,6 +28,8 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.LayoutCoordinates
@@ -57,11 +61,15 @@ import java.io.File
 // --- Base Utilities ---
 
 /**
- * Circular character portrait. Prefers {imageName}-head.png (zoomed head crop) for the
- * circular display, then falls back to the full portrait variants, then shows first initial.
+ * Character portrait. Prefers {imageName}-head.png (zoomed head crop), then falls back to
+ * full portrait variants, then shows the first initial.
+ *
+ * @param shape Clip shape applied to the portrait. Defaults to [CircleShape] for list/roster
+ *              contexts; pass [RectangleShape] (or any other shape) for the game grid cells
+ *              where the natural PNG shape is preferred.
  */
 @Composable
-fun CharacterPortrait(character: Character, size: Dp, modifier: Modifier = Modifier) {
+fun CharacterPortrait(character: Character, size: Dp, modifier: Modifier = Modifier, shape: Shape = CircleShape) {
     val context = LocalContext.current
     val imageFile = remember(character.imageName) {
         character.imageName?.let { name ->
@@ -71,7 +79,7 @@ fun CharacterPortrait(character: Character, size: Dp, modifier: Modifier = Modif
         }
     }
     Box(
-        modifier = modifier.size(size).clip(CircleShape),
+        modifier = modifier.size(size).clip(shape),
         contentAlignment = Alignment.Center
     ) {
         if (imageFile != null) {
@@ -415,7 +423,16 @@ fun CommonAbilityItem(name: String, description: String, searchQuery: String = "
 }
 
 @Composable
-fun CharacterFront(character: Character, searchQuery: String, onFlip: () -> Unit, onFlipPositioned: (LayoutCoordinates) -> Unit = {}) {
+fun CharacterFront(
+    character: Character,
+    searchQuery: String,
+    onFlip: () -> Unit,
+    onFlipPositioned: (LayoutCoordinates) -> Unit = {},
+    showHealthTracker: Boolean = true,
+    showSignatureLink: Boolean = true,
+    abilityUsedStates: Map<String, Boolean>? = null,
+    onAbilityUsedChange: ((String, Boolean) -> Unit)? = null
+) {
     val theme = LocalAppThemeProperties.current
     Column {
         if (theme.showExpandedStatsHeader) MoonstoneHeader(character, searchQuery)
@@ -430,21 +447,57 @@ fun CharacterFront(character: Character, searchQuery: String, onFlip: () -> Unit
         val passiveAbilities = character.abilities.filter { it.abilityType == "Passive" }
         val activeAbilities = character.abilities.filter { it.abilityType == "Active" }
         val arcaneAbilities = character.abilities.filter { it.abilityType == "Arcane" }
-        passiveAbilities.forEach { CommonAbilityItem(it.name, it.description, searchQuery, it.oncePerTurn, it.oncePerGame, passive = true) }
-        if (activeAbilities.isNotEmpty()) { AbilityTypeSeparator(); activeAbilities.forEach { CommonAbilityItem("${it.name} (${it.energyCost ?: 0}) ${it.range ?: ""}", it.description, searchQuery, it.oncePerTurn, it.oncePerGame, showColon = false) } }
-        if (arcaneAbilities.isNotEmpty()) { AbilityTypeSeparator(); arcaneAbilities.forEach { CommonAbilityItem("${it.name} (${it.energyCost ?: 0}) ${it.range ?: ""}", buildArcaneDescription(it), searchQuery, it.oncePerTurn, it.oncePerGame, showColon = false) } }
-        character.signatureMove?.let { sigMove ->
-            Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
-            Row(
-                modifier = Modifier.fillMaxWidth().clickable { onFlip() }.onGloballyPositioned { onFlipPositioned(it) },
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(text = buildAnnotatedString { append(if (theme.showExpandedStatsHeader) "Signature Move on a " else "Signature Move: "); withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { appendWithHighlight(if (theme.showExpandedStatsHeader) sigMove.upgradeFor else sigMove.name, searchQuery) }; append(".") }, style = MaterialTheme.typography.bodyMedium, fontStyle = FontStyle.Italic, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.secondary)
-                Icon(imageVector = Icons.Default.KeyboardArrowRight, contentDescription = "View signature move", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.secondary)
-            }
-            Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
+        passiveAbilities.forEach { ability ->
+            CommonAbilityItem(
+                ability.name, ability.description, searchQuery, ability.oncePerTurn, ability.oncePerGame,
+                passive = true,
+                isUsed = abilityUsedStates?.get(ability.name) ?: false,
+                onUsedChange = if (abilityUsedStates != null) { used -> onAbilityUsedChange?.invoke(ability.name, used) } else null,
+                isEditable = abilityUsedStates != null
+            )
         }
-        HealthTracker(character.health, character.health, character.energyTrack, {}, isEditable = false)
+        if (activeAbilities.isNotEmpty()) {
+            AbilityTypeSeparator()
+            activeAbilities.forEach { ability ->
+                CommonAbilityItem(
+                    "${ability.name} (${ability.energyCost ?: 0}) ${ability.range ?: ""}",
+                    ability.description, searchQuery, ability.oncePerTurn, ability.oncePerGame,
+                    showColon = false,
+                    isUsed = abilityUsedStates?.get(ability.name) ?: false,
+                    onUsedChange = if (abilityUsedStates != null) { used -> onAbilityUsedChange?.invoke(ability.name, used) } else null,
+                    isEditable = abilityUsedStates != null
+                )
+            }
+        }
+        if (arcaneAbilities.isNotEmpty()) {
+            AbilityTypeSeparator()
+            arcaneAbilities.forEach { ability ->
+                CommonAbilityItem(
+                    "${ability.name} (${ability.energyCost ?: 0}) ${ability.range ?: ""}",
+                    buildArcaneDescription(ability), searchQuery, ability.oncePerTurn, ability.oncePerGame,
+                    showColon = false,
+                    isUsed = abilityUsedStates?.get(ability.name) ?: false,
+                    onUsedChange = if (abilityUsedStates != null) { used -> onAbilityUsedChange?.invoke(ability.name, used) } else null,
+                    isEditable = abilityUsedStates != null
+                )
+            }
+        }
+        if (showSignatureLink) {
+            character.signatureMove?.let { sigMove ->
+                Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
+                Row(
+                    modifier = Modifier.fillMaxWidth().clickable { onFlip() }.onGloballyPositioned { onFlipPositioned(it) },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(text = buildAnnotatedString { append(if (theme.showExpandedStatsHeader) "Signature Move on a " else "Signature Move: "); withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { appendWithHighlight(if (theme.showExpandedStatsHeader) sigMove.upgradeFor else sigMove.name, searchQuery) }; append(".") }, style = MaterialTheme.typography.bodyMedium, fontStyle = FontStyle.Italic, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.secondary)
+                    Icon(imageVector = Icons.Default.KeyboardArrowRight, contentDescription = "View signature move", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.secondary)
+                }
+                Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
+            }
+        }
+        if (showHealthTracker) {
+            HealthTracker(character.health, character.health, character.energyTrack, {}, isEditable = false)
+        }
         Text(text = "Base: ${character.baseSize}", style = MaterialTheme.typography.labelSmall, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End)
     }
 }
@@ -495,7 +548,7 @@ private fun MoonstoneStats(character: Character) {
 }
 
 @Composable
-fun CharacterBack(character: Character, searchQuery: String, onFlip: () -> Unit, onFlipPositioned: (LayoutCoordinates) -> Unit = {}) {
+fun CharacterBack(character: Character, searchQuery: String, onFlip: () -> Unit, onFlipPositioned: (LayoutCoordinates) -> Unit = {}, showBackLink: Boolean = true) {
     val theme = LocalAppThemeProperties.current
     Column {
         val sigMove = character.signatureMove
@@ -520,14 +573,16 @@ fun CharacterBack(character: Character, searchQuery: String, onFlip: () -> Unit,
                 if (sigMove.extraText.isNotEmpty()) Text(text = parseAbilityDescription(sigMove.extraText, searchQuery), style = MaterialTheme.typography.bodyMedium, inlineContent = getMoonstoneInlineContent())
                 if (sigMove.endStepEffect.isNotEmpty()) Text(text = buildAnnotatedString { withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("End Step Effect: ") }; append(parseAbilityDescription(sigMove.endStepEffect, searchQuery)) }, style = MaterialTheme.typography.bodyMedium, inlineContent = getMoonstoneInlineContent())
             }
-            Spacer(modifier = Modifier.height(theme.verticalSpacing))
-            Row(
-                modifier = Modifier.fillMaxWidth().clickable { onFlip() },
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
-            ) {
-                Icon(imageVector = Icons.Default.KeyboardArrowLeft, contentDescription = "Back to character stats", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.secondary)
-                Text(text = "Character stats", style = MaterialTheme.typography.labelMedium, fontStyle = FontStyle.Italic, color = MaterialTheme.colorScheme.secondary)
+            if (showBackLink) {
+                Spacer(modifier = Modifier.height(theme.verticalSpacing))
+                Row(
+                    modifier = Modifier.fillMaxWidth().clickable { onFlip() },
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(imageVector = Icons.Default.KeyboardArrowLeft, contentDescription = "Back to character stats", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.secondary)
+                    Text(text = "Character stats", style = MaterialTheme.typography.labelMedium, fontStyle = FontStyle.Italic, color = MaterialTheme.colorScheme.secondary)
+                }
             }
         }
     }
@@ -536,18 +591,7 @@ fun CharacterBack(character: Character, searchQuery: String, onFlip: () -> Unit,
 @Composable
 fun CommonCharacterCard(character: Character, searchQuery: String, isExpanded: Boolean, onExpandClick: () -> Unit, modifier: Modifier = Modifier, cardTargetName: String = "CharacterCard", onPositioned: (String, LayoutCoordinates) -> Unit = { _, _ -> }, forceFlipped: Boolean? = null, selectionControl: @Composable (RowScope.() -> Unit)? = null, bottomContent: (@Composable () -> Unit)? = null) {
     var isFlippedState by remember { mutableStateOf(false) }; val isFlipped = forceFlipped ?: isFlippedState
-    val context = LocalContext.current
     val theme = LocalAppThemeProperties.current
-    val density = LocalDensity.current
-    var frontHeightPx by remember { mutableStateOf(0) }
-    val bgImageFile = remember(character.imageName) {
-        character.imageName?.let { name ->
-            val dir = File(context.filesDir, "images")
-            listOf("", ".jpg", ".png", ".webp").firstNotNullOfOrNull { ext ->
-                File(dir, "$name$ext").takeIf { it.exists() }
-            }
-        }
-    }
     ThemedCard(modifier = modifier.fillMaxWidth().animateContentSize().onGloballyPositioned { onPositioned(cardTargetName, it) }) {
         Column {
             Row(modifier = Modifier.fillMaxWidth().clickable { onExpandClick() }.padding(theme.cardContentPadding), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -564,30 +608,205 @@ fun CommonCharacterCard(character: Character, searchQuery: String, isExpanded: B
             }
             if (isExpanded) {
                 if (theme.showCardDivider) HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                Box(modifier = Modifier.fillMaxWidth()) {
-                    if (theme.showBackgroundImageOverlay && bgImageFile != null) {
-                        AsyncImage(model = bgImageFile, contentDescription = null, modifier = Modifier.matchParentSize().alpha(0.25f), contentScale = ContentScale.Crop)
-                    }
-                    // Faction symbol(s) peeking from top-right corner, half-clipped by card edge
-                    if (character.factions.isNotEmpty()) {
-                        MultiFactionIcon(
-                            factions = character.factions,
-                            size = 64.dp,
-                            modifier = Modifier.align(Alignment.TopEnd).offset(x = 32.dp)
+                CharacterCardContent(
+                    character = character,
+                    searchQuery = searchQuery,
+                    isFlipped = isFlipped,
+                    onFlip = { isFlippedState = !isFlippedState },
+                    modifier = Modifier.fillMaxWidth(),
+                    animateFlip = true,
+                    showBackgroundImage = theme.showBackgroundImageOverlay,
+                    showHealthTracker = true,
+                    onFlipPositioned = { onPositioned("FlipButton", it) }
+                )
+            }
+            bottomContent?.invoke()
+        }
+    }
+}
+
+/**
+ * Shared card content composable used by both the compendium list and the in-game character modal.
+ *
+ * @param isFlipped    Whether the back face should be showing (controlled externally).
+ * @param onFlip       Called when the user taps the flip link.
+ * @param animateFlip  If true, animates the 3-D flip; if false, switches instantly.
+ * @param showBackgroundImage  If true and the character has a portrait image, renders it as a
+ *                     translucent background behind the card content.
+ * @param showHealthTracker  Passed through to [CharacterFront] — shows health pips on the card.
+ * @param pinnedFooter Controls whether the card content area is scrollable. Both `true` and `false`
+ *                     render the Signature-Move / ← Character stats link as a pinned footer row
+ *                     separated by a [HorizontalDivider]. When `true`, the content area gets a
+ *                     `verticalScroll` wrapper and fills the available height — use this for
+ *                     fixed-height containers (game modal). When `false` (default), the card
+ *                     auto-sizes to its content — use this inside a [LazyColumn] (compendium).
+ */
+@Composable
+fun CharacterCardContent(
+    character: Character,
+    searchQuery: String,
+    isFlipped: Boolean,
+    onFlip: () -> Unit,
+    modifier: Modifier = Modifier,
+    animateFlip: Boolean = true,
+    showBackgroundImage: Boolean = false,
+    showHealthTracker: Boolean = true,
+    abilityUsedStates: Map<String, Boolean>? = null,
+    onAbilityUsedChange: ((String, Boolean) -> Unit)? = null,
+    pinnedFooter: Boolean = false,
+    onFlipPositioned: (LayoutCoordinates) -> Unit = {}
+) {
+    val theme = LocalAppThemeProperties.current
+    val context = LocalContext.current
+    val localDensity = LocalDensity.current
+
+    val bgImageFile = remember(character.imageName) {
+        character.imageName?.let { name ->
+            val dir = File(context.filesDir, "images")
+            listOf("", ".jpg", ".png", ".webp").firstNotNullOfOrNull { ext ->
+                File(dir, "$name$ext").takeIf { it.exists() }
+            }
+        }
+    }
+
+    val rotation by animateFloatAsState(
+        targetValue = if (isFlipped) 180f else 0f,
+        animationSpec = if (animateFlip) tween(durationMillis = 600) else tween(durationMillis = 0),
+        label = "cardFlip"
+    )
+    val showBack = rotation > 90f
+
+    var frontHeightPx by remember { mutableStateOf(0) }
+
+    Box(modifier = modifier) {
+        // Full-bleed background art
+        if (showBackgroundImage && bgImageFile != null) {
+            AsyncImage(
+                model = bgImageFile,
+                contentDescription = null,
+                modifier = Modifier.matchParentSize().alpha(0.25f),
+                contentScale = ContentScale.Crop
+            )
+        }
+        // Faction symbol(s) peeking from top-right corner, half-clipped by card edge
+        if (character.factions.isNotEmpty()) {
+            MultiFactionIcon(
+                factions = character.factions,
+                size = 64.dp,
+                modifier = Modifier.align(Alignment.TopEnd).offset(x = 32.dp)
+            )
+        }
+
+        // Flip-animated card content.
+        // density inside graphicsLayer {} refers to GraphicsLayerScope.density (a Float).
+        val flipModifier = Modifier
+            .padding(theme.cardContentPadding)
+            .then(if (pinnedFooter) Modifier.fillMaxSize() else Modifier)
+            .graphicsLayer { rotationY = rotation; cameraDistance = 12f * density }
+
+        Box(modifier = flipModifier) {
+            if (!showBack) {
+                // Front face.
+                // pinnedFooter = true  → content scrolls, footer anchored to bottom (modal)
+                // pinnedFooter = false → card auto-sizes; track height so back face never shrinks
+                Column(
+                    modifier = Modifier.fillMaxWidth()
+                        .then(if (pinnedFooter) Modifier.fillMaxSize() else Modifier.onSizeChanged { sz -> frontHeightPx = sz.height })
+                ) {
+                    Column(
+                        modifier = if (pinnedFooter)
+                            Modifier.weight(1f).verticalScroll(rememberScrollState())
+                        else
+                            Modifier.fillMaxWidth()
+                    ) {
+                        CharacterFront(
+                            character = character,
+                            searchQuery = searchQuery,
+                            onFlip = onFlip,
+                            onFlipPositioned = onFlipPositioned,
+                            showHealthTracker = showHealthTracker,
+                            showSignatureLink = false,
+                            abilityUsedStates = abilityUsedStates,
+                            onAbilityUsedChange = onAbilityUsedChange
                         )
                     }
-                    Box(
-                        modifier = Modifier
-                            .padding(theme.cardContentPadding)
-                            .then(if (!isFlipped) Modifier.onSizeChanged { frontHeightPx = it.height }
-                                  else Modifier.heightIn(min = with(density) { frontHeightPx.toDp() }))
+                    // Signature-move link — pinned at the visual bottom in both modes
+                    character.signatureMove?.let { sigMove ->
+                        HorizontalDivider()
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onFlip() }
+                                .padding(vertical = 8.dp, horizontal = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = buildAnnotatedString {
+                                    append(if (theme.showExpandedStatsHeader) "Signature Move on a " else "Signature Move: ")
+                                    withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
+                                        appendWithHighlight(if (theme.showExpandedStatsHeader) sigMove.upgradeFor else sigMove.name, searchQuery)
+                                    }
+                                    append(".")
+                                },
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontStyle = FontStyle.Italic,
+                                modifier = Modifier.weight(1f),
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                            Icon(imageVector = Icons.Default.KeyboardArrowRight, contentDescription = "View signature move", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.secondary)
+                        }
+                    }
+                }
+            } else {
+                // Back face — counter-rotate so text reads correctly after the Y flip.
+                Box(
+                    modifier = Modifier
+                        .graphicsLayer { rotationY = 180f }
+                        .then(if (pinnedFooter) Modifier.fillMaxSize() else Modifier.fillMaxWidth())
+                ) {
+                    // For compendium (pinnedFooter=false): Column is at least as tall as the front
+                    // face was (heightIn) and uses SpaceBetween to push the footer to the visual
+                    // bottom even when the back content is shorter than the front.
+                    Column(
+                        modifier = if (pinnedFooter)
+                            Modifier.fillMaxSize()
+                        else
+                            Modifier.fillMaxWidth().heightIn(min = with(localDensity) { frontHeightPx.toDp() }),
+                        verticalArrangement = if (pinnedFooter) Arrangement.Top else Arrangement.SpaceBetween
                     ) {
-                        if (!isFlipped) CharacterFront(character = character, searchQuery = searchQuery, onFlip = { isFlippedState = true }, onFlipPositioned = { onPositioned("FlipButton", it) })
-                        else CharacterBack(character = character, searchQuery = searchQuery, onFlip = { isFlippedState = false }, onFlipPositioned = { onPositioned("FlipButton", it) })
+                        Column(
+                            modifier = if (pinnedFooter)
+                                Modifier.weight(1f).verticalScroll(rememberScrollState())
+                            else
+                                Modifier.fillMaxWidth()
+                        ) {
+                            CharacterBack(
+                                character = character,
+                                searchQuery = searchQuery,
+                                onFlip = onFlip,
+                                onFlipPositioned = onFlipPositioned,
+                                showBackLink = false
+                            )
+                        }
+                        // Back-to-stats link — wrapped in Column so SpaceBetween treats it as
+                        // one unit and places it at the visual bottom of the card
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            HorizontalDivider()
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onFlip() }
+                                    .padding(vertical = 8.dp, horizontal = 16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(imageVector = Icons.Default.KeyboardArrowLeft, contentDescription = "Back to character stats", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.secondary)
+                                Text(text = "Character stats", style = MaterialTheme.typography.labelMedium, fontStyle = FontStyle.Italic, color = MaterialTheme.colorScheme.secondary)
+                            }
+                        }
                     }
                 }
             }
-            bottomContent?.invoke()
         }
     }
 }

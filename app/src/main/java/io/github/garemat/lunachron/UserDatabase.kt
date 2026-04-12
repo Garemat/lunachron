@@ -10,7 +10,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [Troupe::class, Campaign::class, GameResult::class],
-    version = 2,
+    version = 3,
     exportSchema = true  // required for MigrationTestHelper in future migration tests
 )
 @TypeConverters(Converters::class)
@@ -32,6 +32,12 @@ abstract class UserDatabase : RoomDatabase() {
             }
         }
 
+        internal val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE Troupe ADD COLUMN isFavourite INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         fun getDatabase(context: Context): UserDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -39,7 +45,7 @@ abstract class UserDatabase : RoomDatabase() {
                     UserDatabase::class.java,
                     "moonstone_user_db"
                 )
-                    .addMigrations(MIGRATION_1_2)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .build()
                 INSTANCE = instance
                 instance

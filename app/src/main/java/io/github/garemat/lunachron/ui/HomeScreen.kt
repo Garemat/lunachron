@@ -3,10 +3,19 @@ package io.github.garemat.lunachron.ui
 import android.app.Activity
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,6 +31,7 @@ import coil.compose.AsyncImage
 import io.github.garemat.lunachron.CharacterEvent
 import io.github.garemat.lunachron.CharacterState
 import io.github.garemat.lunachron.NewsItem
+import io.github.garemat.lunachron.Troupe
 import io.github.garemat.lunachron.ui.theme.LocalAppThemeProperties
 import androidx.compose.ui.layout.ContentScale
 
@@ -29,6 +39,7 @@ import androidx.compose.ui.layout.ContentScale
 fun HomeScreen(
     state: CharacterState,
     onEvent: (CharacterEvent) -> Unit,
+    onQuickStartTroupe: (Troupe) -> Unit = {},
     onTargetPositioned: (String, LayoutCoordinates) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
@@ -46,8 +57,36 @@ fun HomeScreen(
         }
     }
 
+    val favouriteTroupes = remember(state.troupes) { state.troupes.filter { it.isFavourite } }
+    val newsListState = rememberLazyListState()
+    val showQuickStart by remember {
+        derivedStateOf {
+            newsListState.firstVisibleItemIndex == 0 && newsListState.firstVisibleItemScrollOffset < 80
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize().padding(horizontal = theme.screenPadding)) {
+            AnimatedVisibility(
+                visible = favouriteTroupes.isNotEmpty() && showQuickStart,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
+                Column {
+                    Spacer(modifier = Modifier.height(theme.verticalSpacing))
+                    Text(
+                        text = "Quick Start",
+                        style = theme.titleStyle.copy(fontSize = 20.sp),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
+                    favouriteTroupes.forEach { troupe ->
+                        QuickStartCard(troupe = troupe, onClick = { onQuickStartTroupe(troupe) })
+                        Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
+                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                }
+            }
             Text(
                 text = "Latest News",
                 style = theme.titleStyle.copy(fontSize = 28.sp),
@@ -80,6 +119,7 @@ fun HomeScreen(
                 }
                 else -> {
                     LazyColumn(
+                        state = newsListState,
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(bottom = theme.verticalSpacing),
                         verticalArrangement = Arrangement.spacedBy(theme.verticalSpacing)
@@ -89,6 +129,52 @@ fun HomeScreen(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun QuickStartCard(troupe: Troupe, onClick: () -> Unit) {
+    val theme = LocalAppThemeProperties.current
+    val factionColor = getFactionColor(troupe.faction)
+    Card(
+        modifier = Modifier.fillMaxWidth().clickable { onClick() },
+        shape = theme.cardShape,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Row(
+            modifier = Modifier.padding(theme.cardContentPadding),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.Star,
+                contentDescription = null,
+                tint = factionColor,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = troupe.troupeName,
+                    style = theme.headerStyle.copy(fontSize = 16.sp),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "${troupe.faction.name.lowercase().replaceFirstChar { it.uppercase() }} · ${troupe.characterIds.size} characters",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            FilledTonalButton(
+                onClick = onClick,
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                modifier = Modifier.height(36.dp)
+            ) {
+                Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Play", style = theme.buttonTextStyle)
             }
         }
     }
