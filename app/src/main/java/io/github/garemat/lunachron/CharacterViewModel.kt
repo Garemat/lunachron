@@ -708,6 +708,23 @@ class CharacterViewModel(
                 }
             }
             CharacterEvent.DismissAppUpdate -> _state.update { it.copy(pendingAppUpdate = null) }
+            CharacterEvent.InstallAppUpdate -> {
+                if (!BuildConfig.CAN_SELF_UPDATE) return
+                val release = _state.value.pendingAppUpdate ?: return
+                viewModelScope.launch(Dispatchers.IO) {
+                    _state.update { it.copy(isDownloadingApk = true, apkDownloadProgress = 0f) }
+                    try {
+                        val file = dataUpdateRepository.downloadApk(release) { progress ->
+                            _state.update { it.copy(apkDownloadProgress = progress) }
+                        }
+                        _state.update { it.copy(isDownloadingApk = false, pendingApkInstall = file.absolutePath) }
+                    } catch (e: Exception) {
+                        Log.e("CharacterViewModel", "APK download failed", e)
+                        _state.update { it.copy(isDownloadingApk = false, apkDownloadProgress = 0f) }
+                    }
+                }
+            }
+            CharacterEvent.ClearPendingApkInstall -> _state.update { it.copy(pendingApkInstall = null) }
 
             // Sync toggle — collapses news, data, and portrait auto-update into one setting
             is CharacterEvent.SetAutoSynchronise -> {

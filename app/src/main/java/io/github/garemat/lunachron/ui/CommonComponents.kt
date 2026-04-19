@@ -974,7 +974,9 @@ fun HealthTracker(totalHealth: Int, currentHealth: Int, energyTrack: List<Int>, 
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.Start), modifier = modifier.padding(top = theme.verticalSpacing / 2), verticalAlignment = Alignment.CenterVertically) {
         for (i in 1..totalHealth) {
             val isLost = i > currentHealth; val isEnergy = energyTrack.contains(i)
-            Box(modifier = Modifier.size(20.dp).clip(CircleShape).background(when { isLost -> Color.Transparent; isEnergy -> if (isEditable) theme.moonstoneColor else theme.moonstoneColor.copy(alpha = 0.5f); else -> if (isEditable) theme.positiveColor else theme.positiveColor.copy(alpha = 0.5f) }).border(1.dp, if (isEnergy) theme.moonstoneColor.copy(alpha = 0.6f) else MaterialTheme.colorScheme.outline, CircleShape).then(if (isEditable) Modifier.clickable { onHealthChange(if (i <= currentHealth) i - 1 else i) } else Modifier), contentAlignment = Alignment.Center) {
+            val fillColor = when { isLost -> Color.Transparent; isEnergy -> if (isEditable) theme.moonstoneColor else theme.moonstoneColor.copy(alpha = 0.5f); else -> Color.Transparent }
+            val borderColor = when { isLost -> MaterialTheme.colorScheme.outlineVariant; else -> Color.Black }
+            Box(modifier = Modifier.size(20.dp).clip(CircleShape).background(fillColor).border(1.5.dp, borderColor, CircleShape).then(if (isEditable) Modifier.clickable { onHealthChange(if (i <= currentHealth) i - 1 else i) } else Modifier), contentAlignment = Alignment.Center) {
                 if (isLost) Icon(imageVector = Icons.Default.Close, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.error)
             }
         }
@@ -1026,16 +1028,17 @@ fun HealthPip(
 ) {
     val isEnergy = energyTrack.contains(pip)
     val isAlive = pip <= current
-    val color = when {
+    val fillColor = when {
         isEnergy && isAlive -> theme.moonstoneColor
-        isAlive -> theme.positiveColor
-        else -> MaterialTheme.colorScheme.outlineVariant
+        else -> Color.Transparent
     }
+    val borderColor = if (isAlive) Color.Black else MaterialTheme.colorScheme.outlineVariant
     Box(
         modifier = Modifier
             .size(size)
             .clip(CircleShape)
-            .background(color)
+            .background(fillColor)
+            .border(1.5.dp, borderColor, CircleShape)
             .then(if (isEditable) Modifier.clickable { onHealthChange(if (pip <= current) pip - 1 else pip) } else Modifier)
     )
 }
