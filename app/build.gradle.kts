@@ -118,11 +118,20 @@ tasks.register("downloadDataAssets") {
     doLast {
         dataAssetsDir.mkdirs()
 
+        // Use GITHUB_TOKEN when present (CI) so the API call works against private repos.
+        val githubToken = System.getenv("GITHUB_TOKEN")
+        fun openAuthenticatedStream(url: String): java.io.InputStream {
+            val conn = URI(url).toURL().openConnection() as java.net.HttpURLConnection
+            if (githubToken != null) conn.setRequestProperty("Authorization", "token $githubToken")
+            conn.setRequestProperty("Accept", "application/vnd.github+json")
+            return conn.inputStream
+        }
+
         val tagUrl = "https://api.github.com/repos/$dataRepo/releases/tags/$pinnedDataTag"
         logger.lifecycle("Fetching data release $pinnedDataTag from $dataRepo...")
         @Suppress("UNCHECKED_CAST")
         val release = JsonSlurper().parseText(
-            URI(tagUrl).toURL().openStream().bufferedReader().readText()
+            openAuthenticatedStream(tagUrl).bufferedReader().readText()
         ) as Map<String, Any>
 
         val tag = release["tag_name"] as String
@@ -133,7 +142,7 @@ tasks.register("downloadDataAssets") {
             ?: error("Asset '$compendiumAsset' not found in release $tag")
         val downloadUrl = asset["browser_download_url"] as String
         logger.lifecycle("  Downloading $compendiumAsset from $tag...")
-        URI(downloadUrl).toURL().openStream().use { input ->
+        openAuthenticatedStream(downloadUrl).use { input ->
             file("${dataAssetsDir}/$compendiumAsset").outputStream().use { output ->
                 input.copyTo(output)
             }
