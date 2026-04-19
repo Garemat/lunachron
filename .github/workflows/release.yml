@@ -107,7 +107,7 @@ jobs:
         KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
         KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
         KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
-      run: ./gradlew assembleGithubRelease bundleGithubRelease
+      run: ./gradlew assembleGithubRelease bundleGithubRelease bundleFdroidRelease
 
     - name: Create GitHub Release
       if: steps.bump_type.outputs.type != 'none'
@@ -117,6 +117,7 @@ jobs:
         files: |
           app/build/outputs/apk/github/release/app-github-release.apk
           app/build/outputs/bundle/githubRelease/app-github-release.aab
+          app/build/outputs/bundle/fdroidRelease/app-fdroid-release.aab
         name: Release ${{ steps.version.outputs.new_tag }}
         generate_release_notes: true
       env:
