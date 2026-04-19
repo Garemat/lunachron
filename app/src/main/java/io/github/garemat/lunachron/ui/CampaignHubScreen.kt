@@ -42,7 +42,6 @@ fun CampaignHubScreen(
             title = "Local Tracking",
             description = "Manage local campaign records and results.",
             icon = Icons.Default.HistoryEdu,
-            backgroundType = "commonwealth",
             onClick = onLocalTrackingSelected
         )
 
@@ -52,7 +51,6 @@ fun CampaignHubScreen(
             title = "Host Campaign",
             description = "I am the Wizard Chamberlain.",
             icon = Icons.Default.AddCircle,
-            backgroundType = "dominion",
             onClick = { if (state.isRegistered) onHostCampaignSelected() }
         )
 
@@ -62,7 +60,6 @@ fun CampaignHubScreen(
             title = "Join Campaign",
             description = "I'll be gathering the stones.",
             icon = Icons.Default.GroupAdd,
-            backgroundType = "leshavult",
             onClick = { if (state.isRegistered) onJoinCampaignSelected() }
         )
 
@@ -72,7 +69,6 @@ fun CampaignHubScreen(
             title = "Active Campaigns",
             description = "View and manage your online campaigns.",
             icon = Icons.Default.Campaign,
-            backgroundType = "shades",
             onClick = { if (state.isRegistered) onActiveCampaignsSelected() }
         )
 
