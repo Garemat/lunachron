@@ -7,6 +7,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -32,6 +33,7 @@ fun SettingsScreen(
     onNavigateBack: () -> Unit
 ) {
     var name by remember { mutableStateOf(state.name) }
+    var showRegisterDialog by remember { mutableStateOf(false) }
     val theme = LocalAppThemeProperties.current
     val scrollState = rememberScrollState()
     val context = LocalContext.current
@@ -77,11 +79,47 @@ fun SettingsScreen(
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
-                label = { Text("Player Name") },
+                label = { Text("Username") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 shape = theme.cardShape
             )
+
+            Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
+
+            if (state.isRegistered) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(vertical = theme.verticalSpacing / 4)
+                ) {
+                    Icon(
+                        Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(end = 8.dp)
+                    )
+                    Text(
+                        "Device registered",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            } else {
+                OutlinedButton(
+                    onClick = { showRegisterDialog = true },
+                    enabled = name.isNotBlank() && !state.isRegisteringDevice,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = theme.cardShape
+                ) {
+                    if (state.isRegisteringDevice) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Registering…", style = theme.buttonTextStyle)
+                    } else {
+                        Text("Register device", style = theme.buttonTextStyle)
+                    }
+                }
+            }
 
             Spacer(modifier = Modifier.height(theme.verticalSpacing))
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -317,6 +355,48 @@ fun SettingsScreen(
             // Extra bottom padding so the FAB never covers the last item
             Spacer(modifier = Modifier.height(88.dp))
         }
+    }
+
+    if (showRegisterDialog) {
+        AlertDialog(
+            onDismissRequest = { showRegisterDialog = false },
+            title = { Text("Register this device?", style = theme.headerStyle) },
+            text = {
+                Text(
+                    "A pseudonymous hash of your device ID — unique to this app install — and " +
+                    "your username \"$name\" will be stored on a private Oracle Cloud database. " +
+                    "This data is used solely for Lunachron campaign coordination and is never " +
+                    "shared with third parties.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showRegisterDialog = false
+                    onEvent(CharacterEvent.RegisterDevice(name))
+                }) {
+                    Text("Register")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRegisterDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    if (state.registrationError != null) {
+        AlertDialog(
+            onDismissRequest = { onEvent(CharacterEvent.DismissRegistrationError) },
+            title = { Text("Registration failed", style = theme.headerStyle) },
+            text = { Text(state.registrationError, style = MaterialTheme.typography.bodyMedium) },
+            confirmButton = {
+                TextButton(onClick = { onEvent(CharacterEvent.DismissRegistrationError) }) {
+                    Text("OK")
+                }
+            }
+        )
     }
 }
 

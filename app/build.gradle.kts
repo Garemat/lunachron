@@ -40,7 +40,12 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Emulator loopback — change to LAN IP for testing on a physical device.
+            buildConfigField("String", "LUNACHRON_API_URL", "\"http://10.0.2.2:3000\"")
+        }
         release {
+            buildConfigField("String", "LUNACHRON_API_URL", "\"https://api.garemat.co.uk\"")
             isMinifyEnabled = false
             isCrunchPngs = false
             // Only apply signingConfig if it exists and storeFile is set.
@@ -65,6 +70,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     kotlin {
         compilerOptions {

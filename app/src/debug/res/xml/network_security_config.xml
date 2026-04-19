@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Debug-only network security config.
+    Allows plain HTTP to the local dev server (emulator host alias 10.0.2.2).
+    This file is only included in debug builds — release builds use Android's
+    default policy (HTTPS only).
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <!-- Android emulator: host machine is reachable at 10.0.2.2 -->
+        <domain includeSubdomains="false">10.0.2.2</domain>
+        <!-- Physical device on the same LAN: add your PC's IP here if needed -->
+    </domain-config>
+</network-security-config>

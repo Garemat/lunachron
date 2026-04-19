@@ -108,6 +108,130 @@ data class TournamentRound(
     val status: TournamentRoundStatus = TournamentRoundStatus.SELECTION
 )
 
+// ── Online campaign models ────────────────────────────────────────────────────
+
+@Serializable
+data class OnlineCampaignSettings(
+    val attacksEnabled: Boolean = true,
+    val startingCharacters: Int = 4,
+    /** A new character is earned every this many rounds (0 = never). */
+    val characterGrowthEvery: Int = 2,
+    /** A new upgrade card is earned every this many rounds (0 = never). */
+    val upgradeGrowthEvery: Int = 1
+)
+
+@Serializable
+data class OnlineCampaignSummary(
+    val id: String,
+    val name: String,
+    val description: String? = null,
+    val status: String,                        // "OPEN", "LOCKED", "DISBANDED"
+    val joinCode: String? = null,              // only for host of an OPEN campaign
+    val isHost: Boolean,
+    val memberCount: Int,
+    val membershipStatus: String = "APPROVED", // "APPROVED" or "PENDING"
+    val settings: OnlineCampaignSettings? = null
+)
+
+@Serializable
+data class OnlineCampaignMember(
+    val id: String,                         // campaign_members.id — used for approve/reject
+    val deviceId: String,
+    val username: String,
+    val role: String,                       // "HOST" or "MEMBER"
+    val status: String,                     // "PENDING", "APPROVED", "REJECTED"
+    val troupeData: String? = null,
+    val troupeUpdatedAt: String? = null,
+    val isReady: Boolean = false,
+    val isLocal: Boolean = false,
+    val wins: Int = 0,
+    val draws: Int = 0,
+    val losses: Int = 0,
+    val victoryPoints: Int = 0,
+    val matchPoints: Int = 0,
+    val powerPoints: Int = 0
+)
+
+@Serializable
+data class OnlineCampaignDetail(
+    val id: String,
+    val name: String,
+    val description: String? = null,
+    val status: String,
+    val joinCode: String? = null,
+    val currentUserRole: String = "MEMBER",  // "HOST" or "MEMBER"
+    val settings: OnlineCampaignSettings? = null,
+    val members: List<OnlineCampaignMember> = emptyList(),
+    // round1 → { game1 → [deviceId1, deviceId2], ... }
+    val schedule: Map<String, Map<String, List<String>>>? = null,
+    val currentRound: Int = 1,
+    val phase: String = "GAME",
+    val machinations: List<OnlineMachinationEntry> = emptyList(),
+    val matchResults: List<OnlineMatchResult> = emptyList()
+)
+
+/** A single SUPPORT/SABOTAGE machination choice within a submitted entry. */
+@Serializable
+data class OnlineMachinationChoice(
+    val targetDeviceId: String,
+    val type: String   // "SUPPORT" or "SABOTAGE"
+)
+
+/** An optional attack declaration submitted alongside machinations. */
+@Serializable
+data class OnlineMachinationAttack(
+    val targetDeviceId: String,
+    val targetCharId: Int,
+    val type: String   // "ASSAULT" or "ABDUCTION"
+)
+
+/** A single member's machination submission for a round. */
+@Serializable
+data class OnlineMachinationEntry(
+    val deviceId: String,
+    val username: String,
+    val choices: List<OnlineMachinationChoice> = emptyList(),
+    val attack: OnlineMachinationAttack? = null
+)
+
+/** Result data embedded within a match result. */
+@Serializable
+data class OnlineMatchResultData(
+    val playerStats: List<OnlinePlayerStat> = emptyList(),
+    val winnerId: String? = null
+)
+
+/** A match result record returned inside campaign detail. */
+@Serializable
+data class OnlineMatchResult(
+    val id: String,
+    val roundNumber: Int,
+    val gameNumber: Int,
+    val player1Id: String,
+    val player2Id: String,
+    val submittedBy: String,
+    val resultData: OnlineMatchResultData? = null,
+    val winnerId: String? = null,
+    val verifyStatus: String   // "PENDING", "VERIFIED", "DISPUTED"
+)
+
+/** One player's stats in an online match result. */
+@Serializable
+data class OnlinePlayerStat(
+    val deviceId: String,
+    val playerName: String,
+    val moonstones: Int = 0,
+    /** VP adjustment from campaign cards (can be negative). */
+    val campaignCardVp: Int = 0,
+    /** Share codes of campaign cards used this game. */
+    val campaignCardCodes: List<String> = emptyList()
+)
+
+/** Returned to the UI after a successful campaign creation. */
+data class CreatedCampaignResult(val id: String, val joinCode: String)
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 data class CharacterState(
     val characters: List<Character> = emptyList(),
     val troupes: List<Troupe> = emptyList(),
@@ -186,7 +310,55 @@ data class CharacterState(
     // App update state (opt-in, off by default — F-Droid manages updates for F-Droid installs)
     val autoCheckAppUpdates: Boolean = false,
     val pendingAppUpdate: AppRelease? = null,
-    val installerSource: InstallerSource = InstallerSource.DIRECT
+    val installerSource: InstallerSource = InstallerSource.DIRECT,
+
+    // LunaChron API registration
+    val isRegistered: Boolean = false,
+    val isRegisteringDevice: Boolean = false,
+    val registrationError: String? = null,
+    /** Backend's internal device UUID (devices.id) — used to identify this device in schedules/results. */
+    val backendDeviceId: String = "",
+
+    // Online campaign state
+    val onlineCampaigns: List<OnlineCampaignSummary> = emptyList(),
+    val isLoadingOnlineCampaigns: Boolean = false,
+    val isCreatingCampaign: Boolean = false,
+    val isJoiningCampaign: Boolean = false,
+    val onlineCampaignError: String? = null,
+    val createdCampaignResult: CreatedCampaignResult? = null,
+    val pendingJoinCampaignId: String? = null,
+
+    // Online campaign detail
+    val selectedOnlineCampaign: OnlineCampaignDetail? = null,
+    val isLoadingCampaignDetail: Boolean = false,
+    val isApprovingMember: Boolean = false,
+
+    // Online campaign schedule flow
+    val isLockingCampaign: Boolean = false,
+    val isPublishingSchedule: Boolean = false,
+    val pendingOnlineSchedule: List<CampaignRound>? = null,
+    val onlineScheduleRoundCount: Int = 0,
+
+    // Online campaign troupe + ready
+    val isUploadingTroupe: Boolean = false,
+    val isSettingReady: Boolean = false,
+    val isAddingLocalMember: Boolean = false,
+
+    // Online campaign rankings + round management
+    val isUpdatingRankings: Boolean = false,
+    val isAdvancingRound: Boolean = false,
+
+    // Online match result submission
+    val isSubmittingMatchResult: Boolean = false,
+    val matchResultSubmitted: Boolean = false,
+    val isVerifyingMatchResult: Boolean = false,
+
+    // Online machinations phase
+    val isSubmittingMachination: Boolean = false,
+
+    // Online campaign deletion
+    val isDeletingCampaign: Boolean = false,
+    val onlineCampaignDeleted: Boolean = false
 )
 
 @Serializable

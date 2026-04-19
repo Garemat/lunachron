@@ -14,6 +14,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import io.github.garemat.lunachron.api.ApiResult
+import io.github.garemat.lunachron.api.LunaChronApi
 import io.github.garemat.lunachron.ui.CampaignSubScreen
 import io.github.garemat.lunachron.ui.theme.ThemeRepository
 import io.ktor.client.*
@@ -64,6 +66,7 @@ class CharacterViewModel(
     }
     private val themeRepository = ThemeRepository(application)
     private val nearbyManager = NearbyManager(application)
+    private val apiClient = LunaChronApi(application)
     private val client = newsClient ?: HttpClient(Android) {
         install(HttpTimeout) {
             requestTimeoutMillis = 15000
@@ -98,7 +101,9 @@ class CharacterViewModel(
         installedDataVersion = CharacterData.getInstalledVersion(application),
         imageDownloadPreference = dataUpdateRepository.loadImagePreference(),
         autoCheckAppUpdates = dataUpdateRepository.loadAutoCheckApp(),
-        installerSource = dataUpdateRepository.getInstallerSource()
+        installerSource = dataUpdateRepository.getInstallerSource(),
+        isRegistered = prefs.getString("api_session_token", null) != null,
+        backendDeviceId = prefs.getString("api_backend_device_id", "") ?: ""
     ))
     
     private val _characters = repository.getCharacters()
@@ -148,6 +153,15 @@ class CharacterViewModel(
         if (_state.value.autoFetchNews) fetchNews()
         checkForUpdatesOnStartup()
         nearbyManager.setPayloadListener { endpointId, message -> handleSessionMessage(endpointId, message) }
+        // Backfill backendDeviceId for users who registered before it was added to the auth response
+        if (_state.value.isRegistered && _state.value.backendDeviceId.isEmpty()) {
+            viewModelScope.launch {
+                val result = apiClient.login(persistentDeviceId)
+                if (result is ApiResult.Success && result.data.deviceId != null) {
+                    _state.update { it.copy(backendDeviceId = result.data.deviceId) }
+                }
+            }
+        }
     }
 
     private fun checkForUpdatesOnStartup() {
@@ -291,6 +305,248 @@ class CharacterViewModel(
                 val old = _state.value.name; _state.update { it.copy(name = event.name) }
                 prefs.edit { putString("player_name", event.name) }
                 if (event.name != old) nearbyManager.sendPayloadToAll(MessageParser.encode(SessionMessage.PlayerInfoUpdate(persistentDeviceId, event.name)))
+            }
+            is CharacterEvent.RegisterDevice -> viewModelScope.launch {
+                _state.update { it.copy(isRegisteringDevice = true, registrationError = null) }
+                when (val result = apiClient.register(persistentDeviceId, event.username)) {
+                    is ApiResult.Success -> {
+                        // Persist username locally so it survives app restarts without re-hitting the API.
+                        prefs.edit { putString("player_name", event.username) }
+                        _state.update {
+                            it.copy(
+                                isRegisteringDevice = false,
+                                isRegistered = true,
+                                name = event.username,
+                                backendDeviceId = result.data.deviceId ?: it.backendDeviceId
+                            )
+                        }
+                    }
+                    is ApiResult.Error -> _state.update { it.copy(isRegisteringDevice = false, registrationError = result.message) }
+                }
+            }
+            CharacterEvent.DismissRegistrationError -> _state.update { it.copy(registrationError = null) }
+            CharacterEvent.LoadOnlineCampaigns -> viewModelScope.launch {
+                _state.update { it.copy(isLoadingOnlineCampaigns = true, onlineCampaignError = null) }
+                when (val r = apiClient.getMyCampaigns()) {
+                    is ApiResult.Success -> _state.update { it.copy(isLoadingOnlineCampaigns = false, onlineCampaigns = r.data) }
+                    is ApiResult.Error   -> _state.update { it.copy(isLoadingOnlineCampaigns = false, onlineCampaignError = r.message) }
+                }
+            }
+            is CharacterEvent.CreateOnlineCampaign -> viewModelScope.launch {
+                _state.update { it.copy(isCreatingCampaign = true, onlineCampaignError = null) }
+                when (val r = apiClient.createCampaign(event.name, event.description, event.settings)) {
+                    is ApiResult.Success -> _state.update { it.copy(isCreatingCampaign = false, createdCampaignResult = CreatedCampaignResult(r.data.id, r.data.joinCode)) }
+                    is ApiResult.Error   -> _state.update { it.copy(isCreatingCampaign = false, onlineCampaignError = r.message) }
+                }
+            }
+            is CharacterEvent.RequestJoinCampaign -> viewModelScope.launch {
+                _state.update { it.copy(isJoiningCampaign = true, onlineCampaignError = null) }
+                when (val r = apiClient.joinCampaign(event.joinCode)) {
+                    is ApiResult.Success -> _state.update { it.copy(isJoiningCampaign = false, pendingJoinCampaignId = r.data.campaignId) }
+                    is ApiResult.Error   -> _state.update { it.copy(isJoiningCampaign = false, onlineCampaignError = r.message) }
+                }
+            }
+            CharacterEvent.DismissOnlineCampaignError   -> _state.update { it.copy(onlineCampaignError = null) }
+            CharacterEvent.DismissCreatedCampaignResult -> _state.update { it.copy(createdCampaignResult = null) }
+            is CharacterEvent.LoadOnlineCampaign -> viewModelScope.launch {
+                _state.update { it.copy(isLoadingCampaignDetail = true, onlineCampaignError = null) }
+                when (val r = apiClient.getCampaign(event.campaignId)) {
+                    is ApiResult.Success -> _state.update { it.copy(isLoadingCampaignDetail = false, selectedOnlineCampaign = r.data) }
+                    is ApiResult.Error   -> _state.update { it.copy(isLoadingCampaignDetail = false, onlineCampaignError = r.message) }
+                }
+            }
+            is CharacterEvent.ApproveMember -> viewModelScope.launch {
+                _state.update { it.copy(isApprovingMember = true, onlineCampaignError = null) }
+                when (val r = apiClient.approveMember(event.campaignId, event.memberId)) {
+                    is ApiResult.Success -> {
+                        _state.update { it.copy(isApprovingMember = false) }
+                        onEvent(CharacterEvent.LoadOnlineCampaign(event.campaignId))
+                    }
+                    is ApiResult.Error -> _state.update { it.copy(isApprovingMember = false, onlineCampaignError = r.message) }
+                }
+            }
+            is CharacterEvent.RejectMember -> viewModelScope.launch {
+                _state.update { it.copy(isApprovingMember = true, onlineCampaignError = null) }
+                when (val r = apiClient.rejectMember(event.campaignId, event.memberId)) {
+                    is ApiResult.Success -> {
+                        _state.update { it.copy(isApprovingMember = false) }
+                        onEvent(CharacterEvent.LoadOnlineCampaign(event.campaignId))
+                    }
+                    is ApiResult.Error -> _state.update { it.copy(isApprovingMember = false, onlineCampaignError = r.message) }
+                }
+            }
+            CharacterEvent.ClearSelectedOnlineCampaign -> _state.update { it.copy(selectedOnlineCampaign = null, pendingOnlineSchedule = null, onlineScheduleRoundCount = 0) }
+            is CharacterEvent.DeleteOnlineCampaign -> viewModelScope.launch {
+                _state.update { it.copy(isDeletingCampaign = true, onlineCampaignError = null) }
+                when (val r = apiClient.deleteOnlineCampaign(event.campaignId)) {
+                    is ApiResult.Success -> _state.update { it.copy(isDeletingCampaign = false, onlineCampaignDeleted = true, selectedOnlineCampaign = null) }
+                    is ApiResult.Error   -> _state.update { it.copy(isDeletingCampaign = false, onlineCampaignError = r.message) }
+                }
+            }
+            CharacterEvent.DismissCampaignDeleted -> _state.update { it.copy(onlineCampaignDeleted = false) }
+            is CharacterEvent.LockOnlineCampaign -> viewModelScope.launch {
+                _state.update { it.copy(isLockingCampaign = true, onlineCampaignError = null) }
+                when (val r = apiClient.lockCampaign(event.campaignId)) {
+                    is ApiResult.Success -> {
+                        _state.update { it.copy(isLockingCampaign = false) }
+                        onEvent(CharacterEvent.LoadOnlineCampaign(event.campaignId))
+                    }
+                    is ApiResult.Error -> _state.update { it.copy(isLockingCampaign = false, onlineCampaignError = r.message) }
+                }
+            }
+            is CharacterEvent.UnlockOnlineCampaign -> viewModelScope.launch {
+                _state.update { it.copy(isLockingCampaign = true, onlineCampaignError = null) }
+                when (val r = apiClient.unlockCampaign(event.campaignId)) {
+                    is ApiResult.Success -> {
+                        _state.update { it.copy(isLockingCampaign = false, pendingOnlineSchedule = null) }
+                        onEvent(CharacterEvent.LoadOnlineCampaign(event.campaignId))
+                    }
+                    is ApiResult.Error -> _state.update { it.copy(isLockingCampaign = false, onlineCampaignError = r.message) }
+                }
+            }
+            is CharacterEvent.SetOnlineScheduleRoundCount -> _state.update { it.copy(onlineScheduleRoundCount = event.count) }
+            is CharacterEvent.GenerateOnlineSchedule -> {
+                val members = _state.value.selectedOnlineCampaign
+                    ?.members?.filter { it.status == "APPROVED" } ?: return
+                val playerIds = members.map { it.deviceId }
+                val schedule = generateRoundRobinSchedule(playerIds, event.totalRounds)
+                _state.update { it.copy(pendingOnlineSchedule = schedule) }
+            }
+            is CharacterEvent.UploadOnlineTroupe -> viewModelScope.launch {
+                _state.update { it.copy(isUploadingTroupe = true, onlineCampaignError = null) }
+                when (val r = apiClient.uploadTroupe(event.campaignId, event.troupeData)) {
+                    is ApiResult.Success -> {
+                        _state.update { it.copy(isUploadingTroupe = false) }
+                        onEvent(CharacterEvent.LoadOnlineCampaign(event.campaignId))
+                    }
+                    is ApiResult.Error -> _state.update { it.copy(isUploadingTroupe = false, onlineCampaignError = r.message) }
+                }
+            }
+            is CharacterEvent.SetOnlineCampaignReady -> viewModelScope.launch {
+                _state.update { it.copy(isSettingReady = true, onlineCampaignError = null) }
+                when (val r = apiClient.setReady(event.campaignId, event.isReady)) {
+                    is ApiResult.Success -> {
+                        _state.update { it.copy(isSettingReady = false) }
+                        onEvent(CharacterEvent.LoadOnlineCampaign(event.campaignId))
+                    }
+                    is ApiResult.Error -> _state.update { it.copy(isSettingReady = false, onlineCampaignError = r.message) }
+                }
+            }
+            is CharacterEvent.AddLocalCampaignMember -> viewModelScope.launch {
+                _state.update { it.copy(isAddingLocalMember = true, onlineCampaignError = null) }
+                when (val r = apiClient.addLocalMember(event.campaignId, event.name)) {
+                    is ApiResult.Success -> {
+                        _state.update { it.copy(isAddingLocalMember = false) }
+                        onEvent(CharacterEvent.LoadOnlineCampaign(event.campaignId))
+                    }
+                    is ApiResult.Error -> _state.update { it.copy(isAddingLocalMember = false, onlineCampaignError = r.message) }
+                }
+            }
+            is CharacterEvent.UploadLocalMemberTroupe -> viewModelScope.launch {
+                _state.update { it.copy(isUploadingTroupe = true, onlineCampaignError = null) }
+                when (val r = apiClient.uploadTroupe(event.campaignId, event.troupeData, event.targetDeviceId)) {
+                    is ApiResult.Success -> {
+                        _state.update { it.copy(isUploadingTroupe = false) }
+                        onEvent(CharacterEvent.LoadOnlineCampaign(event.campaignId))
+                    }
+                    is ApiResult.Error -> _state.update { it.copy(isUploadingTroupe = false, onlineCampaignError = r.message) }
+                }
+            }
+            is CharacterEvent.SetLocalMemberReady -> viewModelScope.launch {
+                _state.update { it.copy(isSettingReady = true, onlineCampaignError = null) }
+                when (val r = apiClient.setReady(event.campaignId, event.isReady, event.targetDeviceId)) {
+                    is ApiResult.Success -> {
+                        _state.update { it.copy(isSettingReady = false) }
+                        onEvent(CharacterEvent.LoadOnlineCampaign(event.campaignId))
+                    }
+                    is ApiResult.Error -> _state.update { it.copy(isSettingReady = false, onlineCampaignError = r.message) }
+                }
+            }
+            is CharacterEvent.UpdateOnlineRankings -> viewModelScope.launch {
+                _state.update { it.copy(isUpdatingRankings = true, onlineCampaignError = null) }
+                when (val r = apiClient.updateRankings(event.campaignId)) {
+                    is ApiResult.Success -> {
+                        _state.update { it.copy(isUpdatingRankings = false) }
+                        onEvent(CharacterEvent.LoadOnlineCampaign(event.campaignId))
+                    }
+                    is ApiResult.Error -> _state.update { it.copy(isUpdatingRankings = false, onlineCampaignError = r.message) }
+                }
+            }
+            is CharacterEvent.AdvanceOnlineRound -> viewModelScope.launch {
+                _state.update { it.copy(isAdvancingRound = true, onlineCampaignError = null) }
+                when (val r = apiClient.advanceRound(event.campaignId)) {
+                    is ApiResult.Success -> {
+                        _state.update { it.copy(isAdvancingRound = false) }
+                        onEvent(CharacterEvent.LoadOnlineCampaign(event.campaignId))
+                    }
+                    is ApiResult.Error -> _state.update { it.copy(isAdvancingRound = false, onlineCampaignError = r.message) }
+                }
+            }
+            is CharacterEvent.SubmitOnlineMatchResult -> viewModelScope.launch {
+                _state.update { it.copy(isSubmittingMatchResult = true, onlineCampaignError = null) }
+                when (val r = apiClient.submitMatchResult(event.campaignId, event.roundNumber, event.gameNumber, event.playerStats, event.winnerId)) {
+                    is ApiResult.Success -> {
+                        _state.update { it.copy(isSubmittingMatchResult = false, matchResultSubmitted = true) }
+                        onEvent(CharacterEvent.LoadOnlineCampaign(event.campaignId))
+                    }
+                    is ApiResult.Error -> {
+                        // Both players submitted simultaneously — reload so the opponent sees the pending verification UI
+                        if (r.code == "ALREADY_SUBMITTED") {
+                            _state.update { it.copy(isSubmittingMatchResult = false) }
+                            onEvent(CharacterEvent.LoadOnlineCampaign(event.campaignId))
+                        } else {
+                            _state.update { it.copy(isSubmittingMatchResult = false, onlineCampaignError = r.message) }
+                        }
+                    }
+                }
+            }
+            CharacterEvent.DismissMatchResultSubmitted -> _state.update { it.copy(matchResultSubmitted = false) }
+            is CharacterEvent.SubmitMachination -> viewModelScope.launch {
+                _state.update { it.copy(isSubmittingMachination = true, onlineCampaignError = null) }
+                when (val r = apiClient.submitMachination(event.campaignId, event.machinations, event.attack)) {
+                    is ApiResult.Success -> {
+                        _state.update { it.copy(isSubmittingMachination = false) }
+                        onEvent(CharacterEvent.LoadOnlineCampaign(event.campaignId))
+                    }
+                    is ApiResult.Error -> _state.update { it.copy(isSubmittingMachination = false, onlineCampaignError = r.message) }
+                }
+            }
+            is CharacterEvent.SubmitLocalMachination -> viewModelScope.launch {
+                _state.update { it.copy(isSubmittingMachination = true, onlineCampaignError = null) }
+                when (val r = apiClient.submitMachination(event.campaignId, event.machinations, event.attack, event.targetDeviceId)) {
+                    is ApiResult.Success -> {
+                        _state.update { it.copy(isSubmittingMachination = false) }
+                        onEvent(CharacterEvent.LoadOnlineCampaign(event.campaignId))
+                    }
+                    is ApiResult.Error -> _state.update { it.copy(isSubmittingMachination = false, onlineCampaignError = r.message) }
+                }
+            }
+            is CharacterEvent.VerifyMatchResult -> viewModelScope.launch {
+                _state.update { it.copy(isVerifyingMatchResult = true, onlineCampaignError = null) }
+                when (val r = apiClient.verifyMatchResult(event.campaignId, event.resultId, event.agree)) {
+                    is ApiResult.Success -> {
+                        _state.update { it.copy(isVerifyingMatchResult = false) }
+                        onEvent(CharacterEvent.LoadOnlineCampaign(event.campaignId))
+                    }
+                    is ApiResult.Error -> _state.update { it.copy(isVerifyingMatchResult = false, onlineCampaignError = r.message) }
+                }
+            }
+            is CharacterEvent.PublishOnlineSchedule -> viewModelScope.launch {
+                val rounds = _state.value.pendingOnlineSchedule ?: return@launch
+                _state.update { it.copy(isPublishingSchedule = true, onlineCampaignError = null) }
+                // Convert List<CampaignRound> → Map<String, Map<String, List<String>>>
+                val backendSchedule = rounds.associate { round ->
+                    "round${round.roundNumber}" to round.games.mapIndexed { idx, game ->
+                        "game${idx + 1}" to game.playerIds
+                    }.toMap()
+                }
+                when (val r = apiClient.publishSchedule(event.campaignId, backendSchedule)) {
+                    is ApiResult.Success -> {
+                        _state.update { it.copy(isPublishingSchedule = false, pendingOnlineSchedule = null) }
+                        onEvent(CharacterEvent.LoadOnlineCampaign(event.campaignId))
+                    }
+                    is ApiResult.Error -> _state.update { it.copy(isPublishingSchedule = false, onlineCampaignError = r.message) }
+                }
             }
             is CharacterEvent.SetActiveTheme -> {
                 _state.update { it.copy(activeThemeId = event.themeId) }
