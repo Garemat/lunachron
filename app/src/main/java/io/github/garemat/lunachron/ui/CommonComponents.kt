@@ -975,7 +975,7 @@ fun HealthTracker(totalHealth: Int, currentHealth: Int, energyTrack: List<Int>, 
         for (i in 1..totalHealth) {
             val isLost = i > currentHealth; val isEnergy = energyTrack.contains(i)
             val fillColor = when { isLost -> Color.Transparent; isEnergy -> if (isEditable) theme.moonstoneColor else theme.moonstoneColor.copy(alpha = 0.5f); else -> Color.Transparent }
-            val borderColor = when { isLost -> MaterialTheme.colorScheme.outlineVariant; else -> Color.Black }
+            val borderColor = when { isLost -> MaterialTheme.colorScheme.outlineVariant; else -> theme.healthPipColor }
             Box(modifier = Modifier.size(20.dp).clip(CircleShape).background(fillColor).border(1.5.dp, borderColor, CircleShape).then(if (isEditable) Modifier.clickable { onHealthChange(if (i <= currentHealth) i - 1 else i) } else Modifier), contentAlignment = Alignment.Center) {
                 if (isLost) Icon(imageVector = Icons.Default.Close, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.error)
             }
@@ -1032,7 +1032,7 @@ fun HealthPip(
         isEnergy && isAlive -> theme.moonstoneColor
         else -> Color.Transparent
     }
-    val borderColor = if (isAlive) Color.Black else MaterialTheme.colorScheme.outlineVariant
+    val borderColor = if (isAlive) theme.healthPipColor else MaterialTheme.colorScheme.outlineVariant
     Box(
         modifier = Modifier
             .size(size)

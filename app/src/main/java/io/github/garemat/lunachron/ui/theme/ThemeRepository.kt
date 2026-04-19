@@ -312,6 +312,7 @@ private fun GameColorDefinition?.mergeOver(base: GameColorDefinition?) = GameCol
     arcaneBlue        = this?.arcaneBlue        ?: base?.arcaneBlue,
     arcanePurple      = this?.arcanePurple      ?: base?.arcanePurple,
     catastrophe       = this?.catastrophe       ?: base?.catastrophe,
+    healthPip         = this?.healthPip         ?: base?.healthPip,
 )
 
 private fun CharacterCardDefinition?.mergeOver(base: CharacterCardDefinition?) = CharacterCardDefinition(
@@ -389,6 +390,7 @@ fun ThemeRepository.buildAppThemeProperties(
         arcaneBlueColor        = gc.arcaneBlue?.toColor()        ?: Color(0xFF1565C0),
         arcanePurpleColor      = gc.arcanePurple?.toColor()      ?: Color(0xFFC2185B),
         catastropheColor       = gc.catastrophe?.toColor()       ?: Color.Red,
+        healthPipColor         = gc.healthPip?.toColor()         ?: Color.Black,
         factionCommonwealth    = fc.commonwealth?.toColor()      ?: Color(0xFFFBC02D),
         factionDominion        = fc.dominion?.toColor()          ?: Color(0xFF1976D2),
         factionLeshavult       = fc.leshavult?.toColor()         ?: Color(0xFF388E3C),

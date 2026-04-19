@@ -51,6 +51,7 @@ data class AppThemeProperties(
     val arcaneBlueColor: Color = Color(0xFF1565C0),
     val arcanePurpleColor: Color = Color(0xFFC2185B),
     val catastropheColor: Color = Color.Red,
+    val healthPipColor: Color = Color.Black,
     // Faction identity colors
     val factionCommonwealth: Color = Color(0xFFFBC02D),
     val factionDominion: Color = Color(0xFF1976D2),
