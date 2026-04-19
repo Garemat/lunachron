@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalLayoutApi::class)
+
 package io.github.garemat.lunachron.ui
 
 import androidx.compose.foundation.background
