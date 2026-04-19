@@ -39,6 +39,18 @@ android {
         }
     }
 
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("fdroid") {
+            dimension = "distribution"
+            buildConfigField("Boolean", "CAN_SELF_UPDATE", "false")
+        }
+        create("github") {
+            dimension = "distribution"
+            buildConfigField("Boolean", "CAN_SELF_UPDATE", "true")
+        }
+    }
+
     buildTypes {
         debug {
             // Emulator loopback — change to LAN IP for testing on a physical device.

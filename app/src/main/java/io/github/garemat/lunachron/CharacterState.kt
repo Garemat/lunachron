@@ -308,6 +308,9 @@ data class CharacterState(
     val autoCheckAppUpdates: Boolean = false,
     val pendingAppUpdate: AppRelease? = null,
     val installerSource: InstallerSource = InstallerSource.DIRECT,
+    val isDownloadingApk: Boolean = false,
+    val apkDownloadProgress: Float = 0f,
+    val pendingApkInstall: String? = null,
 
     // LunaChron API registration
     val isRegistered: Boolean = false,

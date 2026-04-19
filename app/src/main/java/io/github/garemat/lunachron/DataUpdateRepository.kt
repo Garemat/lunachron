@@ -230,6 +230,40 @@ class DataUpdateRepository(
         }
     }
 
+    /**
+     * Downloads the APK asset from the given release into the app's cache dir and returns the
+     * file. Only called on the github build variant (CAN_SELF_UPDATE = true); F-Droid and Play
+     * Store builds never reach this path.
+     */
+    suspend fun downloadApk(
+        release: AppRelease,
+        onProgress: (Float) -> Unit
+    ): File {
+        val body = client.get("https://api.github.com/repos/$APP_REPO/releases/tags/${release.tagName}").bodyAsText()
+        val apiRelease = json.decodeFromString<ApiRelease>(body)
+        val apkAsset = apiRelease.assets.firstOrNull { it.name.endsWith(".apk") && !it.name.contains("debug", ignoreCase = true) }
+            ?: throw IllegalStateException("No release APK found in ${release.tagName}")
+
+        val response = client.get(apkAsset.browserDownloadUrl)
+        val contentLength = response.headers[HttpHeaders.ContentLength]?.toLongOrNull() ?: -1L
+        val channel = response.bodyAsChannel()
+
+        val apkFile = File(context.cacheDir, "lunachron-update.apk")
+        var downloaded = 0L
+        val readBuffer = ByteArray(DEFAULT_BUFFER_SIZE)
+
+        apkFile.outputStream().use { out ->
+            while (!channel.isClosedForRead) {
+                val read = channel.readAvailable(readBuffer)
+                if (read <= 0) break
+                out.write(readBuffer, 0, read)
+                downloaded += read
+                if (contentLength > 0) onProgress(downloaded.toFloat() / contentLength)
+            }
+        }
+        return apkFile
+    }
+
     fun persistAutoCheckApp(enabled: Boolean) {
         prefs.edit { putBoolean("auto_check_app_updates", enabled) }
     }

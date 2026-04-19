@@ -70,10 +70,12 @@ sealed interface CharacterEvent {
     data object DismissDataUpdate : CharacterEvent
     data class InstallDataUpdate(val release: GitHubRelease) : CharacterEvent
 
-    // App update events (opt-in; action opens browser, never installs APK in-app)
+    // App update events
     data class SetAutoCheckAppUpdates(val enabled: Boolean) : CharacterEvent
     data object CheckForAppUpdate : CharacterEvent
     data object DismissAppUpdate : CharacterEvent
+    data object InstallAppUpdate : CharacterEvent
+    data object ClearPendingApkInstall : CharacterEvent
 
     // Sync / auto-update (collapses news, data, and portrait checks into one toggle)
     data class SetAutoSynchronise(val enabled: Boolean) : CharacterEvent

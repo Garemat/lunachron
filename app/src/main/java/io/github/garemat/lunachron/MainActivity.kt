@@ -39,6 +39,7 @@ import io.github.garemat.lunachron.ui.*
 import io.github.garemat.lunachron.ui.theme.LocalAppThemeProperties
 import io.github.garemat.lunachron.ui.theme.LunachronTheme
 import androidx.compose.ui.platform.LocalContext
+import io.github.garemat.lunachron.BuildConfig
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -75,6 +76,36 @@ class MainActivity : ComponentActivity() {
             // State for manual troupe selection
             var targetManualPlayerId by remember { mutableStateOf<String?>(null) }
             var isSelectingForCampaign by remember { mutableStateOf(false) }
+
+            if (BuildConfig.CAN_SELF_UPDATE) {
+                val context = LocalContext.current
+                val pendingApk = state.pendingApkInstall
+                LaunchedEffect(pendingApk) {
+                    if (pendingApk == null) return@LaunchedEffect
+                    val apkFile = java.io.File(pendingApk)
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O &&
+                        !context.packageManager.canRequestPackageInstalls()
+                    ) {
+                        context.startActivity(
+                            Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                                data = "package:${context.packageName}".toUri()
+                            }
+                        )
+                    } else {
+                        val uri = androidx.core.content.FileProvider.getUriForFile(
+                            context, "${context.packageName}.fileprovider", apkFile
+                        )
+                        context.startActivity(
+                            Intent(Intent.ACTION_VIEW).apply {
+                                setDataAndType(uri, "application/vnd.android.package-archive")
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                        )
+                    }
+                    viewModel.onEvent(CharacterEvent.ClearPendingApkInstall)
+                }
+            }
 
             LunachronTheme(
                 activeThemeId = state.activeThemeId,
@@ -743,32 +774,62 @@ private fun DataUpdateDialogs(
     val appRelease = state.pendingAppUpdate
     if (appRelease != null) {
         AlertDialog(
-            onDismissRequest = { onEvent(CharacterEvent.DismissAppUpdate) },
+            onDismissRequest = { if (!state.isDownloadingApk) onEvent(CharacterEvent.DismissAppUpdate) },
             title = { Text("App Update Available") },
             text = {
-                if (state.installerSource == InstallerSource.FDROID) {
-                    Text("Version ${appRelease.tagName} is available. Open the F-Droid client to update.")
-                } else {
-                    Text("Version ${appRelease.tagName} is available on GitHub.")
+                when {
+                    state.installerSource == InstallerSource.FDROID ->
+                        Text("Version ${appRelease.tagName} is available. Open the F-Droid client to update.")
+                    BuildConfig.CAN_SELF_UPDATE && state.isDownloadingApk -> {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("Downloading ${appRelease.tagName}…")
+                            LinearProgressIndicator(
+                                progress = { state.apkDownloadProgress },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Text(
+                                "${(state.apkDownloadProgress * 100).toInt()}%",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+                    BuildConfig.CAN_SELF_UPDATE ->
+                        Text("Version ${appRelease.tagName} is available. Download and install it now?")
+                    else ->
+                        Text("Version ${appRelease.tagName} is available on GitHub.")
                 }
             },
             confirmButton = {
-                Button(
-                    onClick = {
-                        val url = if (state.installerSource == InstallerSource.FDROID)
-                            "https://f-droid.org/packages/io.github.garemat.lunachron/"
-                        else
-                            appRelease.htmlUrl
-                        context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
-                        onEvent(CharacterEvent.DismissAppUpdate)
-                    },
-                    shape = theme.cardShape
-                ) {
-                    Text(if (state.installerSource == InstallerSource.FDROID) "Open F-Droid" else "View Release")
+                when {
+                    state.installerSource == InstallerSource.FDROID ->
+                        Button(
+                            onClick = {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, "https://f-droid.org/packages/io.github.garemat.lunachron/".toUri()))
+                                onEvent(CharacterEvent.DismissAppUpdate)
+                            },
+                            shape = theme.cardShape
+                        ) { Text("Open F-Droid") }
+                    BuildConfig.CAN_SELF_UPDATE ->
+                        Button(
+                            onClick = { onEvent(CharacterEvent.InstallAppUpdate) },
+                            enabled = !state.isDownloadingApk,
+                            shape = theme.cardShape
+                        ) { Text("Download & Install") }
+                    else ->
+                        Button(
+                            onClick = {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, appRelease.htmlUrl.toUri()))
+                                onEvent(CharacterEvent.DismissAppUpdate)
+                            },
+                            shape = theme.cardShape
+                        ) { Text("View Release") }
                 }
             },
             dismissButton = {
-                TextButton(onClick = { onEvent(CharacterEvent.DismissAppUpdate) }) { Text("Later") }
+                TextButton(
+                    onClick = { onEvent(CharacterEvent.DismissAppUpdate) },
+                    enabled = !state.isDownloadingApk
+                ) { Text("Later") }
             },
             shape = theme.cardShape
         )
