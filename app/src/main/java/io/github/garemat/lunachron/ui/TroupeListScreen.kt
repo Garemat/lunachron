@@ -8,6 +8,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.StarOutline
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -100,6 +102,9 @@ fun TroupeListScreen(
                                 shareTroupe(context, troupe.troupeName, code)
                             },
                             onEdit = { viewModel.onEvent(CharacterEvent.EditTroupe(troupe)); onEditTroupe() },
+                            onToggleFavourite = if (!selectionMode && troupe.id != -1) {
+                                { viewModel.onEvent(CharacterEvent.ToggleTroupeFavourite(troupe.id)) }
+                            } else null,
                             isDimmed = selectionMode && !isValid,
                             selectionMode = selectionMode,
                             characters = troupeCharacters,
@@ -133,6 +138,7 @@ fun TroupeListItem(
     onQr: () -> Unit = {},
     onShare: () -> Unit,
     onEdit: () -> Unit,
+    onToggleFavourite: (() -> Unit)? = null,
     isDimmed: Boolean = false,
     selectionMode: Boolean = false,
     showDelete: Boolean = true,
@@ -172,6 +178,16 @@ fun TroupeListItem(
                         style = MaterialTheme.typography.bodySmall.copy(lineHeight = 16.sp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                }
+                if (onToggleFavourite != null) {
+                    IconButton(onClick = onToggleFavourite, modifier = Modifier.size(36.dp)) {
+                        Icon(
+                            imageVector = if (troupe.isFavourite) Icons.Default.Star else Icons.Outlined.StarOutline,
+                            contentDescription = if (troupe.isFavourite) "Unfavourite" else "Favourite",
+                            modifier = Modifier.size(20.dp),
+                            tint = if (troupe.isFavourite) Color(0xFFFFC107) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                        )
+                    }
                 }
                 if (selectionMode) {
                     IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) { Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(20.dp)) }
