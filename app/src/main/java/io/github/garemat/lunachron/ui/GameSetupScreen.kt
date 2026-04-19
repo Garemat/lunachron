@@ -9,6 +9,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -135,7 +136,8 @@ fun GameSetupScreen(
         Scaffold(
             topBar = {
                 // TopBar title and navigation is handled by MainActivity
-            }
+            },
+            contentWindowInsets = WindowInsets(0)
         ) { padding ->
             Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
                 if (state.tournamentSettings != null) {
@@ -186,7 +188,7 @@ fun GameSetupScreen(
                             )
                         }
                         else -> {
-                            SetupModeSelection(
+                            GameModeHeroUI(
                                 onLocalSelected = { setupMode.value = SetupMode.LOCAL },
                                 onHostSelected = { showHostModeDialog = true },
                                 onJoinSelected = {

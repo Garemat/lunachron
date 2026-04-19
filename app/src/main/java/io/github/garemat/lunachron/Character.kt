@@ -206,7 +206,8 @@ data class Troupe(
     val isCampaignTroupe: Boolean = false,
     val victoryPoints: Int = 0,
     val equippedUpgrades: Map<Int, List<Int>> = emptyMap(),
-    val campaignCards: List<TroupeCampaignCard> = emptyList()
+    val campaignCards: List<TroupeCampaignCard> = emptyList(),
+    val isFavourite: Boolean = false
 )
 
 @Entity

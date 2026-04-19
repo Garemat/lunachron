@@ -380,6 +380,10 @@ class MainActivity : ComponentActivity() {
                                     HomeScreen(
                                         state = state,
                                         onEvent = viewModel::onEvent,
+                                        onQuickStartTroupe = { troupe ->
+                                            viewModel.startNewGame(listOf(troupe))
+                                            navController.navigate(Screen.ActiveGame.route)
+                                        },
                                         onTargetPositioned = { name, coords -> tutorialCoords[name] = coords }
                                     )
                                 }

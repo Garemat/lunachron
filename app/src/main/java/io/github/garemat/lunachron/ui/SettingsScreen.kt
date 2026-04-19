@@ -18,7 +18,6 @@ import androidx.compose.ui.platform.LocalContext
 import io.github.garemat.lunachron.CharacterEvent
 import io.github.garemat.lunachron.ui.theme.ThemeRepository
 import io.github.garemat.lunachron.CharacterState
-import io.github.garemat.lunachron.GameLayoutMode
 import io.github.garemat.lunachron.GameTrackingMode
 import io.github.garemat.lunachron.ImageDownloadPreference
 import io.github.garemat.lunachron.InstallerSource
@@ -160,47 +159,6 @@ fun SettingsScreen(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Spacer(modifier = Modifier.height(theme.verticalSpacing))
 
-            Text("Gameplay", style = theme.titleStyle.copy(fontSize = 20.sp), color = MaterialTheme.colorScheme.primary)
-            Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onEvent(CharacterEvent.SetLocalModeDefault(!state.useLocalModeByDefault)) }
-                    .padding(vertical = theme.verticalSpacing / 4),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Skip Game Mode Selection", style = theme.headerStyle.copy(fontSize = 18.sp))
-                    Text("Always jump straight to Local Game setup.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Switch(checked = state.useLocalModeByDefault, onCheckedChange = { onEvent(CharacterEvent.SetLocalModeDefault(it)) })
-            }
-
-            if (state.useLocalModeByDefault) {
-                Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onEvent(CharacterEvent.SetSinglePlayerMode(!state.useSinglePlayerMode)) }
-                        .padding(vertical = theme.verticalSpacing / 4)
-                        .padding(start = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Only track 1 player", style = theme.headerStyle.copy(fontSize = 18.sp))
-                        Text("Skip setup and pick a troupe directly for a solo session.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Switch(checked = state.useSinglePlayerMode, onCheckedChange = { onEvent(CharacterEvent.SetSinglePlayerMode(it)) })
-                }
-            }
-
-            Spacer(modifier = Modifier.height(theme.verticalSpacing))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            Spacer(modifier = Modifier.height(theme.verticalSpacing))
-
             Text("Game View", style = theme.titleStyle.copy(fontSize = 20.sp), color = MaterialTheme.colorScheme.primary)
             Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
 
@@ -225,30 +183,6 @@ fun SettingsScreen(
                     onCheckedChange = { enabled ->
                         onEvent(CharacterEvent.ChangeGameTrackingMode(if (enabled) GameTrackingMode.FULL_TRACKING else GameTrackingMode.LOW_DETAIL))
                     }
-                )
-            }
-
-            Spacer(modifier = Modifier.height(theme.verticalSpacing))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            Spacer(modifier = Modifier.height(theme.verticalSpacing))
-
-            Text("Game Layout", style = theme.titleStyle.copy(fontSize = 20.sp), color = MaterialTheme.colorScheme.primary)
-            Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
-
-            Column {
-                SelectionOption(
-                    title = "Low Detail",
-                    selected = state.gameLayoutMode == GameLayoutMode.COMPACT_GRID,
-                    onSelect = { onEvent(CharacterEvent.ChangeGameLayoutMode(GameLayoutMode.COMPACT_GRID)) },
-                    theme = theme,
-                    subtitle = "2-column grid, quick overview of all characters"
-                )
-                SelectionOption(
-                    title = "Detailed",
-                    selected = state.gameLayoutMode == GameLayoutMode.DETAILED_LIST,
-                    onSelect = { onEvent(CharacterEvent.ChangeGameLayoutMode(GameLayoutMode.DETAILED_LIST)) },
-                    theme = theme,
-                    subtitle = "Single column, expandable cards with full stats"
                 )
             }
 

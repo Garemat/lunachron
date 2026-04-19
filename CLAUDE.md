@@ -78,6 +78,32 @@ Side drawer: Rules, Tutorial Help, Settings, Local Tournament, Stats
 Compendium sub-screens: Characters list, Upgrades list, Campaign Cards list
 Campaign screens: CampaignManagement → CampaignDetails / AddEditCampaign / EditCampaign
 
+### Home Screen
+
+`HomeScreen.kt` shows a "Quick Start" section above the news feed when the user has at least one favourite troupe. Tapping a Quick Start card calls `onQuickStartTroupe(troupe)` which is wired in `MainActivity.kt` to call `viewModel.startNewGame(listOf(troupe))` and navigate directly to `ActiveGame`.
+
+The Quick Start section auto-hides with `AnimatedVisibility` when the user scrolls more than ~80px into the news `LazyColumn` (`derivedStateOf` on `LazyListState.firstVisibleItemScrollOffset`). It reappears when they scroll back to the top.
+
+### Game Setup Flow
+
+The Play tab (`GameSetupScreen.kt`) shows:
+1. **`GameModeHeroUI`** (entry point, `SetupCommonUI.kt`) — a hero card for "Local Game" with animated faction-colour cycling gradient background. Three secondary mode rows (Host Game, Join Game, Local Tournament) are deliberately deprecated and show a "getting improved in an upcoming update" Toast when tapped.
+2. **`OfflineSetupUI`** (`OfflineSetupUI.kt`) — a 3-step flow triggered by "Local Game":
+   - **Step 1 — Player Count**: 1–4 player cards with per-count character limits and a visual shape indicator. `maxCharsForCount()`: 1–2 players → 6, 3 → 4, 4 → 3.
+   - **Step 2 — Troupe Selection**: N slot cards (`TroupeSlotCard`). Each slot has a "Browse" button that opens `TroupeBrowseSheet` (a `ModalBottomSheet` listing saved troupes with overlapping character portrait circles). If a selected troupe has more characters than the game allows, the slot enters an amber "trimming" state with an inline `CharacterPickerRow` for the player to select the characters they'll play with.
+   - **Step 3 — Ready**: Summary of all troupes/characters before starting.
+   - Key types: `SlotData(troupe, selectedCharIds, pickerOpen)`, `LocalSetupStep` enum, `slotStatus()` helper returning `"empty"/"trimming"/"confirmed"`.
+
+### Troupe Favourites
+
+`Troupe.isFavourite: Boolean = false` field (added in `Character.kt`). `UserDatabase` is at **version 3** with `MIGRATION_2_3` adding the `isFavourite` column. Toggle via `CharacterEvent.ToggleTroupeFavourite(troupeId)`. Star button shown on `TroupeListItem` when not in selection mode — gold filled star (`Color(0xFFFFC107)`) when favourite, outlined star at 50% alpha otherwise.
+
+**Bug to avoid:** `ToggleTroupeFavourite` must look up the troupe in `state.value.troupes` (the combined `StateFlow`), **not** `_state.value.troupes` (the internal `MutableStateFlow` whose `.troupes` is always empty).
+
+### Settings
+
+The "Gameplay" section (previously contained "Skip Game Mode Selection" and "Only track 1 player" toggles) has been removed. The setup flow now always starts at `GameModeHeroUI` and the player count / single-player behaviour is configured inline in the new setup steps. The underlying `useLocalModeByDefault` and `useSinglePlayerMode` state fields are retained but no longer exposed in Settings UI.
+
 ### Data / Assets
 
 Game data (characters, upgrades, campaign cards) is sourced from the `lunachron-data` repo and bundled as consolidated JSON files in `app/src/main/assets/`:
@@ -147,27 +173,42 @@ ThemedCard(containerColor = Color.DarkGray, modifier = ...) { ... }            /
 - `selectionMode = true` — shows edit button instead of share; also pass `characters` to display the character list below the header
 - `showDelete = false` — hides the delete button (used in solo troupe select)
 - `characters: List<Character>?` — when non-null, renders a name list below the card header; omit faction suffix (redundant — all members share the troupe faction)
+- `onToggleFavourite: (() -> Unit)?` — when non-null (only in normal list mode, not selection mode), renders a star icon button; gold filled when `troupe.isFavourite`, outlined at 50% alpha otherwise
 
 `TroupeListScreen` automatically passes `characters` to `TroupeListItem` when `selectionMode = true`, so campaign and tournament selection get the character list for free. `SoloTroupeSelectScreen` calls `TroupeListItem` directly with `showDelete = false`.
 
 ### Active Game Screen
 
-`ActiveGameScreen.kt` supports two layout modes controlled by `GameLayoutMode` (persisted in SharedPreferences):
-- `COMPACT_GRID` — 2-column `LazyVerticalGrid` with `GameCharacterGridCard`
-- `DETAILED_LIST` — single-column `LazyColumn` with `FrontSide` (full card)
+`ActiveGameScreen.kt` uses a single unified portrait-grid layout. `GameLayoutMode` has been removed entirely.
 
-`GameCharacterGridCard` layout (top to bottom):
-1. Character name + signature move in italics (`Name - *Signature Move*`)
-2. Portrait | stats (melee/evade/damage modifiers) — side by side
-3. Trackable resources row (FULL_TRACKING only): energy `−/E:n/+` then compact circle toggles for each `oncePerTurn`/`oncePerGame` ability
-4. Moonstones
-5. `HealthPipsChunked`
-6. `SummonerIndicator`
+**Layout:**
+- **`RosterStrip`** — sticky `LazyRow` below the top bar; 36dp portrait circles for every character across all players. Tap to scroll the grid to that character and open their card modal. Players are separated by thin dividers.
+- **`LazyVerticalGrid`** — adaptive column count based on total characters: ≤6→3 cols/80dp portraits, ≤10→4 cols/66dp, 11+→5 cols/54dp. Section headers (`GamePlayerSectionHeader`) span the full row between player groups (only shown for >1 player).
+- **`CharacterPortraitCell`** — grid cell: portrait circle + stat line (`⚔ +melee  range"  ✦ +arcane  💨 +evade`) + character name. Stat values ≥ 0 display with a `+` prefix. The `💨` glyph is used for Evade.
 
-Two tracking modes controlled by `GameTrackingMode` (persisted in SharedPreferences):
-- `LOW_DETAIL` — health pips only; energy/moonstones/abilities tracked physically
-- `FULL_TRACKING` — energy counters, moonstone drag-and-drop, ability used markers, collapsible resource pool bar
+**Tracking badges (FULL_TRACKING only):**
+- Bottom-left green circle = current HP. Tap → HP − 1.
+- Bottom-right blue circle = current Energy. Tap → Energy − 1.
+- Top-centre gold triangle = Moonstones held. Tap → Moonstones + 1.
+- Death (HP = 0): portrait fades to 40% alpha, skull ☠ overlay, badges hidden, moonstones auto-zeroed.
+- Rapid taps accumulate into a single toast chip (e.g. "−3 HP") that auto-dismisses 2 s after the last tap.
 
-`FrontSide` accepts `trackingMode: GameTrackingMode = FULL_TRACKING`. When `LOW_DETAIL`, the energy section is hidden. Health always uses `HealthPipsChunked`.
+**Two tracking modes** (`GameTrackingMode`, persisted in SharedPreferences):
+- `LOW_DETAIL` — grid shows portraits + stats only; energy/moonstones/abilities tracked physically.
+- `FULL_TRACKING` — HP/Energy/Moonstone badges on portrait, ability-used markers in card modal, collapsible resource pool bar in the bottom bar.
 
-Settings for both are in `SettingsScreen.kt` under "Game View" and "Game Layout" sections.
+**Card modal (`GameCharacterCardModal`):**
+- Tap any portrait (grid or roster strip) → full-screen overlay with 3D `graphicsLayer` flip animation.
+- Front face uses `CharacterFront(showHealthTracker = false, abilityUsedStates = ..., onAbilityUsedChange = ...)` — compendium-style layout, no health pips, with ability tracking in FULL_TRACKING mode.
+- FULL_TRACKING adds a compact energy counter row (−/value/+) between the name header and the card content.
+- Back face uses `CharacterBack`. The signature-move link inside `CharacterFront` triggers the flip.
+- No expand/collapse — all abilities always visible.
+
+**`CharacterFront` (CommonComponents.kt):** now accepts optional parameters for game-mode use:
+- `showHealthTracker: Boolean = true` — pass `false` in game modal to hide health pips.
+- `abilityUsedStates: Map<String, Boolean>? = null` — when non-null, shows used/unused state on abilities.
+- `onAbilityUsedChange: ((String, Boolean) -> Unit)? = null` — callback for toggling ability state.
+
+**`FrontSide`** (ActiveGameScreen.kt) is retained for internal use but is no longer shown in any layout. It may be removed in a future cleanup.
+
+**Settings:** Game View tracking mode toggle remains in `SettingsScreen.kt`. The "Game Layout" section has been removed.
