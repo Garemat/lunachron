@@ -7,6 +7,7 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.gradle.play.publisher)
 }
 
 android {
@@ -89,6 +90,17 @@ android {
             jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
         }
     }
+}
+
+// Gradle Play Publisher — uploads the github flavor AAB to Play Store.
+// Requires PLAY_SERVICE_ACCOUNT_JSON env var (path to service account JSON) in CI.
+// Locally, place the file at app/play-service-account.json (gitignored).
+play {
+    serviceAccountCredentials.set(
+        file(System.getenv("PLAY_SERVICE_ACCOUNT_JSON") ?: "play-service-account.json")
+    )
+    track.set("internal")
+    defaultToAppBundles.set(true)
 }
 
 ksp {

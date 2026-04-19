@@ -1,16 +1,10 @@
 ## Description
 <!-- Provide a brief description of the changes -->
-
-## Type of Change
-- [ ] 💥 Breaking change (fix or feature that would cause existing functionality to not work as expected)
-- [ ] ✨ New feature (non-breaking change which adds functionality)
-- [ ] 🐛 Bug fix (non-breaking change which fixes an issue)
-- [ ] 🧹 Chore (Non functional changes, documentation, etc.)
+<!-- Version bump is derived automatically from conventional commit messages:
+     feat: → minor bump | fix: → patch bump | feat!:/BREAKING CHANGE: → major bump -->
 
 ## Checklist
 - [ ] My code follows the style guidelines of this project
 - [ ] I have performed a self-review of my own code
-- [ ] I have commented my code, particularly in hard-to-understand areas
-- [ ] I have made corresponding changes to the documentation
 - [ ] I have added tests that prove my fix is effective or that my feature works (N/A for now)
 - [ ] New and existing unit tests pass locally with my changes (N/A for now)

@@ -1,4 +1,5 @@
 [versions]
+gradlePlayPublisher = "3.12.1"
 agp = "8.13.2"
 coreKtx = "1.18.0"
 junit = "4.13.2"
@@ -56,6 +57,7 @@ coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coi
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
+gradle-play-publisher = { id = "com.github.triplet.play", version.ref = "gradlePlayPublisher" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
