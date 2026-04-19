@@ -87,4 +87,75 @@ sealed interface CharacterEvent {
     // Tournament Events
     data class CreateTournament(val tournamentName: String, val troupeSize: TroupeSizeSetting, val timer: Int, val hostParticipating: Boolean, val passcode: String, val hostMode: HostMode = HostMode.WIFI_NSD) : CharacterEvent
     data class JoinTournament(val sessionId: String) : CharacterEvent
+
+    // LunaChron API — device registration
+    data class RegisterDevice(val username: String) : CharacterEvent
+    data object DismissRegistrationError : CharacterEvent
+
+    // LunaChron API — online campaigns
+    data object LoadOnlineCampaigns : CharacterEvent
+    data class CreateOnlineCampaign(
+        val name: String,
+        val description: String?,
+        val settings: OnlineCampaignSettings
+    ) : CharacterEvent
+    data class RequestJoinCampaign(val joinCode: String) : CharacterEvent
+    data object DismissOnlineCampaignError : CharacterEvent
+    data object DismissCreatedCampaignResult : CharacterEvent
+
+    // LunaChron API — campaign detail & member management
+    data class LoadOnlineCampaign(val campaignId: String) : CharacterEvent
+    data class ApproveMember(val campaignId: String, val memberId: String) : CharacterEvent
+    data class RejectMember(val campaignId: String, val memberId: String) : CharacterEvent
+    data object ClearSelectedOnlineCampaign : CharacterEvent
+
+    // LunaChron API — campaign lock / schedule
+    data class LockOnlineCampaign(val campaignId: String) : CharacterEvent
+    data class UnlockOnlineCampaign(val campaignId: String) : CharacterEvent
+    data class SetOnlineScheduleRoundCount(val count: Int) : CharacterEvent
+    data class GenerateOnlineSchedule(val campaignId: String, val totalRounds: Int) : CharacterEvent
+    data class PublishOnlineSchedule(val campaignId: String) : CharacterEvent
+
+    // LunaChron API — troupe sharing + ready
+    data class UploadOnlineTroupe(val campaignId: String, val troupeData: String) : CharacterEvent
+    data class SetOnlineCampaignReady(val campaignId: String, val isReady: Boolean) : CharacterEvent
+
+    // LunaChron API — local player management (host only)
+    data class AddLocalCampaignMember(val campaignId: String, val name: String) : CharacterEvent
+    data class UploadLocalMemberTroupe(val campaignId: String, val targetDeviceId: String, val troupeData: String) : CharacterEvent
+    data class SetLocalMemberReady(val campaignId: String, val targetDeviceId: String, val isReady: Boolean) : CharacterEvent
+
+    // LunaChron API — rankings + round advancement
+    data class UpdateOnlineRankings(val campaignId: String) : CharacterEvent
+    data class AdvanceOnlineRound(val campaignId: String) : CharacterEvent
+
+    // LunaChron API — match result recording
+    data class SubmitOnlineMatchResult(
+        val campaignId: String,
+        val roundNumber: Int,
+        val gameNumber: Int,
+        val playerStats: List<OnlinePlayerStat>,
+        val winnerId: String?       // device ID of winner, null for draw
+    ) : CharacterEvent
+    data object DismissMatchResultSubmitted : CharacterEvent
+
+    // LunaChron API — campaign deletion (host only)
+    data class DeleteOnlineCampaign(val campaignId: String) : CharacterEvent
+    data object DismissCampaignDeleted : CharacterEvent
+
+    // LunaChron API — match result verification (opponent approves or contests)
+    data class VerifyMatchResult(val campaignId: String, val resultId: String, val agree: Boolean) : CharacterEvent
+
+    // LunaChron API — machinations phase
+    data class SubmitMachination(
+        val campaignId: String,
+        val machinations: List<OnlineMachinationChoice>,
+        val attack: OnlineMachinationAttack? = null
+    ) : CharacterEvent
+    data class SubmitLocalMachination(
+        val campaignId: String,
+        val targetDeviceId: String,
+        val machinations: List<OnlineMachinationChoice>,
+        val attack: OnlineMachinationAttack? = null
+    ) : CharacterEvent
 }

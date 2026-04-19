@@ -99,8 +99,13 @@ class MainActivity : ComponentActivity() {
                         Screen.AddEditTroupe.route,
                         Screen.GameSetup.route,
                         Screen.SoloTroupeSelect.route,
+                        Screen.CampaignHub.route,
                         Screen.CampaignManagement.route,
                         Screen.AddEditCampaign.route,
+                        Screen.HostOnlineCampaign.route,
+                        Screen.JoinOnlineCampaign.route,
+                        Screen.ActiveOnlineCampaigns.route,
+                        "online_campaign_detail",
                         "edit_campaign",
                         "campaign_details"
                     )
@@ -223,7 +228,12 @@ class MainActivity : ComponentActivity() {
                                                     currentDestination?.route == Screen.Troupes.route -> "My Troupes"
                                                     currentDestination?.route == Screen.AddEditTroupe.route -> viewModel.newTroupeName.ifBlank { if (viewModel.editingTroupeId == null) "New Troupe" else "Edit Troupe" }
                                                     currentDestination?.route == Screen.GameSetup.route -> "Game Setup"
-                                                    currentDestination?.route == Screen.CampaignManagement.route -> "Wizard Chamberlain"
+                                                    currentDestination?.route == Screen.CampaignHub.route -> "Campaigns"
+                                                    currentDestination?.route == Screen.CampaignManagement.route -> "Local Tracking"
+                                                    currentDestination?.route == Screen.HostOnlineCampaign.route -> "New Campaign"
+                                                    currentDestination?.route == Screen.JoinOnlineCampaign.route -> "Join Campaign"
+                                                    currentDestination?.route == Screen.ActiveOnlineCampaigns.route -> "Active Campaigns"
+                                                    currentDestination?.route?.startsWith("online_campaign_detail") == true -> state.selectedOnlineCampaign?.name ?: "Campaign"
                                                     currentDestination?.route == Screen.AddEditCampaign.route -> "New Campaign"
                                                     currentDestination?.route?.startsWith("edit_campaign") == true -> "Campaign Settings"
                                                     currentDestination?.route?.startsWith("campaign_details") == true -> {
@@ -245,7 +255,7 @@ class MainActivity : ComponentActivity() {
                                         }
                                     },
                                     navigationIcon = {
-                                        if (currentDestination?.route in listOf(Screen.AddEditTroupe.route, Screen.Characters.route, Screen.Upgrades.route, Screen.CampaignCards.route, Screen.Rules.route, Screen.Settings.route, Screen.TournamentSetup.route, Screen.AddEditCampaign.route) || currentDestination?.route?.startsWith("edit_campaign") == true || currentDestination?.route?.startsWith("campaign_details") == true) {
+                                        if (currentDestination?.route in listOf(Screen.AddEditTroupe.route, Screen.Characters.route, Screen.Upgrades.route, Screen.CampaignCards.route, Screen.Rules.route, Screen.Settings.route, Screen.TournamentSetup.route, Screen.AddEditCampaign.route, Screen.CampaignManagement.route, Screen.HostOnlineCampaign.route, Screen.JoinOnlineCampaign.route, Screen.ActiveOnlineCampaigns.route) || currentDestination?.route?.startsWith("edit_campaign") == true || currentDestination?.route?.startsWith("campaign_details") == true || currentDestination?.route?.startsWith("online_campaign_detail") == true) {
                                             IconButton(onClick = { backDispatcher?.onBackPressed() }) {
                                                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                                             }
@@ -292,7 +302,7 @@ class MainActivity : ComponentActivity() {
                                         BottomNavItem("Compendium", Screen.Compendium.route, Icons.Default.MenuBook),
                                         BottomNavItem("Play", playRoute, Icons.Default.PlayArrow),
                                         BottomNavItem("Troupes", Screen.Troupes.route, Icons.Default.Groups),
-                                        BottomNavItem("Campaigns", Screen.CampaignManagement.route, Icons.Default.HistoryEdu)
+                                        BottomNavItem("Campaigns", Screen.CampaignHub.route, Icons.Default.HistoryEdu)
                                     )
                                     items.forEach { item ->
                                         val isPlayButton = item.label == "Play"
@@ -582,6 +592,15 @@ class MainActivity : ComponentActivity() {
                                         onNavigateBack = { navController.safePopBackStack() }
                                     )
                                 }
+                                composable(Screen.CampaignHub.route) {
+                                    CampaignHubScreen(
+                                        state = state,
+                                        onLocalTrackingSelected = { navController.navigate(Screen.CampaignManagement.route) },
+                                        onHostCampaignSelected = { navController.navigate(Screen.HostOnlineCampaign.route) },
+                                        onJoinCampaignSelected = { navController.navigate(Screen.JoinOnlineCampaign.route) },
+                                        onActiveCampaignsSelected = { navController.navigate(Screen.ActiveOnlineCampaigns.route) }
+                                    )
+                                }
                                 composable(Screen.CampaignManagement.route) {
                                     CampaignManagementScreen(
                                         state = state,
@@ -594,6 +613,44 @@ class MainActivity : ComponentActivity() {
                                             viewModel.resetNewCampaignFields()
                                             navController.navigate(Screen.AddEditCampaign.route)
                                         }
+                                    )
+                                }
+                                composable(Screen.HostOnlineCampaign.route) {
+                                    HostOnlineCampaignScreen(
+                                        state = state,
+                                        onEvent = viewModel::onEvent,
+                                        onNavigateBack = { navController.safePopBackStack() }
+                                    )
+                                }
+                                composable(Screen.JoinOnlineCampaign.route) {
+                                    JoinOnlineCampaignScreen(
+                                        state = state,
+                                        onEvent = viewModel::onEvent,
+                                        onNavigateBack = { navController.safePopBackStack() }
+                                    )
+                                }
+                                composable(Screen.ActiveOnlineCampaigns.route) {
+                                    ActiveOnlineCampaignsScreen(
+                                        state = state,
+                                        onEvent = viewModel::onEvent,
+                                        onNavigateBack = { navController.safePopBackStack() },
+                                        onCampaignSelected = { id ->
+                                            navController.navigate(Screen.OnlineCampaignDetail.createRoute(id))
+                                        }
+                                    )
+                                }
+                                composable(
+                                    route = Screen.OnlineCampaignDetail.route,
+                                    arguments = listOf(navArgument("campaignId") { type = NavType.StringType })
+                                ) { backStackEntry ->
+                                    val campaignId = backStackEntry.arguments?.getString("campaignId") ?: return@composable
+                                    OnlineCampaignDetailScreen(
+                                        campaignId = campaignId,
+                                        state = state,
+                                        onEvent = viewModel::onEvent,
+                                        onNavigateBack = { navController.safePopBackStack() },
+                                        onDecodeTroupe = { code -> viewModel.importTroupe(code, state.characters, state.upgradeCards) },
+                                        onEncodeTroupe = { troupe -> viewModel.generateFullShareCode(troupe, state.characters, state.upgradeCards) }
                                     )
                                 }
                                 composable(Screen.AddEditCampaign.route) {

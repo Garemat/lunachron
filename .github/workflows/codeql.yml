@@ -85,6 +85,8 @@ jobs:
     - name: Run manual build steps
       if: matrix.build-mode == 'manual'
       shell: bash
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: ./gradlew assembleDebug
 
     - name: Perform CodeQL Analysis

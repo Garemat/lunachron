@@ -18,8 +18,15 @@ sealed class Screen(val route: String) {
     data object TournamentSetup : Screen("tournament_setup")
     data object TournamentWaitingRoom : Screen("tournament_waiting_room")
     data object TournamentRound : Screen("tournament_round")
+    data object CampaignHub : Screen("campaign_hub")
     data object CampaignManagement : Screen("campaign_management")
     data object AddEditCampaign : Screen("add_edit_campaign")
+    data object HostOnlineCampaign : Screen("host_online_campaign")
+    data object JoinOnlineCampaign : Screen("join_online_campaign")
+    data object ActiveOnlineCampaigns : Screen("active_online_campaigns")
+    data object OnlineCampaignDetail : Screen("online_campaign_detail/{campaignId}") {
+        fun createRoute(campaignId: String) = "online_campaign_detail/$campaignId"
+    }
     data object EditCampaign : Screen("edit_campaign/{campaignId}") {
         fun createRoute(campaignId: Int) = "edit_campaign/$campaignId"
     }
