@@ -121,6 +121,21 @@ Game data (characters, upgrades, campaign cards) is sourced from the `lunachron-
 
 `IntOrStringSerializer` in `Character.kt` handles JSON fields that may be either int or string.
 
+### LunaChron Backend (Online Campaigns)
+
+Online campaign coordination is optional — the app is fully functional without it. Users opt in by registering a device in Settings.
+
+**API client:** `api/LunaChronApi.kt` — Ktor HTTP client wrapping all backend endpoints. Key points:
+- Base URL is a `BuildConfig` field: `http://10.0.2.2:3000` in debug (emulator loopback), `https://api.garemat.co.uk` in release.
+- Session token and backend device UUID are persisted in `SharedPreferences` (`lunachron_prefs`). The backend UUID is distinct from the Android device ID — it is the `devices.id` primary key assigned by the server and is used to identify the device in campaign schedules and match results.
+- Timeouts are set to 35s with one automatic retry on timeout. OCI Functions cold start (container spin-up + DB pool init) can take up to ~25s; the retry ensures a warm-container hit if the first attempt loses the race.
+
+**Registration flow:** `CharacterEvent.RegisterDevice` → `apiClient.register(persistentDeviceId, username)`. If the device is already registered (`DEVICE_EXISTS`), the client automatically falls through to login. `isRegistered` / `backendDeviceId` in `CharacterState` reflect the persisted state.
+
+**What the backend stores:** A keyed HMAC hash of the Android device ID (never the raw ID), the username, and 30-day session tokens. Campaigns, members, schedules, and match results are all server-side.
+
+**Screens added:** `CampaignHubScreen` (entry point), `HostOnlineCampaignScreen`, `JoinOnlineCampaignScreen`, `ActiveOnlineCampaignsScreen`, `OnlineCampaignDetailScreen`. All online state lives in `CharacterState` under the `// LunaChron API` comment blocks.
+
 ### Multiplayer
 
 `NearbyManager` handles peer-to-peer connections for:
