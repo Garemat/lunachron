@@ -6,6 +6,7 @@ import androidx.core.content.edit
 import io.ktor.client.*
 import io.ktor.client.engine.android.Android
 import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.plugins.HttpRequestRetry
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
@@ -117,9 +118,18 @@ class LunaChronApi(
     private val json = Json { ignoreUnknownKeys = true; coerceInputValues = true; encodeDefaults = true }
     private val http = client ?: HttpClient(Android) {
         install(HttpTimeout) {
-            requestTimeoutMillis = 15_000
-            connectTimeoutMillis = 15_000
-            socketTimeoutMillis  = 15_000
+            // 35s gives headroom above the OCI Function's own 30s timeout so the
+            // function's error (502) reaches us rather than the client timing out first.
+            requestTimeoutMillis = 35_000
+            connectTimeoutMillis = 35_000
+            socketTimeoutMillis  = 35_000
+        }
+        install(HttpRequestRetry) {
+            // One retry on timeout — if the cold start exhausted the first attempt,
+            // the container is warm by the time the retry lands.
+            maxRetries = 1
+            retryOnException(retryOnTimeout = true)
+            delayMillis { 2_000 }
         }
     }
 
