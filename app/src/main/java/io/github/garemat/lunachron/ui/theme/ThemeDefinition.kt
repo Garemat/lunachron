@@ -144,6 +144,7 @@ data class GameColorDefinition(
     val arcaneBlue: String? = null,
     val arcanePurple: String? = null,
     val catastrophe: String? = null,
+    val healthPip: String? = null,
 )
 
 /** Preferred game tracking mode applied when the user switches to this theme. */

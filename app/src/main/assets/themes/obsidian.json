@@ -1,0 +1,80 @@
+{
+  "id": "obsidian",
+  "name": "Obsidian",
+  "fonts": {
+    "display": "default",
+    "body": "default",
+    "mono": "monospace"
+  },
+  "colorScheme": {
+    "primary":              "#C9A84C",
+    "onPrimary":            "#1A0F00",
+    "primaryContainer":     "#3D2E00",
+    "onPrimaryContainer":   "#F5D58C",
+    "secondary":            "#A88A35",
+    "onSecondary":          "#1A0F00",
+    "secondaryContainer":   "#2D2000",
+    "onSecondaryContainer": "#E8C56A",
+    "surface":              "#1A1A1A",
+    "onSurface":            "#E8E0D0",
+    "surfaceVariant":       "#252525",
+    "onSurfaceVariant":     "#B0A88A",
+    "background":           "#0A0A0A",
+    "onBackground":         "#E8E0D0",
+    "outline":              "#4A4030",
+    "error":                "#CF6679",
+    "onError":              "#1A000B",
+    "isDark":               true
+  },
+  "factionColors": {
+    "commonwealth": "#C9A84C",
+    "dominion":     "#4A8CC9",
+    "leshavult":    "#4AAF6A",
+    "shades":       "#888888"
+  },
+  "shapes": {
+    "cardCornerRadius": 8.0,
+    "navItemShape":     "circle",
+    "drawerShape":      "rounded"
+  },
+  "spacing": {
+    "compact":            8.0,
+    "cozy":               16.0,
+    "spacious":           24.0,
+    "cardPaddingCompact": 8.0,
+    "cardPaddingCozy":    12.0,
+    "cardPaddingSpacious": 16.0
+  },
+  "typography": {
+    "titleStyle":      { "base": "titleLarge",    "weight": "bold" },
+    "headerStyle":     { "base": "headlineMedium" },
+    "labelStyle":      { "base": "labelSmall",    "weight": "bold" },
+    "buttonTextStyle": { "base": "labelLarge",    "weight": "bold" }
+  },
+  "gameColors": {
+    "moonstone":         "#2196F3",
+    "positive":          "#4AAF6A",
+    "rankingGold":       "#C9A84C",
+    "rankingSilver":     "#A0A0A0",
+    "rankingBronze":     "#CD7F32",
+    "ready":             "#4AAF6A",
+    "scoreCircle":       "#4A8CC9",
+    "magicalDamage":     "#6EB5FF",
+    "followUpHighlight": "#C9A84C",
+    "arcaneGreen":       "#4AAF6A",
+    "arcaneBlue":        "#4A8CC9",
+    "arcanePurple":      "#C268A8",
+    "catastrophe":       "#FF4444",
+    "healthPip":         "#C9A84C"
+  },
+  "characterCard": {
+    "showBackgroundImageOverlay": false,
+    "showExpandedStatsHeader":    false,
+    "showCardDivider":            true,
+    "useDamageTypeIcons":         false
+  },
+  "showFactionBackgrounds": false,
+  "gameplayPreferences": {
+    "defaultTrackingMode": "LOW_DETAIL"
+  }
+}
