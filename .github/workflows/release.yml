@@ -26,17 +26,25 @@ jobs:
     - name: Determine next version from conventional commits
       id: version
       run: |
+        # Use absolute latest tag (sort-based, not ancestry-based) so orphaned
+        # release commits from the old workflow are still recognised as the floor
+        LATEST=$(git tag --sort=-v:refname | grep '^v' | head -1)
+        if [ -z "$LATEST" ]; then LATEST="v0.0.0"; fi
+
         BUMPED=$(git cliff --bumped-version 2>/dev/null || echo "")
-        LATEST=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-        # If git-cliff found no releasable commits (e.g. chore-only PR), force a patch bump
-        if [ -z "$BUMPED" ] || [ "$BUMPED" = "$LATEST" ]; then
+
+        # Helper: returns 0 if $1 >= $2 by semver
+        version_gte() { [ "$(printf '%s\n' "$1" "$2" | sort -V | tail -1)" = "$1" ]; }
+
+        # If git-cliff produced nothing, or its result is <= the actual latest tag
+        # (because it was working from a stale reachable tag), bump patch from LATEST
+        if [ -z "$BUMPED" ] || ! version_gte "$BUMPED" "$LATEST" || [ "$BUMPED" = "$LATEST" ]; then
           LATEST_VER="${LATEST#v}"
-          if [ -z "$LATEST_VER" ]; then LATEST_VER="0.0.0"; fi
           IFS='.' read -r major minor patch <<< "$LATEST_VER"
           BUMPED="v${major}.${minor}.$((patch+1))"
         fi
-        # If the computed tag already exists (e.g. race between concurrent releases),
-        # keep incrementing patch until we find a free tag
+
+        # Keep incrementing patch until we find a tag that doesn't already exist
         while git tag | grep -qx "$BUMPED"; do
           VER="${BUMPED#v}"
           IFS='.' read -r major minor patch <<< "$VER"
