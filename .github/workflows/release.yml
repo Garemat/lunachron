@@ -35,6 +35,13 @@ jobs:
           IFS='.' read -r major minor patch <<< "$LATEST_VER"
           BUMPED="v${major}.${minor}.$((patch+1))"
         fi
+        # If the computed tag already exists (e.g. race between concurrent releases),
+        # keep incrementing patch until we find a free tag
+        while git tag | grep -qx "$BUMPED"; do
+          VER="${BUMPED#v}"
+          IFS='.' read -r major minor patch <<< "$VER"
+          BUMPED="v${major}.${minor}.$((patch+1))"
+        done
         NEW_TAG="$BUMPED"
         VERSION_NAME="${NEW_TAG#v}"
         IFS='.' read -r major minor patch <<< "$VERSION_NAME"
