@@ -17,70 +17,66 @@ jobs:
       with:
         fetch-depth: 0
 
-    - name: Determine Version Bump
-      id: bump_type
-      env:
-        BODY: ${{ github.event.pull_request.body }}
+    - name: Install git-cliff
+      uses: kenji-miyake/setup-git-cliff@v2
+
+    - name: Determine next version from conventional commits
+      id: version
       run: |
-        if [[ "$BODY" == *"[x] 💥 Breaking change"* ]]; then
-          echo "type=major" >> $GITHUB_OUTPUT
-        elif [[ "$BODY" == *"[x] ✨ New feature"* ]]; then
-          echo "type=minor" >> $GITHUB_OUTPUT
-        elif [[ "$BODY" == *"[x] 🐛 Bug fix"* ]]; then
-          echo "type=patch" >> $GITHUB_OUTPUT
-        else
-          echo "type=none" >> $GITHUB_OUTPUT
+        BUMPED=$(git cliff --bumped-version 2>/dev/null || echo "")
+        LATEST=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+        if [ -z "$BUMPED" ] || [ "$BUMPED" = "$LATEST" ]; then
+          echo "bump=false" >> $GITHUB_OUTPUT
+          exit 0
         fi
+        NEW_TAG="$BUMPED"
+        VERSION_NAME="${NEW_TAG#v}"
+        IFS='.' read -r major minor patch <<< "$VERSION_NAME"
+        VERSION_CODE=$(( major * 10000 + minor * 100 + patch ))
+        echo "bump=true" >> $GITHUB_OUTPUT
+        echo "new_tag=$NEW_TAG" >> $GITHUB_OUTPUT
+        echo "version_name=$VERSION_NAME" >> $GITHUB_OUTPUT
+        echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
 
     - name: Pin latest lunachron-data release
-      if: steps.bump_type.outputs.type != 'none'
-      id: pin_data
+      if: steps.version.outputs.bump == 'true'
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         DATA_TAG=$(gh api repos/garemat/lunachron-data/releases/latest --jq '.tag_name')
-        echo "data_tag=$DATA_TAG" >> $GITHUB_OUTPUT
         echo "$DATA_TAG" > data.version
-        echo "Pinned data release: $DATA_TAG"
 
-    - name: Compute next version and write to build.gradle.kts
-      if: steps.bump_type.outputs.type != 'none'
-      id: version
+    - name: Write version to build.gradle.kts
+      if: steps.version.outputs.bump == 'true'
       run: |
-        LATEST_TAG=$(git tag --sort=-v:refname | grep '^v' | head -1)
-        LATEST="${LATEST_TAG#v}"
-        if [ -z "$LATEST" ]; then LATEST="0.0.0"; fi
-        IFS='.' read -r major minor patch <<< "$LATEST"
-        major=${major:-0}; minor=${minor:-0}; patch=${patch:-0}
-        case "${{ steps.bump_type.outputs.type }}" in
-          major) major=$((major+1)); minor=0; patch=0 ;;
-          minor) minor=$((minor+1)); patch=0 ;;
-          patch) patch=$((patch+1)) ;;
-        esac
-        VERSION_NAME="${major}.${minor}.${patch}"
-        VERSION_CODE=$(( major * 10000 + minor * 100 + patch ))
-        NEW_TAG="v${VERSION_NAME}"
-        echo "new_tag=$NEW_TAG" >> $GITHUB_OUTPUT
-        echo "version_name=$VERSION_NAME" >> $GITHUB_OUTPUT
-        echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
-        # Write hardcoded values into build.gradle.kts so F-Droid can read them
-        # directly from the tagged commit without needing env var injection.
-        sed -i "s/        versionCode = .*/        versionCode = $VERSION_CODE/" app/build.gradle.kts
-        sed -i "s/        versionName = .*/        versionName = \"$VERSION_NAME\"/" app/build.gradle.kts
-        echo "Version: $VERSION_NAME ($VERSION_CODE), tag: $NEW_TAG"
+        sed -i "s/        versionCode = .*/        versionCode = ${{ steps.version.outputs.version_code }}/" app/build.gradle.kts
+        sed -i "s/        versionName = .*/        versionName = \"${{ steps.version.outputs.version_name }}\"/" app/build.gradle.kts
+
+    - name: Generate changelog
+      if: steps.version.outputs.bump == 'true'
+      run: git cliff --tag ${{ steps.version.outputs.new_tag }} -o CHANGELOG.md
 
     - name: Create release commit and tag
-      if: steps.bump_type.outputs.type != 'none'
+      if: steps.version.outputs.bump == 'true'
       run: |
         git config user.name  "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
-        git add app/build.gradle.kts data.version
+        git add app/build.gradle.kts data.version CHANGELOG.md
         git diff --staged --quiet || git commit -m "chore: release ${{ steps.version.outputs.new_tag }} [skip ci]"
         git tag ${{ steps.version.outputs.new_tag }}
-        git push origin ${{ steps.version.outputs.new_tag }}
+        git push origin HEAD:main ${{ steps.version.outputs.new_tag }}
 
-    - name: set up JDK 17
-      if: steps.bump_type.outputs.type != 'none'
+    - name: Extract release notes for this version
+      if: steps.version.outputs.bump == 'true'
+      id: release_notes
+      run: |
+        NOTES=$(git cliff --tag ${{ steps.version.outputs.new_tag }} --current --strip header)
+        echo "notes<<EOF" >> $GITHUB_OUTPUT
+        echo "$NOTES" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: Set up JDK 17
+      if: steps.version.outputs.bump == 'true'
       uses: actions/setup-java@v5
       with:
         java-version: '17'
@@ -88,20 +84,19 @@ jobs:
         cache: gradle
 
     - name: Grant execute permission for gradlew
-      if: steps.bump_type.outputs.type != 'none'
+      if: steps.version.outputs.bump == 'true'
       run: chmod +x gradlew
 
     - name: Run tests
-      if: steps.bump_type.outputs.type != 'none'
+      if: steps.version.outputs.bump == 'true'
       run: ./gradlew testFdroidDebugUnitTest
 
     - name: Decode Keystore
-      if: steps.bump_type.outputs.type != 'none'
-      run: |
-        echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > app/release.keystore
+      if: steps.version.outputs.bump == 'true'
+      run: echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > app/release.keystore
 
     - name: Build Release APK and AAB
-      if: steps.bump_type.outputs.type != 'none'
+      if: steps.version.outputs.bump == 'true'
       env:
         KEYSTORE_PATH: release.keystore
         KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
@@ -109,8 +104,14 @@ jobs:
         KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
       run: ./gradlew assembleGithubRelease bundleGithubRelease bundleFdroidRelease
 
+    - name: Publish to Play Store internal track
+      if: steps.version.outputs.bump == 'true'
+      env:
+        PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+      run: ./gradlew publishGithubReleaseBundle
+
     - name: Create GitHub Release
-      if: steps.bump_type.outputs.type != 'none'
+      if: steps.version.outputs.bump == 'true'
       uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ steps.version.outputs.new_tag }}
@@ -119,6 +120,6 @@ jobs:
           app/build/outputs/bundle/githubRelease/app-github-release.aab
           app/build/outputs/bundle/fdroidRelease/app-fdroid-release.aab
         name: Release ${{ steps.version.outputs.new_tag }}
-        generate_release_notes: true
+        body: ${{ steps.release_notes.outputs.notes }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
