@@ -25,9 +25,12 @@ jobs:
       run: |
         BUMPED=$(git cliff --bumped-version 2>/dev/null || echo "")
         LATEST=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+        # If git-cliff found no releasable commits (e.g. chore-only PR), force a patch bump
         if [ -z "$BUMPED" ] || [ "$BUMPED" = "$LATEST" ]; then
-          echo "bump=false" >> $GITHUB_OUTPUT
-          exit 0
+          LATEST_VER="${LATEST#v}"
+          if [ -z "$LATEST_VER" ]; then LATEST_VER="0.0.0"; fi
+          IFS='.' read -r major minor patch <<< "$LATEST_VER"
+          BUMPED="v${major}.${minor}.$((patch+1))"
         fi
         NEW_TAG="$BUMPED"
         VERSION_NAME="${NEW_TAG#v}"
