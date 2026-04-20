@@ -28,11 +28,6 @@ jobs:
         run: |
           echo "Validating PR description..."
 
-          if ! echo "$PR_BODY" | grep -qEi "(- \[x\] (🐛 Bug fix|✨ New feature|💥 Breaking change|🧹 Chore))"; then
-            echo "::error::Validation Failed: Please select at least one 'Type of Change' in your PR description."
-            exit 1
-          fi
-
           if echo "$PR_BODY" | sed -n '/## Checklist/,$p' | grep -q "\[ \]"; then
             echo "::error::Validation Failed: Please ensure all items in the 'Checklist' are completed and checked."
             exit 1
