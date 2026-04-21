@@ -84,6 +84,10 @@ jobs:
     - name: Publish to Play Store internal track
       env:
         PLAY_SERVICE_ACCOUNT_JSON: /tmp/play-service-account.json
+        KEYSTORE_PATH: release.keystore
+        KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+        KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+        KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
       run: ./gradlew publishGithubReleaseBundle
 
     - name: Create GitHub Release
