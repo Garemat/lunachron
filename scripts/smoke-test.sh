@@ -49,14 +49,18 @@ pass "device online"
   || fail "app not installed on device (${PACKAGE})"
 pass "app installed"
 
-# 4. App version matches latest tag
-INSTALLED_VERSION=$( "${ADB_TARGET[@]}" shell dumpsys package "$PACKAGE" 2>/dev/null \
-  | grep -m1 'versionName' | sed 's/.*versionName=//' | tr -d '[:space:]' )
-if [[ "$INSTALLED_VERSION" != "$VERSION" ]]; then
-  echo "  ⚠ version mismatch: installed=${INSTALLED_VERSION}, tag=${VERSION} (continuing anyway)"
-else
-  pass "version matches tag (${VERSION})"
-fi
+# 4b. Download and install the release APK from GitHub
+APK_TMP=$(mktemp /tmp/lunachron-XXXXXX.apk)
+echo "  Downloading ${LATEST_TAG} APK..."
+gh release download "$LATEST_TAG" \
+  --repo Garemat/lunachron \
+  --pattern "app-github-release.apk" \
+  --output "$APK_TMP" 2>/dev/null \
+  || fail "could not download APK for ${LATEST_TAG} — is gh authenticated?"
+"${ADB_TARGET[@]}" install -r "$APK_TMP" &>/dev/null \
+  || fail "adb install failed"
+rm -f "$APK_TMP"
+pass "release APK installed (${LATEST_TAG})"
 
 # 5. App launches without immediate crash — force-stop first for a clean slate
 "${ADB_TARGET[@]}" shell am force-stop "$PACKAGE" 2>/dev/null || true
@@ -142,7 +146,8 @@ Core flows to verify:
 - At least one feature from the changelog above
 
 Use the Android MCP tools to interact with the device. Start by launching the app, then navigate \
-and interact naturally. Take screenshots to confirm state where useful.
+and interact naturally. Prefer get_ui_hierarchy over screenshot for navigation decisions — it is \
+faster and cheaper. Only use screenshot when verifying something visual (colours, layout, theme).
 
 For each area you test, report:
 - What you tested
