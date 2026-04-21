@@ -74,11 +74,19 @@ jobs:
       if: steps.check.outputs.skip != 'true'
       run: git cliff --tag ${{ steps.version.outputs.new_tag }} -o CHANGELOG.md
 
+    - name: Pin latest lunachron-data release
+      if: steps.check.outputs.skip != 'true'
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        DATA_TAG=$(gh api repos/garemat/lunachron-data/releases/latest --jq '.tag_name')
+        echo "$DATA_TAG" > data.version
+
     - name: Commit version bump
       if: steps.check.outputs.skip != 'true'
       run: |
         git config user.name  "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
-        git add app/build.gradle.kts CHANGELOG.md
+        git add app/build.gradle.kts CHANGELOG.md data.version
         git diff --staged --quiet || git commit -m "chore: bump version to ${{ steps.version.outputs.new_tag }}"
         git push origin HEAD:${{ github.head_ref }}
