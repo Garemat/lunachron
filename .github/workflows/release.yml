@@ -38,13 +38,6 @@ jobs:
         echo "version_name=$VERSION_NAME" >> $GITHUB_OUTPUT
         echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
 
-    - name: Pin latest lunachron-data release
-      env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        DATA_TAG=$(gh api repos/garemat/lunachron-data/releases/latest --jq '.tag_name')
-        echo "$DATA_TAG" > data.version
-
     - name: Install git-cliff
       uses: kenji-miyake/setup-git-cliff@v2
 
@@ -58,12 +51,8 @@ jobs:
 
     - name: Tag release
       run: |
-        git config user.name  "github-actions[bot]"
-        git config user.email "github-actions[bot]@users.noreply.github.com"
-        git add data.version
-        git diff --staged --quiet || git commit -m "chore: pin data for ${{ steps.version.outputs.new_tag }} [skip ci]"
         git tag ${{ steps.version.outputs.new_tag }}
-        git push origin HEAD:main ${{ steps.version.outputs.new_tag }}
+        git push origin ${{ steps.version.outputs.new_tag }}
 
     - name: Set up JDK 17
       uses: actions/setup-java@v5
