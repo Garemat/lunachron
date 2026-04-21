@@ -1870,7 +1870,7 @@ private fun CharacterSelectionStage(
 ) {
     val factionCharacters = remember(state.characters, selectedTroupeFaction, searchQuery, selectedTags) {
         state.characters.filter { it.factions.contains(selectedTroupeFaction) }.filter { char ->
-            val matchesSearch = searchQuery.isEmpty() || char.name.contains(searchQuery, ignoreCase = true) || char.keywords.any { it.contains(searchQuery, ignoreCase = true) }
+            val matchesSearch = searchQuery.isEmpty() || char.name.contains(searchQuery, ignoreCase = true) || char.keywords.any { it.contains(searchQuery, ignoreCase = true) } || char.abilities.any { it.name.contains(searchQuery, ignoreCase = true) || it.description.contains(searchQuery, ignoreCase = true) }
             val matchesTags = selectedTags.isEmpty() || selectedTags.all { it in char.keywords }
             matchesSearch && matchesTags
         }
