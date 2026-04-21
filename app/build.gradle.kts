@@ -18,8 +18,8 @@ android {
         applicationId = "io.github.garemat.lunachron"
         minSdk = 24
         targetSdk = 36
-        versionCode = 21206
-        versionName = "2.12.6"
+        versionCode = 21207
+        versionName = "2.12.7"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

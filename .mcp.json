@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "android": {
+      "command": "android-mcp",
+      "args": []
+    }
+  }
+}

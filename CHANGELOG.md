@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Publish fdroid flavor to Play Store, not github flavor
+- Publish fdroid flavor to Play Store instead of github (#126)
 
 
 ## [2.12.5] - 2026-04-21
