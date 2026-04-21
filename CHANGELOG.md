@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.12.2] - 2026-04-21
+## [2.12.3] - 2026-04-21
 
 ### Added
 
@@ -54,7 +54,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Correct version floor using absolute latest tag (#118)
 
-- Use --unreleased for release notes before tag exists
+- Use --unreleased for release notes before tag is created (#122)
+
+- Move data.version pin to pre-merge, release workflow pushes tag only
 
 
 ## [0.0.1] - 2026-02-10
