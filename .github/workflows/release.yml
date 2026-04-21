@@ -51,7 +51,7 @@ jobs:
     - name: Extract release notes
       id: release_notes
       run: |
-        NOTES=$(git cliff --tag ${{ steps.version.outputs.new_tag }} --current --strip header)
+        NOTES=$(git cliff --unreleased --strip header)
         echo "notes<<EOF" >> $GITHUB_OUTPUT
         echo "$NOTES" >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
