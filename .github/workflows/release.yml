@@ -78,9 +78,12 @@ jobs:
         KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
       run: ./gradlew assembleGithubRelease bundleGithubRelease bundleFdroidRelease
 
+    - name: Write Play Store credentials to file
+      run: echo '${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}' > /tmp/play-service-account.json
+
     - name: Publish to Play Store internal track
       env:
-        PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        PLAY_SERVICE_ACCOUNT_JSON: /tmp/play-service-account.json
       run: ./gradlew publishGithubReleaseBundle
 
     - name: Create GitHub Release
