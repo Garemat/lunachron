@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Extend troupe character search to include abilities
+- Extend troupe character search to include abilities (#128)
 
 
 ## [2.12.6] - 2026-04-21

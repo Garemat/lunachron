@@ -49,13 +49,13 @@ fun TroupeListScreen(
                 if (selectionMode) {
                     CenterAlignedTopAppBar(
                         title = { Text(if (isCampaignSelection) "Select Campaign Troupe" else "Select Tournament Troupe", style = theme.titleStyle) },
-                        navigationIcon = { IconButton(onClick = onNavigateBack) { Icon(Icons.Default.ArrowBack, contentDescription = null) } }
+                        navigationIcon = { IconButton(onClick = onNavigateBack) { Icon(Icons.Default.ArrowBack, contentDescription = "Back") } }
                     )
                 }
             },
             floatingActionButton = {
                 if (!selectionMode) {
-                    FloatingActionButton(onClick = onAddTroupe, modifier = Modifier.onGloballyPositioned { onTargetPositioned("AddTroupe", it) }) { Icon(Icons.Default.Add, contentDescription = null) }
+                    FloatingActionButton(onClick = onAddTroupe, modifier = Modifier.onGloballyPositioned { onTargetPositioned("AddTroupe", it) }) { Icon(Icons.Default.Add, contentDescription = "Add troupe") }
                 }
             }
         ) { padding ->
@@ -190,12 +190,12 @@ fun TroupeListItem(
                     }
                 }
                 if (selectionMode) {
-                    IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) { Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(20.dp)) }
+                    IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) { Icon(Icons.Default.Edit, contentDescription = "Edit troupe", modifier = Modifier.size(20.dp)) }
                 } else {
                     IconButton(onClick = onQr, modifier = Modifier.size(36.dp)) { Icon(Icons.Default.QrCode, contentDescription = "Show QR", modifier = Modifier.size(20.dp)) }
-                    IconButton(onClick = onShare, modifier = Modifier.size(36.dp).onGloballyPositioned { onPositioned("ShareTroupe", it) }) { Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(20.dp)) }
+                    IconButton(onClick = onShare, modifier = Modifier.size(36.dp).onGloballyPositioned { onPositioned("ShareTroupe", it) }) { Icon(Icons.Default.Share, contentDescription = "Share troupe", modifier = Modifier.size(20.dp)) }
                 }
-                if (showDelete) IconButton(onClick = onDelete, modifier = Modifier.size(36.dp).onGloballyPositioned { onPositioned("DeleteTroupe", it) }) { Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.error) }
+                if (showDelete) IconButton(onClick = onDelete, modifier = Modifier.size(36.dp).onGloballyPositioned { onPositioned("DeleteTroupe", it) }) { Icon(Icons.Default.Delete, contentDescription = "Delete troupe", modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.error) }
             }
             if (!characters.isNullOrEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))

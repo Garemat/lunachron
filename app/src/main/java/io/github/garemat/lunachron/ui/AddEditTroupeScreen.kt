@@ -238,7 +238,7 @@ fun AddEditTroupeScreen(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     modifier = Modifier.onGloballyPositioned { onTargetPositioned("ConfirmSelectionButton", it) }
                 ) {
-                    Icon(Icons.Default.Check, contentDescription = null)
+                    Icon(Icons.Default.Check, contentDescription = "Confirm selection")
                 }
             }
         }
@@ -590,7 +590,7 @@ private fun TroupeHeader(
             Text("Victory Points:", style = MaterialTheme.typography.labelMedium)
             Spacer(modifier = Modifier.width(8.dp))
             IconButton(onClick = { onVictoryPointsChange((victoryPoints - 1).coerceAtLeast(0)) }, modifier = Modifier.size(24.dp)) {
-                Icon(Icons.Default.Remove, contentDescription = null)
+                Icon(Icons.Default.Remove, contentDescription = "Decrease victory points")
             }
             Text(
                 text = victoryPoints.toString(),
@@ -599,7 +599,7 @@ private fun TroupeHeader(
                 modifier = Modifier.padding(horizontal = 8.dp)
             )
             IconButton(onClick = { onVictoryPointsChange(victoryPoints + 1) }, modifier = Modifier.size(24.dp)) {
-                Icon(Icons.Default.Add, contentDescription = null)
+                Icon(Icons.Default.Add, contentDescription = "Increase victory points")
             }
         }
 
@@ -1055,7 +1055,7 @@ private fun DashboardFabColumn(
                     MaterialTheme.colorScheme.surfaceVariant,
                 modifier = Modifier.onGloballyPositioned { onTargetPositioned("SaveButton", it) }
             ) {
-                Icon(Icons.Default.Check, contentDescription = null)
+                Icon(Icons.Default.Check, contentDescription = "Save troupe")
             }
         }
     }
@@ -1237,7 +1237,7 @@ private fun CampaignCardManagementSheet(
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                 trailingIcon = {
                     if (searchQuery.isNotEmpty()) IconButton(onClick = { searchQuery = "" }) {
-                        Icon(Icons.Default.Clear, contentDescription = null)
+                        Icon(Icons.Default.Clear, contentDescription = "Clear search")
                     }
                 },
                 singleLine = true,
@@ -1617,7 +1617,7 @@ private fun UpgradeManagementSheet(
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                 trailingIcon = {
                     if (searchQuery.isNotEmpty()) IconButton(onClick = { searchQuery = "" }) {
-                        Icon(Icons.Default.Clear, contentDescription = null)
+                        Icon(Icons.Default.Clear, contentDescription = "Clear search")
                     }
                 },
                 singleLine = true,

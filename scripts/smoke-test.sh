@@ -49,14 +49,18 @@ pass "device online"
   || fail "app not installed on device (${PACKAGE})"
 pass "app installed"
 
-# 4. App version matches latest tag
-INSTALLED_VERSION=$( "${ADB_TARGET[@]}" shell dumpsys package "$PACKAGE" 2>/dev/null \
-  | grep -m1 'versionName' | sed 's/.*versionName=//' | tr -d '[:space:]' )
-if [[ "$INSTALLED_VERSION" != "$VERSION" ]]; then
-  echo "  ⚠ version mismatch: installed=${INSTALLED_VERSION}, tag=${VERSION} (continuing anyway)"
-else
-  pass "version matches tag (${VERSION})"
-fi
+# 4b. Download and install the release APK from GitHub
+APK_TMP=$(mktemp /tmp/lunachron-XXXXXX.apk)
+echo "  Downloading ${LATEST_TAG} APK..."
+gh release download "$LATEST_TAG" \
+  --repo Garemat/lunachron \
+  --pattern "app-github-release.apk" \
+  --output "$APK_TMP" 2>/dev/null \
+  || fail "could not download APK for ${LATEST_TAG} — is gh authenticated?"
+"${ADB_TARGET[@]}" install -r "$APK_TMP" &>/dev/null \
+  || fail "adb install failed"
+rm -f "$APK_TMP"
+pass "release APK installed (${LATEST_TAG})"
 
 # 5. App launches without immediate crash — force-stop first for a clean slate
 "${ADB_TARGET[@]}" shell am force-stop "$PACKAGE" 2>/dev/null || true
@@ -82,6 +86,15 @@ if [[ -z "$CHANGELOG_SECTION" ]]; then
   CHANGELOG_SECTION="(no changelog entry found for ${LATEST_TAG})"
 fi
 
+# --- Get files changed since previous tag ---
+PREV_TAG=$(git tag --sort=-v:refname | grep -E '^v[0-9]' | sed -n '2p')
+if [[ -n "$PREV_TAG" ]]; then
+  CHANGED_FILES=$(git diff "${PREV_TAG}...${LATEST_TAG}" --name-only \
+    | grep -v '^CHANGELOG\|^data\.version\|^app/build\.gradle' || true)
+else
+  CHANGED_FILES=""
+fi
+
 # --- Build device hint for the prompt ---
 if [[ -n "$DEVICE" ]]; then
   DEVICE_HINT="Target device serial: ${DEVICE}. Pass this as the 'device' parameter to all MCP tool calls."
@@ -95,9 +108,24 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo ""
 echo "Changes in this release:"
 echo "$CHANGELOG_SECTION"
+if [[ -n "$CHANGED_FILES" ]]; then
+  echo ""
+  echo "Files changed:"
+  echo "$CHANGED_FILES"
+fi
 echo ""
 echo "Preflight passed — handing off to agent..."
 echo ""
+
+# Build changed files section for prompt
+if [[ -n "$CHANGED_FILES" ]]; then
+  FILES_CONTEXT="Files modified in this release (use these to infer which screens to focus on):
+${CHANGED_FILES}
+
+"
+else
+  FILES_CONTEXT=""
+fi
 
 PROMPT="You are a QA tester for the LunaChron Moonstone companion Android app \
 (package: io.github.garemat.lunachron).
@@ -106,7 +134,7 @@ Version ${LATEST_TAG} was just published to the Play Store. Here is what changed
 
 ${CHANGELOG_SECTION}
 
-${DEVICE_HINT}
+${FILES_CONTEXT}${DEVICE_HINT}
 
 Your job: test the app on the emulator as a real user would. Focus on the features and fixes \
 listed above, but also do a quick sanity check of the core flows so we catch obvious regressions.
@@ -118,7 +146,8 @@ Core flows to verify:
 - At least one feature from the changelog above
 
 Use the Android MCP tools to interact with the device. Start by launching the app, then navigate \
-and interact naturally. Take screenshots to confirm state where useful.
+and interact naturally. Prefer get_ui_hierarchy over screenshot for navigation decisions — it is \
+faster and cheaper. Only use screenshot when verifying something visual (colours, layout, theme).
 
 For each area you test, report:
 - What you tested
