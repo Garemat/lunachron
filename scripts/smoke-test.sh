@@ -82,6 +82,15 @@ if [[ -z "$CHANGELOG_SECTION" ]]; then
   CHANGELOG_SECTION="(no changelog entry found for ${LATEST_TAG})"
 fi
 
+# --- Get files changed since previous tag ---
+PREV_TAG=$(git tag --sort=-v:refname | grep -E '^v[0-9]' | sed -n '2p')
+if [[ -n "$PREV_TAG" ]]; then
+  CHANGED_FILES=$(git diff "${PREV_TAG}...${LATEST_TAG}" --name-only \
+    | grep -v '^CHANGELOG\|^data\.version\|^app/build\.gradle' || true)
+else
+  CHANGED_FILES=""
+fi
+
 # --- Build device hint for the prompt ---
 if [[ -n "$DEVICE" ]]; then
   DEVICE_HINT="Target device serial: ${DEVICE}. Pass this as the 'device' parameter to all MCP tool calls."
@@ -95,9 +104,24 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo ""
 echo "Changes in this release:"
 echo "$CHANGELOG_SECTION"
+if [[ -n "$CHANGED_FILES" ]]; then
+  echo ""
+  echo "Files changed:"
+  echo "$CHANGED_FILES"
+fi
 echo ""
 echo "Preflight passed — handing off to agent..."
 echo ""
+
+# Build changed files section for prompt
+if [[ -n "$CHANGED_FILES" ]]; then
+  FILES_CONTEXT="Files modified in this release (use these to infer which screens to focus on):
+${CHANGED_FILES}
+
+"
+else
+  FILES_CONTEXT=""
+fi
 
 PROMPT="You are a QA tester for the LunaChron Moonstone companion Android app \
 (package: io.github.garemat.lunachron).
@@ -106,7 +130,7 @@ Version ${LATEST_TAG} was just published to the Play Store. Here is what changed
 
 ${CHANGELOG_SECTION}
 
-${DEVICE_HINT}
+${FILES_CONTEXT}${DEVICE_HINT}
 
 Your job: test the app on the emulator as a real user would. Focus on the features and fixes \
 listed above, but also do a quick sanity check of the core flows so we catch obvious regressions.
