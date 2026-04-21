@@ -29,7 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add Obsidian dark theme with themeable health pip colour (#113)
 
-- Move version bump to pre-merge workflow, release pipeline tags only
+- Pre-merge version bump embedded in PR branch (#121)
 
 
 ### Fixed
@@ -53,6 +53,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Patch bump for chore PRs and serialise concurrent releases (#117)
 
 - Correct version floor using absolute latest tag (#118)
+
+- Use --unreleased for release notes before tag exists
 
 
 ## [0.0.1] - 2026-02-10
