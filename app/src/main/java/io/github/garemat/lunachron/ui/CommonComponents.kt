@@ -448,10 +448,14 @@ fun CharacterFront(
         val passiveAbilities = character.abilities.filter { it.abilityType == "Passive" }
         val activeAbilities = character.abilities.filter { it.abilityType == "Active" }
         val arcaneAbilities = character.abilities.filter { it.abilityType == "Arcane" }
+        val reloadableByNaming = character.abilities
+            .filter { it.name.startsWith("Reload [") }
+            .map { it.name.removePrefix("Reload [").removeSuffix("]") }
+            .toSet()
         passiveAbilities.forEach { ability ->
             CommonAbilityItem(
                 ability.name, ability.description, searchQuery, ability.oncePerTurn, ability.oncePerGame,
-                reloadable = ability.reloadable,
+                reloadable = ability.reloadable || ability.name in reloadableByNaming,
                 passive = true,
                 isUsed = abilityUsedStates?.get(ability.name) ?: false,
                 onUsedChange = if (abilityUsedStates != null) { used -> onAbilityUsedChange?.invoke(ability.name, used) } else null,
@@ -464,7 +468,7 @@ fun CharacterFront(
                 CommonAbilityItem(
                     "${ability.name} (${ability.energyCost ?: 0}) ${ability.range ?: ""}",
                     ability.description, searchQuery, ability.oncePerTurn, ability.oncePerGame,
-                    reloadable = ability.reloadable,
+                    reloadable = ability.reloadable || ability.name in reloadableByNaming,
                     showColon = false,
                     isUsed = abilityUsedStates?.get(ability.name) ?: false,
                     onUsedChange = if (abilityUsedStates != null) { used -> onAbilityUsedChange?.invoke(ability.name, used) } else null,
@@ -478,7 +482,7 @@ fun CharacterFront(
                 CommonAbilityItem(
                     "${ability.name} (${ability.energyCost ?: 0}) ${ability.range ?: ""}",
                     buildArcaneDescription(ability), searchQuery, ability.oncePerTurn, ability.oncePerGame,
-                    reloadable = ability.reloadable,
+                    reloadable = ability.reloadable || ability.name in reloadableByNaming,
                     showColon = false,
                     isUsed = abilityUsedStates?.get(ability.name) ?: false,
                     onUsedChange = if (abilityUsedStates != null) { used -> onAbilityUsedChange?.invoke(ability.name, used) } else null,
