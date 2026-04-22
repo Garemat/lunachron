@@ -331,15 +331,33 @@ fun FactionCircle(
 }
 
 @Composable
-fun FactionSelector(selectedFactions: Set<Faction>, onFactionsChange: (Set<Faction>) -> Unit, modifier: Modifier = Modifier, singleSelect: Boolean = false, onPositioned: (LayoutCoordinates) -> Unit = {}) {
+fun FactionSelector(
+    selectedFactions: Set<Faction>,
+    onFactionsChange: (Set<Faction>) -> Unit,
+    modifier: Modifier = Modifier,
+    singleSelect: Boolean = false,
+    // compact = true: smaller icons with tight spacing for inline use alongside a search bar
+    compact: Boolean = false,
+    onPositioned: (LayoutCoordinates) -> Unit = {}
+) {
     val anySelected = selectedFactions.isNotEmpty()
-    Row(modifier = modifier.fillMaxWidth().padding(vertical = 8.dp).onGloballyPositioned { onPositioned(it) }, horizontalArrangement = Arrangement.SpaceBetween) {
+    val iconSize = if (compact) 40.dp else 48.dp
+    val rowModifier = if (compact) {
+        modifier.onGloballyPositioned { onPositioned(it) }
+    } else {
+        modifier.fillMaxWidth().padding(vertical = 8.dp).onGloballyPositioned { onPositioned(it) }
+    }
+    Row(
+        modifier = rowModifier,
+        horizontalArrangement = if (compact) Arrangement.spacedBy(4.dp) else Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Faction.entries.forEach { faction ->
             val isSelected = selectedFactions.contains(faction)
             val iconAlpha = if (!anySelected || isSelected) 1f else 0.25f
             FactionIcon(
                 faction = faction,
-                size = 48.dp,
+                size = iconSize,
                 modifier = Modifier
                     .clickable { onFactionsChange(if (singleSelect) setOf(faction) else if (isSelected) selectedFactions - faction else selectedFactions + faction) }
                     .alpha(iconAlpha)
@@ -1090,8 +1108,14 @@ fun CharacterFilterHeader(
     val includeTextColor = MaterialTheme.colorScheme.onPrimaryContainer
     val excludeTextColor = MaterialTheme.colorScheme.onErrorContainer
     Column(modifier = modifier.padding(theme.screenPadding)) {
-        OutlinedTextField(value = searchQuery, onValueChange = onSearchQueryChange, modifier = Modifier.fillMaxWidth().onGloballyPositioned { onTargetPositioned("SearchField", it) }, placeholder = { Text("Search name or abilities...") }, leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) }, trailingIcon = { if (searchQuery.isNotEmpty()) IconButton(onClick = { onSearchQueryChange("") }) { Icon(Icons.Default.Clear, contentDescription = "Clear") } }, singleLine = true, shape = theme.cardShape)
-        if (!isFactionFixed) { Spacer(modifier = Modifier.height(theme.verticalSpacing)); FactionSelector(selectedFactions = selectedFactions, onFactionsChange = onFactionsChange, onPositioned = { onTargetPositioned("FactionFilter", it) }) }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            OutlinedTextField(value = searchQuery, onValueChange = onSearchQueryChange, modifier = Modifier.weight(1f).height(48.dp).onGloballyPositioned { onTargetPositioned("SearchField", it) }, placeholder = { Text("Search...") }, leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) }, trailingIcon = { if (searchQuery.isNotEmpty()) IconButton(onClick = { onSearchQueryChange("") }) { Icon(Icons.Default.Clear, contentDescription = "Clear") } }, singleLine = true, shape = theme.cardShape)
+            if (!isFactionFixed) { FactionSelector(selectedFactions = selectedFactions, onFactionsChange = onFactionsChange, compact = true, onPositioned = { onTargetPositioned("FactionFilter", it) }) }
+        }
         if (availableTags.isNotEmpty()) {
             var showKeywordsDialog by remember { mutableStateOf(false) }
             Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
