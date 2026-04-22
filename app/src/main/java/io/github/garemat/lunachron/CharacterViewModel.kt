@@ -94,6 +94,8 @@ class CharacterViewModel(
         useSinglePlayerMode = prefs.getBoolean("use_single_player_mode", false),
         hasSeenGlobalTutorial = prefs.getBoolean("has_seen_global_tutorial", false),
         gameTrackingMode = GameTrackingMode.valueOf(prefs.getString("game_tracking_mode", GameTrackingMode.LOW_DETAIL.name) ?: GameTrackingMode.LOW_DETAIL.name),
+        enableAnimations = prefs.getBoolean("enable_animations", true),
+        defaultStartPage = prefs.getString("default_start_page", "home") ?: "home",
         newsItems = loadCachedNews(),
         autoFetchNews = prefs.getBoolean("auto_fetch_news", false),
         autoCheckDataUpdates = dataUpdateRepository.loadAutoCheck(),
@@ -608,6 +610,14 @@ class CharacterViewModel(
                     putString("game_tracking_mode", event.mode.name)
                     putBoolean("tracking_mode_overridden", true)
                 }
+            }
+            is CharacterEvent.SetEnableAnimations -> {
+                _state.update { it.copy(enableAnimations = event.enabled) }
+                prefs.edit { putBoolean("enable_animations", event.enabled) }
+            }
+            is CharacterEvent.SetDefaultStartPage -> {
+                _state.update { it.copy(defaultStartPage = event.route) }
+                prefs.edit { putString("default_start_page", event.route) }
             }
             is CharacterEvent.AddSummonedCharacter -> {
                 _state.update { cur ->

@@ -53,6 +53,7 @@ data class Ability(
     val pulse: Boolean? = null,      // null for Passive
     val oncePerTurn: Boolean = false,
     val oncePerGame: Boolean = false,
+    val reloadable: Boolean = false,
     val arcaneOutcomes: List<ArcaneOutcome> = emptyList()
 )
 

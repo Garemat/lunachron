@@ -596,6 +596,7 @@ private fun ActiveGameTopBar(
                     Icon(Icons.Default.Close, contentDescription = null)
                 }
             },
+            expandedHeight = 48.dp,
             colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent),
             windowInsets = WindowInsets(top = 0.dp)
         )

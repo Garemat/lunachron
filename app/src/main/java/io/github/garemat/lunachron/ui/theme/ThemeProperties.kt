@@ -64,6 +64,8 @@ data class AppThemeProperties(
     val useDamageTypeIcons: Boolean = false,
 )
 
+val LocalAnimationsEnabled = staticCompositionLocalOf { true }
+
 val LocalAppThemeProperties = staticCompositionLocalOf {
     AppThemeProperties(
         cardShape = RoundedCornerShape(12.dp),

@@ -32,13 +32,16 @@ fun CharacterListScreen(
     state: CharacterState,
     onEvent: (CharacterEvent) -> Unit,
     onNavigateBack: () -> Unit,
+    onExpansionChanged: (Boolean) -> Unit = {},
     onTargetPositioned: (String, LayoutCoordinates) -> Unit = { _, _ -> }
 ) {
-    var expandedCharacterIds by remember { mutableStateOf(setOf<Int>()) }
+    // Track expansion order so we can drop the oldest when >3 are open
+    var expandedCharacterIdsList by remember { mutableStateOf(listOf<Int>()) }
+    val expandedCharacterIds = expandedCharacterIdsList.toSet()
     var searchQuery by remember { mutableStateOf("") }
     var selectedFactions by remember { mutableStateOf(setOf<Faction>()) }
     val theme = LocalAppThemeProperties.current
-    
+
     val availableTags = remember(state.characters, selectedFactions) {
         state.characters
             .filter { char -> selectedFactions.isEmpty() || char.factions.any { it in selectedFactions } }
@@ -46,20 +49,25 @@ fun CharacterListScreen(
             .distinct()
             .sorted()
     }
-    
-    var selectedTags by remember { mutableStateOf(setOf<String>()) }
+
+    var includedTags by remember { mutableStateOf(setOf<String>()) }
+    var excludedTags by remember { mutableStateOf(setOf<String>()) }
     var showFilterExpanded by remember { mutableStateOf(true) }
-    val filtersActive = selectedFactions.isNotEmpty() || selectedTags.isNotEmpty() || searchQuery.isNotEmpty()
+    val filtersActive = selectedFactions.isNotEmpty() || includedTags.isNotEmpty() || excludedTags.isNotEmpty() || searchQuery.isNotEmpty()
+
+    LaunchedEffect(expandedCharacterIds) {
+        onExpansionChanged(expandedCharacterIds.isNotEmpty())
+    }
 
     LaunchedEffect(searchQuery) {
         if (searchQuery.isEmpty()) {
-            expandedCharacterIds = emptySet()
+            expandedCharacterIdsList = emptyList()
         } else {
             val matchingIds = state.characters.filter { character ->
                 character.name.contains(searchQuery, ignoreCase = true) ||
                 character.abilities.any { it.name.contains(searchQuery, ignoreCase = true) || it.description.contains(searchQuery, ignoreCase = true) }
-            }.map { it.id }.toSet()
-            if (matchingIds.size in 1..3) expandedCharacterIds = matchingIds
+            }.map { it.id }
+            if (matchingIds.size in 1..3) expandedCharacterIdsList = matchingIds
         }
     }
 
@@ -68,17 +76,19 @@ fun CharacterListScreen(
     val screenHeight = LocalConfiguration.current.screenHeightDp.dp
 
     LaunchedEffect(availableTags) {
-        selectedTags = selectedTags.filter { it in availableTags }.toSet()
+        includedTags = includedTags.filter { it in availableTags }.toSet()
+        excludedTags = excludedTags.filter { it in availableTags }.toSet()
     }
 
-    val filteredCharacters = remember(state.characters, searchQuery, selectedFactions, selectedTags) {
+    val filteredCharacters = remember(state.characters, searchQuery, selectedFactions, includedTags, excludedTags) {
         state.characters.filter { character ->
             val matchesFaction = selectedFactions.isEmpty() || character.factions.any { it in selectedFactions }
-            val matchesTags = selectedTags.isEmpty() || character.keywords.containsAll(selectedTags)
+            val matchesIncluded = includedTags.isEmpty() || character.keywords.containsAll(includedTags)
+            val matchesExcluded = excludedTags.isEmpty() || !character.keywords.any { it in excludedTags }
             val matchesSearch = searchQuery.isEmpty() ||
                 character.name.contains(searchQuery, ignoreCase = true) ||
                 character.abilities.any { it.name.contains(searchQuery, ignoreCase = true) || it.description.contains(searchQuery, ignoreCase = true) }
-            matchesFaction && matchesTags && matchesSearch
+            matchesFaction && matchesIncluded && matchesExcluded && matchesSearch
         }.sortedBy { it.name }
     }
 
@@ -104,16 +114,19 @@ fun CharacterListScreen(
                     onSearchQueryChange = { searchQuery = it },
                     selectedFactions = selectedFactions,
                     onFactionsChange = { selectedFactions = it },
-                    selectedTags = selectedTags,
-                    onTagsChange = { selectedTags = it },
+                    selectedTags = includedTags,
+                    onTagsChange = { includedTags = it },
+                    excludedTags = excludedTags,
+                    onExcludedTagsChange = { excludedTags = it },
                     availableTags = availableTags,
                     showCollapseAll = expandedCharacterIds.isNotEmpty(),
-                    onCollapseAll = { expandedCharacterIds = emptySet() },
+                    onCollapseAll = { expandedCharacterIdsList = emptyList() },
                     onClearAll = {
                         searchQuery = ""
                         selectedFactions = emptySet()
-                        selectedTags = emptySet()
-                        expandedCharacterIds = emptySet()
+                        includedTags = emptySet()
+                        excludedTags = emptySet()
+                        expandedCharacterIdsList = emptyList()
                     },
                     onTargetPositioned = onTargetPositioned
                 )
@@ -145,9 +158,13 @@ fun CharacterListScreen(
                         searchQuery = searchQuery,
                         isExpanded = expandedCharacterIds.contains(character.id),
                         onExpandClick = {
-                            val isCurrentlyExpanded = expandedCharacterIds.contains(character.id)
-                            expandedCharacterIds = if (isCurrentlyExpanded) expandedCharacterIds - character.id else expandedCharacterIds + character.id
-                            if (!isCurrentlyExpanded) {
+                            val isCurrentlyExpanded = character.id in expandedCharacterIds
+                            if (isCurrentlyExpanded) {
+                                expandedCharacterIdsList = expandedCharacterIdsList - character.id
+                            } else {
+                                val newList = expandedCharacterIdsList + character.id
+                                // Cap at 3 open cards — drop the oldest if needed
+                                expandedCharacterIdsList = if (newList.size > 3) newList.drop(newList.size - 3) else newList
                                 val index = filteredCharacters.indexOfFirst { it.id == character.id }
                                 if (index >= 0) coroutineScope.launch { listState.animateScrollToItem(index) }
                             }
