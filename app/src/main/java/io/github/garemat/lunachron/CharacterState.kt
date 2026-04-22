@@ -268,6 +268,8 @@ data class CharacterState(
     val tournamentHistory: List<TournamentRound> = emptyList(),
 
     val gameTrackingMode: GameTrackingMode = GameTrackingMode.LOW_DETAIL,
+    val enableAnimations: Boolean = true,
+    val defaultStartPage: String = "home",
 
     // Active Game Play State
     val currentTurn: Int = 1,

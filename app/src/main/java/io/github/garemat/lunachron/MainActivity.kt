@@ -36,6 +36,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import io.github.garemat.lunachron.ui.*
+import io.github.garemat.lunachron.ui.theme.LocalAnimationsEnabled
 import io.github.garemat.lunachron.ui.theme.LocalAppThemeProperties
 import io.github.garemat.lunachron.ui.theme.LunachronTheme
 import androidx.compose.ui.platform.LocalContext
@@ -111,6 +112,7 @@ class MainActivity : ComponentActivity() {
                 activeThemeId = state.activeThemeId,
                 layoutDensity = state.layoutDensity
             ) {
+                CompositionLocalProvider(LocalAnimationsEnabled provides state.enableAnimations) {
                 val theme = LocalAppThemeProperties.current
                 val navController = rememberNavController()
                 val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -118,6 +120,12 @@ class MainActivity : ComponentActivity() {
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentDestination = navBackStackEntry?.destination
                 val backDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
+                var anyCharacterExpanded by remember { mutableStateOf(false) }
+
+                // Reset expansion tracking when leaving the character list
+                LaunchedEffect(currentDestination?.route) {
+                    if (currentDestination?.route != Screen.Characters.route) anyCharacterExpanded = false
+                }
 
                 val showNavBars = remember(currentDestination) {
                     currentDestination?.route?.split("/")?.firstOrNull() in listOf(
@@ -141,6 +149,9 @@ class MainActivity : ComponentActivity() {
                         "campaign_details"
                     )
                 }
+
+                val showBottomBar = showNavBars &&
+                    !(currentDestination?.route == Screen.Characters.route && anyCharacterExpanded)
 
                 LaunchedEffect(viewModel.uiEvent) {
                     viewModel.uiEvent.collect { event ->
@@ -311,6 +322,7 @@ class MainActivity : ComponentActivity() {
                                             }
                                         }
                                     },
+                                    expandedHeight = 48.dp,
                                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                                         containerColor = MaterialTheme.colorScheme.surfaceVariant,
                                         titleContentColor = MaterialTheme.colorScheme.primary,
@@ -321,7 +333,7 @@ class MainActivity : ComponentActivity() {
                             }
                         },
                         bottomBar = {
-                            if (showNavBars) {
+                            if (showBottomBar) {
                                 NavigationBar(
                                     containerColor = if (theme.navigationBarElevation == 0.dp) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceVariant,
                                     tonalElevation = theme.navigationBarElevation
@@ -402,9 +414,10 @@ class MainActivity : ComponentActivity() {
                         }
                     ) { innerPadding ->
                         Box(modifier = Modifier.fillMaxSize()) {
-                            NavHost(
+                            val startDestination = remember { state.defaultStartPage }
+                        NavHost(
                                 navController = navController,
-                                startDestination = Screen.Home.route,
+                                startDestination = startDestination,
                                 modifier = Modifier.padding(innerPadding)
                             ) {
                                 composable(Screen.Home.route) {
@@ -443,6 +456,7 @@ class MainActivity : ComponentActivity() {
                                         state = state,
                                         onEvent = viewModel::onEvent,
                                         onNavigateBack = { navController.safePopBackStack() },
+                                        onExpansionChanged = { anyCharacterExpanded = it },
                                         onTargetPositioned = { name, coords -> tutorialCoords[name] = coords }
                                     )
                                 }
@@ -759,6 +773,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+        } // CompositionLocalProvider
     }
 }
 

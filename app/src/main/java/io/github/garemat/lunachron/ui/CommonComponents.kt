@@ -35,8 +35,10 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import io.github.garemat.lunachron.ui.theme.LocalAnimationsEnabled
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.Placeholder
@@ -329,15 +331,33 @@ fun FactionCircle(
 }
 
 @Composable
-fun FactionSelector(selectedFactions: Set<Faction>, onFactionsChange: (Set<Faction>) -> Unit, modifier: Modifier = Modifier, singleSelect: Boolean = false, onPositioned: (LayoutCoordinates) -> Unit = {}) {
+fun FactionSelector(
+    selectedFactions: Set<Faction>,
+    onFactionsChange: (Set<Faction>) -> Unit,
+    modifier: Modifier = Modifier,
+    singleSelect: Boolean = false,
+    // compact = true: smaller icons with tight spacing for inline use alongside a search bar
+    compact: Boolean = false,
+    onPositioned: (LayoutCoordinates) -> Unit = {}
+) {
     val anySelected = selectedFactions.isNotEmpty()
-    Row(modifier = modifier.fillMaxWidth().padding(vertical = 8.dp).onGloballyPositioned { onPositioned(it) }, horizontalArrangement = Arrangement.SpaceBetween) {
+    val iconSize = if (compact) 40.dp else 48.dp
+    val rowModifier = if (compact) {
+        modifier.onGloballyPositioned { onPositioned(it) }
+    } else {
+        modifier.fillMaxWidth().padding(vertical = 8.dp).onGloballyPositioned { onPositioned(it) }
+    }
+    Row(
+        modifier = rowModifier,
+        horizontalArrangement = if (compact) Arrangement.spacedBy(4.dp) else Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Faction.entries.forEach { faction ->
             val isSelected = selectedFactions.contains(faction)
             val iconAlpha = if (!anySelected || isSelected) 1f else 0.25f
             FactionIcon(
                 faction = faction,
-                size = 48.dp,
+                size = iconSize,
                 modifier = Modifier
                     .clickable { onFactionsChange(if (singleSelect) setOf(faction) else if (isSelected) selectedFactions - faction else selectedFactions + faction) }
                     .alpha(iconAlpha)
@@ -435,21 +455,25 @@ fun CharacterFront(
 ) {
     val theme = LocalAppThemeProperties.current
     Column {
-        if (theme.showExpandedStatsHeader) MoonstoneHeader(character, searchQuery)
+        if (theme.showExpandedStatsHeader) MoonstoneStats(character)
         else Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
             CommonStatBox("Melee", character.melee.toString(), showDivider = true)
             CommonStatBox("Range", "${character.meleeRange}\"", showDivider = true)
             CommonStatBox("Arcane", character.arcane.toString(), showDivider = true)
             CommonStatBox("Evade", character.evade.toString(), showDivider = true)
         }
-        if (theme.showExpandedStatsHeader) MoonstoneStats(character)
         Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
         val passiveAbilities = character.abilities.filter { it.abilityType == "Passive" }
         val activeAbilities = character.abilities.filter { it.abilityType == "Active" }
         val arcaneAbilities = character.abilities.filter { it.abilityType == "Arcane" }
+        val reloadableByNaming = character.abilities
+            .filter { it.name.startsWith("Reload [") }
+            .map { it.name.removePrefix("Reload [").removeSuffix("]") }
+            .toSet()
         passiveAbilities.forEach { ability ->
             CommonAbilityItem(
                 ability.name, ability.description, searchQuery, ability.oncePerTurn, ability.oncePerGame,
+                reloadable = ability.reloadable || ability.name in reloadableByNaming,
                 passive = true,
                 isUsed = abilityUsedStates?.get(ability.name) ?: false,
                 onUsedChange = if (abilityUsedStates != null) { used -> onAbilityUsedChange?.invoke(ability.name, used) } else null,
@@ -462,6 +486,7 @@ fun CharacterFront(
                 CommonAbilityItem(
                     "${ability.name} (${ability.energyCost ?: 0}) ${ability.range ?: ""}",
                     ability.description, searchQuery, ability.oncePerTurn, ability.oncePerGame,
+                    reloadable = ability.reloadable || ability.name in reloadableByNaming,
                     showColon = false,
                     isUsed = abilityUsedStates?.get(ability.name) ?: false,
                     onUsedChange = if (abilityUsedStates != null) { used -> onAbilityUsedChange?.invoke(ability.name, used) } else null,
@@ -475,6 +500,7 @@ fun CharacterFront(
                 CommonAbilityItem(
                     "${ability.name} (${ability.energyCost ?: 0}) ${ability.range ?: ""}",
                     buildArcaneDescription(ability), searchQuery, ability.oncePerTurn, ability.oncePerGame,
+                    reloadable = ability.reloadable || ability.name in reloadableByNaming,
                     showColon = false,
                     isUsed = abilityUsedStates?.get(ability.name) ?: false,
                     onUsedChange = if (abilityUsedStates != null) { used -> onAbilityUsedChange?.invoke(ability.name, used) } else null,
@@ -592,7 +618,11 @@ fun CharacterBack(character: Character, searchQuery: String, onFlip: () -> Unit,
 fun CommonCharacterCard(character: Character, searchQuery: String, isExpanded: Boolean, onExpandClick: () -> Unit, modifier: Modifier = Modifier, cardTargetName: String = "CharacterCard", onPositioned: (String, LayoutCoordinates) -> Unit = { _, _ -> }, forceFlipped: Boolean? = null, selectionControl: @Composable (RowScope.() -> Unit)? = null, bottomContent: (@Composable () -> Unit)? = null) {
     var isFlippedState by remember { mutableStateOf(false) }; val isFlipped = forceFlipped ?: isFlippedState
     val theme = LocalAppThemeProperties.current
-    ThemedCard(modifier = modifier.fillMaxWidth().animateContentSize().onGloballyPositioned { onPositioned(cardTargetName, it) }) {
+    val animationsEnabled = LocalAnimationsEnabled.current
+    val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+    // Constrain card body to leave room for top bar (~48dp), bottom nav (~80dp), card header (~72dp) and margins
+    val maxCardBodyHeight = (screenHeight - 48.dp - 80.dp - 72.dp - 32.dp).coerceAtLeast(300.dp)
+    ThemedCard(modifier = modifier.fillMaxWidth().then(if (animationsEnabled) Modifier.animateContentSize() else Modifier).onGloballyPositioned { onPositioned(cardTargetName, it) }) {
         Column {
             Row(modifier = Modifier.fillMaxWidth().clickable { onExpandClick() }.padding(theme.cardContentPadding), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 if (selectionControl != null) { selectionControl(); Spacer(modifier = Modifier.width(4.dp)) }
@@ -608,17 +638,24 @@ fun CommonCharacterCard(character: Character, searchQuery: String, isExpanded: B
             }
             if (isExpanded) {
                 if (theme.showCardDivider) HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                CharacterCardContent(
-                    character = character,
-                    searchQuery = searchQuery,
-                    isFlipped = isFlipped,
-                    onFlip = { isFlippedState = !isFlippedState },
-                    modifier = Modifier.fillMaxWidth(),
-                    animateFlip = true,
-                    showBackgroundImage = theme.showBackgroundImageOverlay,
-                    showHealthTracker = true,
-                    onFlipPositioned = { onPositioned("FlipButton", it) }
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = maxCardBodyHeight)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    CharacterCardContent(
+                        character = character,
+                        searchQuery = searchQuery,
+                        isFlipped = isFlipped,
+                        onFlip = { isFlippedState = !isFlippedState },
+                        modifier = Modifier.fillMaxWidth(),
+                        animateFlip = true,
+                        showBackgroundImage = theme.showBackgroundImageOverlay,
+                        showHealthTracker = true,
+                        onFlipPositioned = { onPositioned("FlipButton", it) }
+                    )
+                }
             }
             bottomContent?.invoke()
         }
@@ -659,6 +696,7 @@ fun CharacterCardContent(
     val theme = LocalAppThemeProperties.current
     val context = LocalContext.current
     val localDensity = LocalDensity.current
+    val animationsEnabled = LocalAnimationsEnabled.current
 
     val bgImageFile = remember(character.imageName) {
         character.imageName?.let { name ->
@@ -671,14 +709,14 @@ fun CharacterCardContent(
 
     val rotation by animateFloatAsState(
         targetValue = if (isFlipped) 180f else 0f,
-        animationSpec = if (animateFlip) tween(durationMillis = 600) else tween(durationMillis = 0),
+        animationSpec = if (animateFlip && animationsEnabled) tween(durationMillis = 600) else tween(durationMillis = 0),
         label = "cardFlip"
     )
     val showBack = rotation > 90f
 
     var frontHeightPx by remember { mutableStateOf(0) }
 
-    Box(modifier = modifier) {
+    Box(modifier = modifier.clickable { onFlip() }) {
         // Full-bleed background art
         if (showBackgroundImage && bgImageFile != null) {
             AsyncImage(
@@ -1045,11 +1083,39 @@ fun HealthPip(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CharacterFilterHeader(searchQuery: String, onSearchQueryChange: (String) -> Unit, selectedFactions: Set<Faction>, onFactionsChange: (Set<Faction>) -> Unit, selectedTags: Set<String>, onTagsChange: (Set<String>) -> Unit, availableTags: List<String>, modifier: Modifier = Modifier, isFactionFixed: Boolean = false, showCollapseAll: Boolean = false, onCollapseAll: () -> Unit = {}, onClearAll: () -> Unit = {}, onTargetPositioned: (String, LayoutCoordinates) -> Unit = { _, _ -> }) { // showCollapseAll retained for API compat but no longer rendered
+fun CharacterFilterHeader(
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+    selectedFactions: Set<Faction>,
+    onFactionsChange: (Set<Faction>) -> Unit,
+    selectedTags: Set<String>,
+    onTagsChange: (Set<String>) -> Unit,
+    availableTags: List<String>,
+    modifier: Modifier = Modifier,
+    isFactionFixed: Boolean = false,
+    // Exclusion support — when onExcludedTagsChange is non-null, tapping a keyword cycles
+    // through three states: unselected → include → exclude → unselected.
+    excludedTags: Set<String> = emptySet(),
+    onExcludedTagsChange: ((Set<String>) -> Unit)? = null,
+    showCollapseAll: Boolean = false,
+    onCollapseAll: () -> Unit = {},
+    onClearAll: () -> Unit = {},
+    onTargetPositioned: (String, LayoutCoordinates) -> Unit = { _, _ -> }
+) {
     val theme = LocalAppThemeProperties.current
+    val includeColor = MaterialTheme.colorScheme.primaryContainer
+    val excludeColor = MaterialTheme.colorScheme.errorContainer
+    val includeTextColor = MaterialTheme.colorScheme.onPrimaryContainer
+    val excludeTextColor = MaterialTheme.colorScheme.onErrorContainer
     Column(modifier = modifier.padding(theme.screenPadding)) {
-        OutlinedTextField(value = searchQuery, onValueChange = onSearchQueryChange, modifier = Modifier.fillMaxWidth().onGloballyPositioned { onTargetPositioned("SearchField", it) }, placeholder = { Text("Search name or abilities...") }, leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) }, trailingIcon = { if (searchQuery.isNotEmpty()) IconButton(onClick = { onSearchQueryChange("") }) { Icon(Icons.Default.Clear, contentDescription = "Clear") } }, singleLine = true, shape = theme.cardShape)
-        if (!isFactionFixed) { Spacer(modifier = Modifier.height(theme.verticalSpacing)); FactionSelector(selectedFactions = selectedFactions, onFactionsChange = onFactionsChange, onPositioned = { onTargetPositioned("FactionFilter", it) }) }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            OutlinedTextField(value = searchQuery, onValueChange = onSearchQueryChange, modifier = Modifier.weight(1f).height(48.dp).onGloballyPositioned { onTargetPositioned("SearchField", it) }, placeholder = { Text("Search...") }, leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) }, trailingIcon = { if (searchQuery.isNotEmpty()) IconButton(onClick = { onSearchQueryChange("") }) { Icon(Icons.Default.Clear, contentDescription = "Clear") } }, singleLine = true, shape = theme.cardShape)
+            if (!isFactionFixed) { FactionSelector(selectedFactions = selectedFactions, onFactionsChange = onFactionsChange, compact = true, onPositioned = { onTargetPositioned("FactionFilter", it) }) }
+        }
         if (availableTags.isNotEmpty()) {
             var showKeywordsDialog by remember { mutableStateOf(false) }
             Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
@@ -1058,20 +1124,42 @@ fun CharacterFilterHeader(searchQuery: String, onSearchQueryChange: (String) -> 
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                OutlinedButton(
-                    onClick = { showKeywordsDialog = true },
-                    shape = theme.cardShape
-                ) {
+                OutlinedButton(onClick = { showKeywordsDialog = true }, shape = theme.cardShape) {
                     Text("Keywords")
                 }
-                if (selectedTags.isNotEmpty()) {
+                val activeChipTags = selectedTags.toList() + excludedTags.filter { it !in selectedTags }.toList()
+                if (activeChipTags.isNotEmpty()) {
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(selectedTags.toList()) { tag ->
+                        items(activeChipTags) { tag ->
+                            val isExcluded = tag in excludedTags
                             FilterChip(
                                 selected = true,
-                                onClick = { onTagsChange(selectedTags - tag) },
-                                label = { Text(tag) },
-                                leadingIcon = { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                                onClick = {
+                                    if (onExcludedTagsChange != null) {
+                                        when {
+                                            // include → exclude
+                                            tag in selectedTags -> { onTagsChange(selectedTags - tag); onExcludedTagsChange(excludedTags + tag) }
+                                            // exclude → unselected
+                                            isExcluded -> onExcludedTagsChange(excludedTags - tag)
+                                            else -> onTagsChange(selectedTags - tag)
+                                        }
+                                    } else {
+                                        onTagsChange(selectedTags - tag)
+                                    }
+                                },
+                                label = { Text(if (isExcluded) "NOT $tag" else tag) },
+                                leadingIcon = {
+                                    Icon(
+                                        if (isExcluded) Icons.Default.Block else Icons.Default.Check,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = if (isExcluded) excludeColor else includeColor,
+                                    selectedLabelColor = if (isExcluded) excludeTextColor else includeTextColor,
+                                    selectedLeadingIconColor = if (isExcluded) excludeTextColor else includeTextColor
+                                ),
                                 shape = theme.cardShape
                             )
                         }
@@ -1093,8 +1181,11 @@ fun CharacterFilterHeader(searchQuery: String, onSearchQueryChange: (String) -> 
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text("Keywords", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
-                            if (selectedTags.isNotEmpty()) {
-                                TextButton(onClick = { onTagsChange(emptySet()) }) { Text("Clear") }
+                            if (selectedTags.isNotEmpty() || excludedTags.isNotEmpty()) {
+                                TextButton(onClick = {
+                                    onTagsChange(emptySet())
+                                    onExcludedTagsChange?.invoke(emptySet())
+                                }) { Text("Clear") }
                             }
                         }
                         Spacer(modifier = Modifier.height(8.dp))
@@ -1105,22 +1196,34 @@ fun CharacterFilterHeader(searchQuery: String, onSearchQueryChange: (String) -> 
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     pair.forEach { tag ->
-                                        val isSelected = selectedTags.contains(tag)
-                                        if (isSelected) {
-                                            Button(
-                                                onClick = { onTagsChange(selectedTags - tag) },
+                                        val isIncluded = tag in selectedTags
+                                        val isExcluded = onExcludedTagsChange != null && tag in excludedTags
+                                        when {
+                                            isIncluded -> Button(
+                                                onClick = {
+                                                    if (onExcludedTagsChange != null) {
+                                                        onTagsChange(selectedTags - tag)
+                                                        onExcludedTagsChange(excludedTags + tag)
+                                                    } else {
+                                                        onTagsChange(selectedTags - tag)
+                                                    }
+                                                },
                                                 modifier = Modifier.weight(1f),
                                                 shape = theme.cardShape
                                             ) { Text(tag, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-                                        } else {
-                                            OutlinedButton(
+                                            isExcluded -> Button(
+                                                onClick = { onExcludedTagsChange(excludedTags - tag) },
+                                                modifier = Modifier.weight(1f),
+                                                shape = theme.cardShape,
+                                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                                            ) { Text("NOT $tag", maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                                            else -> OutlinedButton(
                                                 onClick = { onTagsChange(selectedTags + tag) },
                                                 modifier = Modifier.weight(1f),
                                                 shape = theme.cardShape
                                             ) { Text(tag, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                                         }
                                     }
-                                    // Fill empty cell if odd number of tags
                                     if (pair.size == 1) Spacer(modifier = Modifier.weight(1f))
                                 }
                             }
@@ -1129,7 +1232,7 @@ fun CharacterFilterHeader(searchQuery: String, onSearchQueryChange: (String) -> 
                 }
             }
         }
-        if (searchQuery.isNotEmpty() || selectedFactions.isNotEmpty() || selectedTags.isNotEmpty()) {
+        if (searchQuery.isNotEmpty() || selectedFactions.isNotEmpty() || selectedTags.isNotEmpty() || excludedTags.isNotEmpty()) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 TextButton(onClick = onClearAll) { Text("Clear All") }
             }

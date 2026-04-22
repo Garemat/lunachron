@@ -190,6 +190,58 @@ fun SettingsScreen(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Spacer(modifier = Modifier.height(theme.verticalSpacing))
 
+            Text("Performance", style = theme.titleStyle.copy(fontSize = 20.sp), color = MaterialTheme.colorScheme.primary)
+            Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onEvent(CharacterEvent.SetEnableAnimations(!state.enableAnimations)) }
+                    .padding(vertical = theme.verticalSpacing / 4),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Enable animations", style = theme.headerStyle.copy(fontSize = 18.sp))
+                    Text("Disable card flip and expand animations on lower-end devices.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(
+                    checked = state.enableAnimations,
+                    onCheckedChange = { onEvent(CharacterEvent.SetEnableAnimations(it)) }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(theme.verticalSpacing))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Spacer(modifier = Modifier.height(theme.verticalSpacing))
+
+            Text("App", style = theme.titleStyle.copy(fontSize = 20.sp), color = MaterialTheme.colorScheme.primary)
+            Spacer(modifier = Modifier.height(theme.verticalSpacing / 4))
+            Text("Default start page", style = theme.headerStyle.copy(fontSize = 18.sp))
+            Text("The screen shown when the app first opens.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
+            val startPageOptions = listOf(
+                "home" to "Home",
+                "compendium" to "Compendium",
+                "characters" to "Character List",
+                "game_setup" to "Play",
+                "troupes" to "My Troupes",
+                "campaign_hub" to "Campaigns"
+            )
+            Column {
+                startPageOptions.forEach { (route, label) ->
+                    SelectionOption(
+                        title = label,
+                        selected = state.defaultStartPage == route,
+                        onSelect = { onEvent(CharacterEvent.SetDefaultStartPage(route)) },
+                        theme = theme
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(theme.verticalSpacing))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Spacer(modifier = Modifier.height(theme.verticalSpacing))
+
             Text("App Updates", style = theme.titleStyle.copy(fontSize = 20.sp), color = MaterialTheme.colorScheme.primary)
             Spacer(modifier = Modifier.height(theme.verticalSpacing / 4))
             if (state.installerSource == InstallerSource.FDROID) {
