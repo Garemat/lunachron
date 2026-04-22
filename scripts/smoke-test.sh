@@ -55,9 +55,11 @@ echo "  Downloading ${LATEST_TAG} APK..."
 gh release download "$LATEST_TAG" \
   --repo Garemat/lunachron \
   --pattern "app-github-release.apk" \
-  --output "$APK_TMP" 2>/dev/null \
+  --output "$APK_TMP" \
+  --clobber 2>/dev/null \
   || fail "could not download APK for ${LATEST_TAG} — is gh authenticated?"
-"${ADB_TARGET[@]}" install -r "$APK_TMP" &>/dev/null \
+"${ADB_TARGET[@]}" uninstall "$PACKAGE" &>/dev/null || true
+"${ADB_TARGET[@]}" install "$APK_TMP" &>/dev/null \
   || fail "adb install failed"
 rm -f "$APK_TMP"
 pass "release APK installed (${LATEST_TAG})"
