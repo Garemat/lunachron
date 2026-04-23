@@ -5,6 +5,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -751,12 +752,39 @@ fun CharacterCardContent(
                     modifier = Modifier.fillMaxWidth()
                         .then(if (pinnedFooter) Modifier.fillMaxSize() else Modifier.onSizeChanged { sz -> frontHeightPx = sz.height })
                 ) {
-                    Column(
-                        modifier = if (pinnedFooter)
-                            Modifier.weight(1f).verticalScroll(rememberScrollState())
-                        else
-                            Modifier.fillMaxWidth()
-                    ) {
+                    if (pinnedFooter) {
+                        // BoxWithConstraints lets us capture the bounded height so the scrollable
+                        // column can use SpaceBetween to fill space when content is short, while
+                        // still scrolling when content overflows.
+                        BoxWithConstraints(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                            val minH = maxHeight
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = minH)
+                                    .verticalScroll(rememberScrollState()),
+                                verticalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                CharacterFront(
+                                    character = character,
+                                    searchQuery = searchQuery,
+                                    onFlip = onFlip,
+                                    onFlipPositioned = onFlipPositioned,
+                                    showHealthTracker = false,
+                                    showSignatureLink = false,
+                                    abilityUsedStates = abilityUsedStates,
+                                    onAbilityUsedChange = onAbilityUsedChange
+                                )
+                                if (showHealthTracker) {
+                                    Column(modifier = Modifier.fillMaxWidth()) {
+                                        HealthTracker(character.health, character.health, character.energyTrack, {}, isEditable = false)
+                                        Text(text = "Base: ${character.baseSize}", style = MaterialTheme.typography.labelSmall, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End)
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        Column(modifier = Modifier.fillMaxWidth()) {
                         CharacterFront(
                             character = character,
                             searchQuery = searchQuery,
@@ -767,6 +795,7 @@ fun CharacterCardContent(
                             abilityUsedStates = abilityUsedStates,
                             onAbilityUsedChange = onAbilityUsedChange
                         )
+                        }
                     }
                     // Signature-move link — pinned at the visual bottom in both modes
                     character.signatureMove?.let { sigMove ->

@@ -141,9 +141,11 @@ fun AddEditTroupeScreen(
             .flatMap { it.keywords }.distinct().sorted()
     }
     var selectedTags by remember { mutableStateOf(setOf<String>()) }
+    var excludedTags by remember { mutableStateOf(setOf<String>()) }
 
     LaunchedEffect(availableTags) {
         selectedTags = selectedTags.filter { it in availableTags }.toSet()
+        excludedTags = excludedTags.filter { it in availableTags }.toSet()
     }
 
     BackHandler {
@@ -211,6 +213,8 @@ fun AddEditTroupeScreen(
                     onSearchQueryChange = { searchQuery = it },
                     selectedTags = selectedTags,
                     onTagsChange = { selectedTags = it },
+                    excludedTags = excludedTags,
+                    onExcludedTagsChange = { excludedTags = it },
                     availableTags = availableTags,
                     temporarySelectedIds,
                     onSelectionChange = { temporarySelectedIds = it },
@@ -1860,6 +1864,8 @@ private fun CharacterSelectionStage(
     onSearchQueryChange: (String) -> Unit,
     selectedTags: Set<String>,
     onTagsChange: (Set<String>) -> Unit,
+    excludedTags: Set<String>,
+    onExcludedTagsChange: (Set<String>) -> Unit,
     availableTags: List<String>,
     selectedIds: Set<Int>,
     onSelectionChange: (Set<Int>) -> Unit,
@@ -1868,13 +1874,16 @@ private fun CharacterSelectionStage(
     onTargetPositioned: (String, LayoutCoordinates) -> Unit,
     selectedTroupeFaction: Faction
 ) {
-    val factionCharacters = remember(state.characters, selectedTroupeFaction, searchQuery, selectedTags) {
+    val factionCharacters = remember(state.characters, selectedTroupeFaction, searchQuery, selectedTags, excludedTags) {
         state.characters.filter { it.factions.contains(selectedTroupeFaction) }.filter { char ->
             val matchesSearch = searchQuery.isEmpty() || char.name.contains(searchQuery, ignoreCase = true) || char.keywords.any { it.contains(searchQuery, ignoreCase = true) } || char.abilities.any { it.name.contains(searchQuery, ignoreCase = true) || it.description.contains(searchQuery, ignoreCase = true) }
             val matchesTags = selectedTags.isEmpty() || selectedTags.all { it in char.keywords }
-            matchesSearch && matchesTags
+            val matchesExcluded = excludedTags.isEmpty() || !char.keywords.any { it in excludedTags }
+            matchesSearch && matchesTags && matchesExcluded
         }
     }
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
     Column(modifier = Modifier.fillMaxSize()) {
         Text("Add Characters", style = theme.titleStyle.copy(fontSize = 24.sp), modifier = Modifier.padding(top = 16.dp, bottom = 8.dp))
         CharacterFilterHeader(
@@ -1884,12 +1893,15 @@ private fun CharacterSelectionStage(
             onFactionsChange = {},
             selectedTags = selectedTags,
             onTagsChange = onTagsChange,
+            excludedTags = excludedTags,
+            onExcludedTagsChange = onExcludedTagsChange,
             availableTags = availableTags,
             isFactionFixed = true,
-            onClearAll = { onSearchQueryChange(""); onTagsChange(emptySet()) },
+            onClearAll = { onSearchQueryChange(""); onTagsChange(emptySet()); onExcludedTagsChange(emptySet()) },
             onTargetPositioned = { name, coords -> onTargetPositioned(name, coords) }
         )
         LazyColumn(
+            state = listState,
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             contentPadding = PaddingValues(bottom = 100.dp)
@@ -1901,7 +1913,14 @@ private fun CharacterSelectionStage(
                     searchQuery = searchQuery,
                     isSelected = isSelected,
                     isExpanded = expandedCharacterId == character.id,
-                    onExpandClick = { onExpandClick(character.id) },
+                    onExpandClick = {
+                        val isCurrentlyExpanded = expandedCharacterId == character.id
+                        onExpandClick(character.id)
+                        if (!isCurrentlyExpanded) {
+                            val index = factionCharacters.indexOfFirst { it.id == character.id }
+                            if (index >= 0) coroutineScope.launch { listState.animateScrollToItem(index) }
+                        }
+                    },
                     onSelectionChange = { selected ->
                         val current = selectedIds.toMutableSet()
                         if (selected) current.add(character.id) else current.remove(character.id)
