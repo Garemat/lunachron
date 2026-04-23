@@ -704,7 +704,10 @@ private fun SingleColumnDashboard(
                 Text("No characters added yet. Tap '+' to add some!", color = MaterialTheme.colorScheme.outline)
             }
         } else {
+            val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+            val coroutineScope = rememberCoroutineScope()
             LazyColumn(
+                state = listState,
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = PaddingValues(top = 8.dp, bottom = 100.dp)
@@ -718,7 +721,11 @@ private fun SingleColumnDashboard(
                         modifier = Modifier.animateItem(),
                         character = character,
                         isExpanded = expandedCharacterId == character.id,
-                        onExpandClick = { onExpandClick(character.id) },
+                        onExpandClick = {
+                            val isCurrentlyExpanded = expandedCharacterId == character.id
+                            onExpandClick(character.id)
+                            if (!isCurrentlyExpanded) coroutineScope.launch { listState.animateScrollToItem(idx) }
+                        },
                         isCampaignTroupe = viewModel.isCampaignTroupe,
                         equippedUpgrades = equippedUpgrades,
                         upgradeCards = state.upgradeCards,
@@ -727,7 +734,6 @@ private fun SingleColumnDashboard(
                         theme = theme
                     )
                 }
-
             }
         }
     }
