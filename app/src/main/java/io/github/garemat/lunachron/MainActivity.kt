@@ -151,7 +151,8 @@ class MainActivity : ComponentActivity() {
                 }
 
                 val showBottomBar = showNavBars &&
-                    !(currentDestination?.route == Screen.Characters.route && anyCharacterExpanded)
+                    !(currentDestination?.route == Screen.Characters.route && anyCharacterExpanded) &&
+                    currentDestination?.route != Screen.AddEditTroupe.route
 
                 LaunchedEffect(viewModel.uiEvent) {
                     viewModel.uiEvent.collect { event ->
