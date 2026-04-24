@@ -95,6 +95,7 @@ class CharacterViewModel(
         hasSeenGlobalTutorial = prefs.getBoolean("has_seen_global_tutorial", false),
         gameTrackingMode = GameTrackingMode.valueOf(prefs.getString("game_tracking_mode", GameTrackingMode.LOW_DETAIL.name) ?: GameTrackingMode.LOW_DETAIL.name),
         enableAnimations = prefs.getBoolean("enable_animations", true),
+        autoHideNavBar = prefs.getBoolean("auto_hide_nav_bar", true),
         defaultStartPage = prefs.getString("default_start_page", "home") ?: "home",
         newsItems = loadCachedNews(),
         autoFetchNews = prefs.getBoolean("auto_fetch_news", false),
@@ -614,6 +615,10 @@ class CharacterViewModel(
             is CharacterEvent.SetEnableAnimations -> {
                 _state.update { it.copy(enableAnimations = event.enabled) }
                 prefs.edit { putBoolean("enable_animations", event.enabled) }
+            }
+            is CharacterEvent.SetAutoHideNavBar -> {
+                _state.update { it.copy(autoHideNavBar = event.enabled) }
+                prefs.edit { putBoolean("auto_hide_nav_bar", event.enabled) }
             }
             is CharacterEvent.SetDefaultStartPage -> {
                 _state.update { it.copy(defaultStartPage = event.route) }

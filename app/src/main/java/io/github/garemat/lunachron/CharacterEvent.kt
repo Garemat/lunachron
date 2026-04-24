@@ -58,6 +58,7 @@ sealed interface CharacterEvent {
     // Game View / Tracking
     data class ChangeGameTrackingMode(val mode: GameTrackingMode) : CharacterEvent
     data class SetEnableAnimations(val enabled: Boolean) : CharacterEvent
+    data class SetAutoHideNavBar(val enabled: Boolean) : CharacterEvent
     data class SetDefaultStartPage(val route: String) : CharacterEvent
     data class AddSummonedCharacter(val playerIndex: Int, val characterId: Int, val summonedByCharacterId: Int?) : CharacterEvent
     data class RemoveSummonedCharacter(val playerIndex: Int, val characterId: Int) : CharacterEvent

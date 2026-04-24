@@ -269,6 +269,7 @@ data class CharacterState(
 
     val gameTrackingMode: GameTrackingMode = GameTrackingMode.LOW_DETAIL,
     val enableAnimations: Boolean = true,
+    val autoHideNavBar: Boolean = true,
     val defaultStartPage: String = "home",
 
     // Active Game Play State

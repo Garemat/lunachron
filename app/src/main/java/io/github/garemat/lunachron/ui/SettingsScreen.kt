@@ -209,6 +209,24 @@ fun SettingsScreen(
                     onCheckedChange = { onEvent(CharacterEvent.SetEnableAnimations(it)) }
                 )
             }
+            Spacer(modifier = Modifier.height(theme.verticalSpacing / 4))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onEvent(CharacterEvent.SetAutoHideNavBar(!state.autoHideNavBar)) }
+                    .padding(vertical = theme.verticalSpacing / 4),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Auto-hide navigation bar", style = theme.headerStyle.copy(fontSize = 18.sp))
+                    Text("Hides the bottom nav bar when a card is expanded or when editing a troupe.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(
+                    checked = state.autoHideNavBar,
+                    onCheckedChange = { onEvent(CharacterEvent.SetAutoHideNavBar(it)) }
+                )
+            }
 
             Spacer(modifier = Modifier.height(theme.verticalSpacing))
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
