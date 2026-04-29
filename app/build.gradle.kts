@@ -55,7 +55,7 @@ android {
     buildTypes {
         debug {
             // Emulator loopback — change to LAN IP for testing on a physical device.
-            buildConfigField("String", "LUNACHRON_API_URL", "\"http://10.0.2.2:3000\"")
+            buildConfigField("String", "LUNACHRON_API_URL", "\"https://api.garemat.co.uk\"")
         }
         release {
             buildConfigField("String", "LUNACHRON_API_URL", "\"https://api.garemat.co.uk\"")

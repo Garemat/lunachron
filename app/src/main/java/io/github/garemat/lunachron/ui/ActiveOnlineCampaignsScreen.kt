@@ -19,7 +19,6 @@ import io.github.garemat.lunachron.CharacterState
 import io.github.garemat.lunachron.OnlineCampaignSummary
 import io.github.garemat.lunachron.ui.theme.LocalAppThemeProperties
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ActiveOnlineCampaignsScreen(
     state: CharacterState,
@@ -43,29 +42,7 @@ fun ActiveOnlineCampaignsScreen(
         )
     }
 
-    Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text("Active Campaigns", style = theme.titleStyle) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { onEvent(CharacterEvent.LoadOnlineCampaigns) }) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = MaterialTheme.colorScheme.primary)
-                    }
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    titleContentColor = MaterialTheme.colorScheme.primary,
-                    navigationIconContentColor = MaterialTheme.colorScheme.primary
-                )
-            )
-        }
-    ) { padding ->
-        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+    Box(modifier = Modifier.fillMaxSize()) {
             when {
                 state.isLoadingOnlineCampaigns -> {
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
@@ -125,7 +102,6 @@ fun ActiveOnlineCampaignsScreen(
                 }
             }
         }
-    }
 }
 
 @Composable
@@ -166,9 +142,13 @@ private fun OnlineCampaignCard(campaign: OnlineCampaignSummary, onClick: () -> U
             }
 
             Spacer(modifier = Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("${campaign.memberCount} members", style = MaterialTheme.typography.bodySmall)
                 Text(if (campaign.isHost) "You are the Chamberlain" else "Member", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                if (campaign.isHost && campaign.pendingCount > 0) {
+                    Badge { Text("${campaign.pendingCount}") }
+                    Text("awaiting approval", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                }
             }
 
             // Show join code with copy button for the host of an open campaign

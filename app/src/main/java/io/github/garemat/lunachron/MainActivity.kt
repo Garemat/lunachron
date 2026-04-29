@@ -320,6 +320,27 @@ class MainActivity : ComponentActivity() {
                                                     color = MaterialTheme.colorScheme.primary
                                                 )
                                             }
+                                        } else if (currentDestination?.route == Screen.ActiveOnlineCampaigns.route) {
+                                            IconButton(onClick = { viewModel.onEvent(CharacterEvent.LoadOnlineCampaigns) }) {
+                                                Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                                            }
+                                        } else if (currentDestination?.route?.startsWith("online_campaign_detail") == true) {
+                                            val isHost = state.selectedOnlineCampaign?.currentUserRole == "HOST"
+                                            if (isHost) {
+                                                IconButton(onClick = { viewModel.onEvent(CharacterEvent.ShowCampaignAdminPanel) }) {
+                                                    Icon(Icons.Default.AdminPanelSettings, contentDescription = "Admin",
+                                                        tint = MaterialTheme.colorScheme.tertiary)
+                                                }
+                                                IconButton(onClick = { viewModel.onEvent(CharacterEvent.ShowCampaignDeleteDialog) }) {
+                                                    Icon(Icons.Default.DeleteForever, contentDescription = "Delete campaign",
+                                                        tint = MaterialTheme.colorScheme.error)
+                                                }
+                                            }
+                                            state.selectedOnlineCampaign?.let { campaign ->
+                                                IconButton(onClick = { viewModel.onEvent(CharacterEvent.LoadOnlineCampaign(campaign.id)) }) {
+                                                    Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                                                }
+                                            }
                                         }
                                     },
                                     expandedHeight = 48.dp,
@@ -381,6 +402,15 @@ class MainActivity : ComponentActivity() {
                                                                 tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else theme.unselectedNavColor
                                                             )
                                                         }
+                                                    }
+                                                } else if (item.label == "Campaigns") {
+                                                    val pendingTotal = state.onlineCampaigns
+                                                        .filter { it.isHost }
+                                                        .sumOf { it.pendingCount }
+                                                    BadgedBox(badge = {
+                                                        if (pendingTotal > 0) Badge { Text("$pendingTotal") }
+                                                    }) {
+                                                        Icon(item.icon, contentDescription = item.label)
                                                     }
                                                 } else {
                                                     Icon(item.icon, contentDescription = item.label)

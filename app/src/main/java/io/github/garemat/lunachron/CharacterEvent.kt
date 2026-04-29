@@ -104,6 +104,7 @@ sealed interface CharacterEvent {
         val settings: OnlineCampaignSettings
     ) : CharacterEvent
     data class RequestJoinCampaign(val joinCode: String) : CharacterEvent
+    data object DismissPendingJoin : CharacterEvent
     data object DismissOnlineCampaignError : CharacterEvent
     data object DismissCreatedCampaignResult : CharacterEvent
 
@@ -146,6 +147,12 @@ sealed interface CharacterEvent {
     // LunaChron API — campaign deletion (host only)
     data class DeleteOnlineCampaign(val campaignId: String) : CharacterEvent
     data object DismissCampaignDeleted : CharacterEvent
+
+    // Campaign detail overlay triggers (hoisted for top-bar action buttons in MainActivity)
+    data object ShowCampaignAdminPanel : CharacterEvent
+    data object HideCampaignAdminPanel : CharacterEvent
+    data object ShowCampaignDeleteDialog : CharacterEvent
+    data object HideCampaignDeleteDialog : CharacterEvent
 
     // LunaChron API — match result verification (opponent approves or contests)
     data class VerifyMatchResult(val campaignId: String, val resultId: String, val agree: Boolean) : CharacterEvent

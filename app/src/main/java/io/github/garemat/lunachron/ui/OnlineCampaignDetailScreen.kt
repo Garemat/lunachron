@@ -30,7 +30,6 @@ import io.github.garemat.lunachron.Faction
 import io.github.garemat.lunachron.CampaignCard
 import io.github.garemat.lunachron.OnlineCampaignDetail
 import io.github.garemat.lunachron.OnlineCampaignMember
-import io.github.garemat.lunachron.OnlineMachinationAttack
 import io.github.garemat.lunachron.OnlineMachinationChoice
 import io.github.garemat.lunachron.OnlineMachinationEntry
 import io.github.garemat.lunachron.OnlineMatchResult
@@ -82,25 +81,23 @@ fun OnlineCampaignDetailScreen(
     val approvedMembers = campaign?.members?.filter { it.status == "APPROVED" } ?: emptyList()
     val phase = campaign?.let { detectPhase(it) } ?: CampaignPhase.RECRUITING
 
-    var showAdminPanel by remember { mutableStateOf(false) }
-    if (showAdminPanel && campaign != null) {
+    if (state.showCampaignAdminPanel && campaign != null) {
         AdminPanelSheet(
             campaign = campaign,
             state = state,
             onEvent = onEvent,
-            onDismiss = { showAdminPanel = false },
+            onDismiss = { onEvent(CharacterEvent.HideCampaignAdminPanel) },
             onDecodeTroupe = onDecodeTroupe,
             onEncodeTroupe = onEncodeTroupe
         )
     }
 
-    var showDeleteDialog by remember { mutableStateOf(false) }
-    if (showDeleteDialog && campaign != null) {
+    if (state.showCampaignDeleteDialog && campaign != null) {
         DeleteCampaignDialog(
             campaignName = campaign.name,
             isDeleting = state.isDeletingCampaign,
             onConfirm = { onEvent(CharacterEvent.DeleteOnlineCampaign(campaign.id)) },
-            onDismiss = { showDeleteDialog = false }
+            onDismiss = { onEvent(CharacterEvent.HideCampaignDeleteDialog) }
         )
     }
 
@@ -143,39 +140,7 @@ fun OnlineCampaignDetailScreen(
         )
     }
 
-    Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text(campaign?.name ?: "Campaign", style = theme.titleStyle) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                actions = {
-                    if (isHost) {
-                        IconButton(onClick = { showAdminPanel = true }) {
-                            Icon(Icons.Default.AdminPanelSettings, contentDescription = "Admin",
-                                tint = MaterialTheme.colorScheme.tertiary)
-                        }
-                        IconButton(onClick = { showDeleteDialog = true }) {
-                            Icon(Icons.Default.DeleteForever, contentDescription = "Delete campaign",
-                                tint = MaterialTheme.colorScheme.error)
-                        }
-                    }
-                    IconButton(onClick = { onEvent(CharacterEvent.LoadOnlineCampaign(campaignId)) }) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = MaterialTheme.colorScheme.primary)
-                    }
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    titleContentColor = MaterialTheme.colorScheme.primary,
-                    navigationIconContentColor = MaterialTheme.colorScheme.primary
-                )
-            )
-        }
-    ) { padding ->
-        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+    Box(modifier = Modifier.fillMaxSize()) {
             when {
                 state.isLoadingCampaignDetail && campaign == null -> {
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
@@ -208,7 +173,6 @@ fun OnlineCampaignDetailScreen(
                 }
             }
         }
-    }
 }
 
 // ── Pre-game phases (Recruiting, Troupe Selection, Schedule Pending) ──────────
@@ -964,7 +928,8 @@ private fun OnlineResultsTab(
                     result = existingResult,
                     myMember = myMember,
                     opponentMember = opponentMember,
-                    myDeviceId = myDeviceId
+                    myDeviceId = myDeviceId,
+                    campaignCards = state.campaignCards
                 )
             }
             existingResult.verifyStatus == "DISPUTED" -> {
@@ -974,7 +939,8 @@ private fun OnlineResultsTab(
                     result = existingResult,
                     myMember = myMember,
                     opponentMember = opponentMember,
-                    myDeviceId = myDeviceId
+                    myDeviceId = myDeviceId,
+                    campaignCards = state.campaignCards
                 )
             }
             existingResult.submittedBy == myDeviceId -> {
@@ -986,6 +952,7 @@ private fun OnlineResultsTab(
                     myMember = myMember,
                     opponentMember = opponentMember,
                     myDeviceId = myDeviceId,
+                    campaignCards = state.campaignCards,
                     onRefresh = { onEvent(CharacterEvent.LoadOnlineCampaign(campaign.id)) }
                 )
             }
@@ -999,6 +966,7 @@ private fun OnlineResultsTab(
                     myMember = myMember,
                     opponentMember = opponentMember,
                     myDeviceId = myDeviceId,
+                    campaignCards = state.campaignCards,
                     isVerifying = state.isVerifyingMatchResult,
                     onEvent = onEvent
                 )
@@ -1007,305 +975,7 @@ private fun OnlineResultsTab(
     }
 }
 
-// ── Machinations phase tab ────────────────────────────────────────────────────
-
-/** Composable for one SUPPORT/SABOTAGE entry in the machination form. */
-@Composable
-private fun MachinationChoiceRow(
-    index: Int,
-    choice: OnlineMachinationChoice?,
-    otherMembers: List<OnlineCampaignMember>,
-    onChoiceChanged: (OnlineMachinationChoice?) -> Unit
-) {
-    val theme = LocalAppThemeProperties.current
-    val selectedTarget = choice?.targetDeviceId ?: ""
-    val selectedType = choice?.type ?: "SUPPORT"
-
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text("Machination ${index + 1}", style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
-        // Target picker
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            FilterChip(
-                selected = choice == null,
-                onClick = { onChoiceChanged(null) },
-                label = { Text("None", style = MaterialTheme.typography.labelSmall) }
-            )
-            otherMembers.forEach { member ->
-                FilterChip(
-                    selected = selectedTarget == member.deviceId,
-                    onClick = {
-                        onChoiceChanged(OnlineMachinationChoice(member.deviceId, selectedType))
-                    },
-                    label = { Text(member.username, style = MaterialTheme.typography.labelSmall) }
-                )
-            }
-        }
-        if (choice != null) {
-            // Type picker
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                FilterChip(
-                    selected = selectedType == "SUPPORT",
-                    onClick = { onChoiceChanged(choice.copy(type = "SUPPORT")) },
-                    leadingIcon = if (selectedType == "SUPPORT") {
-                        { Icon(Icons.Default.Favorite, null, Modifier.size(14.dp)) }
-                    } else null,
-                    label = { Text("Support", style = MaterialTheme.typography.labelSmall) }
-                )
-                FilterChip(
-                    selected = selectedType == "SABOTAGE",
-                    onClick = { onChoiceChanged(choice.copy(type = "SABOTAGE")) },
-                    leadingIcon = if (selectedType == "SABOTAGE") {
-                        { Icon(Icons.Default.Dangerous, null, Modifier.size(14.dp)) }
-                    } else null,
-                    label = { Text("Sabotage", style = MaterialTheme.typography.labelSmall) }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun OnlineMachinationsTab(
-    campaign: OnlineCampaignDetail,
-    state: CharacterState,
-    onEvent: (CharacterEvent) -> Unit,
-    onDecodeTroupe: (String) -> Troupe?
-) {
-    val myDeviceId = state.backendDeviceId
-    val approvedMembers = campaign.members.filter { it.status == "APPROVED" }
-    val mySubmission = campaign.machinations.find { it.deviceId == myDeviceId }
-    val attacksEnabled = campaign.settings?.attacksEnabled == true
-
-    // Find my upcoming opponent (round N+1) — they can't be a machination target
-    val nextRoundKey = "round${campaign.currentRound + 1}"
-    val nextRoundGames = campaign.schedule?.get(nextRoundKey) ?: emptyMap()
-    val myNextOpponentId = nextRoundGames.values
-        .firstOrNull { myDeviceId in it }
-        ?.firstOrNull { it != myDeviceId }
-
-    // Members I can target: approved, not me, not my upcoming opponent
-    val machinationTargets = approvedMembers.filter {
-        it.deviceId != myDeviceId && it.deviceId != myNextOpponentId
-    }
-
-    var choice1 by remember(mySubmission) { mutableStateOf(mySubmission?.choices?.getOrNull(0)) }
-    var choice2 by remember(mySubmission) { mutableStateOf(mySubmission?.choices?.getOrNull(1)) }
-
-    // Attack state
-    var isAttacking by remember(mySubmission) { mutableStateOf(mySubmission?.attack != null) }
-    var attackTargetId by remember(mySubmission) { mutableStateOf(mySubmission?.attack?.targetDeviceId ?: "") }
-    var attackType by remember(mySubmission) { mutableStateOf(mySubmission?.attack?.type ?: "ASSAULT") }
-    var attackCharId by remember(mySubmission) { mutableStateOf(mySubmission?.attack?.targetCharId ?: -1) }
-
-    // Decode the attack target's troupe to show their characters
-    val attackTargetMember = approvedMembers.find { it.deviceId == attackTargetId }
-    val attackTargetTroupe = remember(attackTargetMember?.troupeData) {
-        attackTargetMember?.troupeData?.let { runCatching { onDecodeTroupe(it) }.getOrNull() }
-    }
-    val attackTargetChars = remember(attackTargetTroupe, state.characters) {
-        attackTargetTroupe?.characterIds?.mapNotNull { cid -> state.characters.find { it.id == cid } } ?: emptyList()
-    }
-
-    // Attack targets: approved, not me (can target upcoming opponent for attacks)
-    val attackTargets = approvedMembers.filter { it.deviceId != myDeviceId }
-
-    val submittedCount = campaign.machinations.size
-    val totalCount = approvedMembers.size
-
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        item {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Icon(Icons.Default.Star, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
-                Text("Round ${campaign.currentRound} — Machinations",
-                    style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.weight(1f))
-                Text("$submittedCount / $totalCount submitted",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-
-        // My submission form
-        if (myDeviceId.isNotEmpty() && approvedMembers.size > 1) {
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f))
-                ) {
-                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text("Your Machinations",
-                            style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                        Text("Support or sabotage other players — your tier and the outcome of their game determines your MP gain or loss.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-
-                        if (myNextOpponentId != null) {
-                            val opponentName = approvedMembers.find { it.deviceId == myNextOpponentId }?.username
-                            if (opponentName != null) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Icon(Icons.Default.Info, null, Modifier.size(12.dp),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Text("You cannot target $opponentName (your round ${campaign.currentRound + 1} opponent).",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                            }
-                        }
-
-                        if (machinationTargets.isNotEmpty()) {
-                            MachinationChoiceRow(0, choice1, machinationTargets) {
-                                choice1 = it; if (it == null) choice2 = null
-                            }
-                            if (choice1 != null) {
-                                HorizontalDivider()
-                                // Only exclude row-1 target when both choices share the same type
-                                // (same player can be targeted with SUPPORT+SABOTAGE, not SUPPORT+SUPPORT)
-                                val row2Targets = if (choice2 != null && choice1?.type == choice2?.type)
-                                    machinationTargets.filter { it.deviceId != choice1?.targetDeviceId }
-                                else machinationTargets
-                                MachinationChoiceRow(1, choice2, row2Targets) { choice2 = it }
-                            }
-                        } else {
-                            Text("No valid machination targets this round.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-
-                        // Attack section
-                        if (attacksEnabled && attackTargets.isNotEmpty()) {
-                            HorizontalDivider()
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(Icons.Default.GppBad, null, Modifier.size(14.dp),
-                                    tint = MaterialTheme.colorScheme.error)
-                                Spacer(Modifier.width(6.dp))
-                                Text("Attack", style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                                Switch(
-                                    checked = isAttacking,
-                                    onCheckedChange = {
-                                        isAttacking = it
-                                        if (!it) { attackTargetId = ""; attackCharId = -1 }
-                                    }
-                                )
-                            }
-                            if (isAttacking) {
-                                Text("Target player", style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                    verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                    attackTargets.forEach { member ->
-                                        FilterChip(
-                                            selected = attackTargetId == member.deviceId,
-                                            onClick = { attackTargetId = member.deviceId; attackCharId = -1 },
-                                            label = { Text(member.username, style = MaterialTheme.typography.labelSmall) }
-                                        )
-                                    }
-                                }
-                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    FilterChip(
-                                        selected = attackType == "ASSAULT",
-                                        onClick = { attackType = "ASSAULT" },
-                                        label = { Text("Assault (1 AP)", style = MaterialTheme.typography.labelSmall) }
-                                    )
-                                    FilterChip(
-                                        selected = attackType == "ABDUCTION",
-                                        onClick = { attackType = "ABDUCTION" },
-                                        label = { Text("Abduction (2 AP)", style = MaterialTheme.typography.labelSmall) }
-                                    )
-                                }
-                                if (attackTargetId.isNotEmpty() && attackTargetChars.isNotEmpty()) {
-                                    Text("Target character", style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                        verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                        attackTargetChars.forEach { char ->
-                                            FilterChip(
-                                                selected = attackCharId == char.id,
-                                                onClick = { attackCharId = char.id },
-                                                label = { Text(char.name, style = MaterialTheme.typography.labelSmall) }
-                                            )
-                                        }
-                                    }
-                                } else if (attackTargetId.isNotEmpty()) {
-                                    Text("Target has no troupe set — character selection unavailable.",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                            }
-                        }
-
-                        val attack = if (isAttacking && attackTargetId.isNotEmpty() && attackCharId != -1)
-                            OnlineMachinationAttack(attackTargetId, attackCharId, attackType) else null
-                        val canSubmit = !state.isSubmittingMachination && (!isAttacking || attack != null)
-
-                        Button(
-                            onClick = { onEvent(CharacterEvent.SubmitMachination(
-                                campaign.id, listOfNotNull(choice1, choice2), attack)) },
-                            enabled = canSubmit,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            if (state.isSubmittingMachination) {
-                                CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp,
-                                    color = MaterialTheme.colorScheme.onPrimary)
-                            } else {
-                                Icon(if (mySubmission != null) Icons.Default.Refresh else Icons.Default.Send,
-                                    null, Modifier.size(14.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text(if (mySubmission != null) "Update Machinations" else "Submit Machinations",
-                                    style = MaterialTheme.typography.labelMedium)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        item {
-            HorizontalDivider()
-            Spacer(Modifier.height(2.dp))
-            Text("Submission Status", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-        }
-
-        items(approvedMembers) { member ->
-            val submission = campaign.machinations.find { it.deviceId == member.deviceId }
-            val isMe = member.deviceId == myDeviceId
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(
-                    if (submission != null) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
-                    null, Modifier.size(18.dp),
-                    tint = if (submission != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
-                )
-                Text(member.username,
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = if (isMe) FontWeight.Bold else FontWeight.Normal,
-                    modifier = Modifier.weight(1f))
-                if (isMe) Text("You", style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary)
-                if (member.isLocal) Text("Local", style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.tertiary)
-                Text(if (submission != null) "Ready" else "Waiting…",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (submission != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline)
-            }
-        }
-    }
-}
+// OnlineMachinationsTab is in MachinationsPhaseUI.kt
 
 /** Stone counter + winner selection — shown when no result has been submitted yet. */
 @Composable
@@ -1540,6 +1210,7 @@ private fun WaitingVerificationCard(
     myMember: OnlineCampaignMember?,
     opponentMember: OnlineCampaignMember?,
     myDeviceId: String,
+    campaignCards: List<CampaignCard>,
     onRefresh: () -> Unit
 ) {
     val theme = LocalAppThemeProperties.current
@@ -1581,6 +1252,12 @@ private fun WaitingVerificationCard(
                         opponentCardVp = oppStats?.campaignCardVp ?: 0
                     )
 
+                    val allStats = result.resultData?.playerStats ?: emptyList()
+                    if (allStats.any { it.campaignCardCodes.isNotEmpty() }) {
+                        HorizontalDivider()
+                        UsedCampaignCardsSection(allStats, myDeviceId, myMember, opponentMember, campaignCards)
+                    }
+
                     HorizontalDivider()
 
                     Text("Waiting for ${opponentMember?.username ?: "your opponent"} to verify…",
@@ -1608,6 +1285,7 @@ private fun VerifyResultCard(
     myMember: OnlineCampaignMember?,
     opponentMember: OnlineCampaignMember?,
     myDeviceId: String,
+    campaignCards: List<CampaignCard>,
     isVerifying: Boolean,
     onEvent: (CharacterEvent) -> Unit
 ) {
@@ -1650,6 +1328,12 @@ private fun VerifyResultCard(
                         myCardVp = myStats?.campaignCardVp ?: 0,
                         opponentCardVp = oppStats?.campaignCardVp ?: 0
                     )
+
+                    val allStats = result.resultData?.playerStats ?: emptyList()
+                    if (allStats.any { it.campaignCardCodes.isNotEmpty() }) {
+                        HorizontalDivider()
+                        UsedCampaignCardsSection(allStats, myDeviceId, myMember, opponentMember, campaignCards)
+                    }
 
                     HorizontalDivider()
 
@@ -1696,7 +1380,8 @@ private fun ResultStatusCard(
     result: OnlineMatchResult,
     myMember: OnlineCampaignMember?,
     opponentMember: OnlineCampaignMember?,
-    myDeviceId: String
+    myDeviceId: String,
+    campaignCards: List<CampaignCard>
 ) {
     val theme = LocalAppThemeProperties.current
     val myStats = result.resultData?.playerStats?.find { it.deviceId == myDeviceId }
@@ -1736,6 +1421,12 @@ private fun ResultStatusCard(
                         myCardVp = myStats?.campaignCardVp ?: 0,
                         opponentCardVp = oppStats?.campaignCardVp ?: 0
                     )
+
+                    val allStats = result.resultData?.playerStats ?: emptyList()
+                    if (allStats.any { it.campaignCardCodes.isNotEmpty() }) {
+                        HorizontalDivider()
+                        UsedCampaignCardsSection(allStats, myDeviceId, myMember, opponentMember, campaignCards)
+                    }
                 }
             }
         }
@@ -1750,7 +1441,8 @@ private fun DisputedResultCard(
     result: OnlineMatchResult,
     myMember: OnlineCampaignMember?,
     opponentMember: OnlineCampaignMember?,
-    myDeviceId: String
+    myDeviceId: String,
+    campaignCards: List<CampaignCard>
 ) {
     val theme = LocalAppThemeProperties.current
     val myStats = result.resultData?.playerStats?.find { it.deviceId == myDeviceId }
@@ -1792,6 +1484,12 @@ private fun DisputedResultCard(
                         myCardVp = myStats?.campaignCardVp ?: 0,
                         opponentCardVp = oppStats?.campaignCardVp ?: 0
                     )
+
+                    val allStats = result.resultData?.playerStats ?: emptyList()
+                    if (allStats.any { it.campaignCardCodes.isNotEmpty() }) {
+                        HorizontalDivider()
+                        UsedCampaignCardsSection(allStats, myDeviceId, myMember, opponentMember, campaignCards)
+                    }
                 }
             }
         }
@@ -1838,6 +1536,60 @@ private fun ResultSummaryRow(
             Icon(Icons.Default.EmojiEvents, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
             Spacer(Modifier.width(4.dp))
             Text("Winner: $winnerLabel", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
+        }
+    }
+}
+
+/** Shows campaign cards used by both players in a submitted result, with tap-to-details. */
+@Composable
+private fun UsedCampaignCardsSection(
+    allStats: List<OnlinePlayerStat>,
+    myDeviceId: String,
+    myMember: OnlineCampaignMember?,
+    opponentMember: OnlineCampaignMember?,
+    campaignCards: List<CampaignCard>
+) {
+    var selectedCard by remember { mutableStateOf<CampaignCard?>(null) }
+    selectedCard?.let { card ->
+        AlertDialog(
+            onDismissRequest = { selectedCard = null },
+            title = { Text(card.name, style = MaterialTheme.typography.titleMedium) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(card.timing, style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary)
+                    Text(card.description, style = MaterialTheme.typography.bodySmall)
+                    card.extraDescription?.let {
+                        Text(it, style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { selectedCard = null }) { Text("Close") }
+            }
+        )
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text("Campaign cards used", style = MaterialTheme.typography.labelMedium)
+        allStats.forEach { stat ->
+            if (stat.campaignCardCodes.isEmpty()) return@forEach
+            val playerName = if (stat.deviceId == myDeviceId)
+                myMember?.username ?: "You"
+            else
+                opponentMember?.username ?: "Opponent"
+            Text(playerName, style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                stat.campaignCardCodes.forEach { code ->
+                    val card = campaignCards.find { it.shareCode == code }
+                    AssistChip(
+                        onClick = { card?.let { selectedCard = it } },
+                        label = { Text(card?.name ?: code, style = MaterialTheme.typography.labelSmall) }
+                    )
+                }
+            }
         }
     }
 }
@@ -2383,15 +2135,81 @@ private fun AdminLocalMachinationCard(
                     style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
             }
 
-            MachinationChoiceRow(0, choice1, otherMembers.filter { it.deviceId != member.deviceId }) {
-                choice1 = it; if (it == null) choice2 = null
+            // Machination 1
+            val row1Members = otherMembers.filter { it.deviceId != member.deviceId }
+            Text("Machination 1", style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                FilterChip(selected = choice1 == null, onClick = { choice1 = null; choice2 = null },
+                    label = { Text("None", style = MaterialTheme.typography.labelSmall) })
+                row1Members.forEach { m ->
+                    FilterChip(
+                        selected = choice1?.targetDeviceId == m.deviceId,
+                        onClick = { choice1 = OnlineMachinationChoice(m.deviceId, choice1?.type ?: "SUPPORT") },
+                        label = { Text(m.username, style = MaterialTheme.typography.labelSmall) }
+                    )
+                }
             }
             if (choice1 != null) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    FilterChip(
+                        selected = choice1?.type == "SUPPORT",
+                        onClick = { choice1 = choice1?.copy(type = "SUPPORT") },
+                        leadingIcon = if (choice1?.type == "SUPPORT") {
+                            { Icon(Icons.Default.Favorite, null, Modifier.size(14.dp)) }
+                        } else null,
+                        label = { Text("Support", style = MaterialTheme.typography.labelSmall) }
+                    )
+                    FilterChip(
+                        selected = choice1?.type == "SABOTAGE",
+                        onClick = { choice1 = choice1?.copy(type = "SABOTAGE") },
+                        leadingIcon = if (choice1?.type == "SABOTAGE") {
+                            { Icon(Icons.Default.Dangerous, null, Modifier.size(14.dp)) }
+                        } else null,
+                        label = { Text("Sabotage", style = MaterialTheme.typography.labelSmall) }
+                    )
+                }
+                // Machination 2
+                HorizontalDivider()
                 val row2Targets = otherMembers.filter {
                     it.deviceId != member.deviceId &&
                     (choice2 == null || choice1?.type != choice2?.type || it.deviceId != choice1?.targetDeviceId)
                 }
-                MachinationChoiceRow(1, choice2, row2Targets) { choice2 = it }
+                Text("Machination 2", style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    FilterChip(selected = choice2 == null, onClick = { choice2 = null },
+                        label = { Text("None", style = MaterialTheme.typography.labelSmall) })
+                    row2Targets.forEach { m ->
+                        FilterChip(
+                            selected = choice2?.targetDeviceId == m.deviceId,
+                            onClick = { choice2 = OnlineMachinationChoice(m.deviceId, choice2?.type ?: "SUPPORT") },
+                            label = { Text(m.username, style = MaterialTheme.typography.labelSmall) }
+                        )
+                    }
+                }
+                if (choice2 != null) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        FilterChip(
+                            selected = choice2?.type == "SUPPORT",
+                            onClick = { choice2 = choice2?.copy(type = "SUPPORT") },
+                            leadingIcon = if (choice2?.type == "SUPPORT") {
+                                { Icon(Icons.Default.Favorite, null, Modifier.size(14.dp)) }
+                            } else null,
+                            label = { Text("Support", style = MaterialTheme.typography.labelSmall) }
+                        )
+                        FilterChip(
+                            selected = choice2?.type == "SABOTAGE",
+                            onClick = { choice2 = choice2?.copy(type = "SABOTAGE") },
+                            leadingIcon = if (choice2?.type == "SABOTAGE") {
+                                { Icon(Icons.Default.Dangerous, null, Modifier.size(14.dp)) }
+                            } else null,
+                            label = { Text("Sabotage", style = MaterialTheme.typography.labelSmall) }
+                        )
+                    }
+                }
             }
 
             Button(

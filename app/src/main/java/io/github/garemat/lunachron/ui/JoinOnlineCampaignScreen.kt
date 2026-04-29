@@ -2,7 +2,6 @@ package io.github.garemat.lunachron.ui
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.HourglassTop
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -16,7 +15,6 @@ import io.github.garemat.lunachron.CharacterEvent
 import io.github.garemat.lunachron.CharacterState
 import io.github.garemat.lunachron.ui.theme.LocalAppThemeProperties
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun JoinOnlineCampaignScreen(
     state: CharacterState,
@@ -26,8 +24,10 @@ fun JoinOnlineCampaignScreen(
     val theme = LocalAppThemeProperties.current
     var joinCode by remember { mutableStateOf("") }
 
-    // Clear pending join state when leaving so stale data doesn't re-show
-    DisposableEffect(Unit) { onDispose { /* pendingJoinCampaignId naturally superseded on next join */ } }
+    // Reset the code field whenever the user dismisses the "request sent" state.
+    LaunchedEffect(state.pendingJoinCampaignId) {
+        if (state.pendingJoinCampaignId == null) joinCode = ""
+    }
 
     // Error dialog
     if (state.onlineCampaignError != null) {
@@ -41,31 +41,13 @@ fun JoinOnlineCampaignScreen(
         )
     }
 
-    Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text("Join Campaign", style = theme.titleStyle) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    titleContentColor = MaterialTheme.colorScheme.primary,
-                    navigationIconContentColor = MaterialTheme.colorScheme.primary
-                )
-            )
-        }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(theme.screenPadding),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(theme.screenPadding),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
             if (state.pendingJoinCampaignId != null) {
                 // ── Request sent state ────────────────────────────────────────
                 Icon(
@@ -89,8 +71,11 @@ fun JoinOnlineCampaignScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(24.dp))
-                OutlinedButton(onClick = onNavigateBack, shape = theme.cardShape) {
-                    Text("Done")
+                OutlinedButton(
+                    onClick = { onEvent(CharacterEvent.DismissPendingJoin) },
+                    shape = theme.cardShape
+                ) {
+                    Text("Join another")
                 }
             } else {
                 // ── Code entry state ──────────────────────────────────────────
@@ -138,5 +123,4 @@ fun JoinOnlineCampaignScreen(
                 }
             }
         }
-    }
 }

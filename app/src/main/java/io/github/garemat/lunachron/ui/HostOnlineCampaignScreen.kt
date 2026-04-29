@@ -5,7 +5,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -24,7 +23,6 @@ import io.github.garemat.lunachron.OnlineCampaignSettings
 import io.github.garemat.lunachron.ui.theme.AppThemeProperties
 import io.github.garemat.lunachron.ui.theme.LocalAppThemeProperties
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HostOnlineCampaignScreen(
     state: CharacterState,
@@ -95,30 +93,12 @@ fun HostOnlineCampaignScreen(
         )
     }
 
-    Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text("New Campaign", style = theme.titleStyle) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    titleContentColor = MaterialTheme.colorScheme.primary,
-                    navigationIconContentColor = MaterialTheme.colorScheme.primary
-                )
-            )
-        }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(theme.screenPadding)
-        ) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(theme.screenPadding)
+    ) {
             // ── Campaign name ─────────────────────────────────────────────────
             Text("Campaign Details", style = theme.titleStyle.copy(fontSize = 20.sp), color = MaterialTheme.colorScheme.primary)
             Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
@@ -231,7 +211,6 @@ fun HostOnlineCampaignScreen(
 
             Spacer(modifier = Modifier.height(88.dp))
         }
-    }
 }
 
 @Composable
