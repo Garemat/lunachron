@@ -128,6 +128,7 @@ data class OnlineCampaignSummary(
     val isHost: Boolean,
     val memberCount: Int,
     val membershipStatus: String = "APPROVED", // "APPROVED" or "PENDING"
+    val pendingCount: Int = 0,                 // pending join requests (host only, from backend)
     val settings: OnlineCampaignSettings? = null
 )
 
@@ -360,7 +361,11 @@ data class CharacterState(
 
     // Online campaign deletion
     val isDeletingCampaign: Boolean = false,
-    val onlineCampaignDeleted: Boolean = false
+    val onlineCampaignDeleted: Boolean = false,
+
+    // UI overlay triggers for campaign detail top bar actions (hoisted so MainActivity can set them)
+    val showCampaignAdminPanel: Boolean = false,
+    val showCampaignDeleteDialog: Boolean = false,
 )
 
 @Serializable

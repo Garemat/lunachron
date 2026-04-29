@@ -7,11 +7,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import io.github.garemat.lunachron.CharacterState
-import io.github.garemat.lunachron.ui.theme.LocalAppThemeProperties
 
 @Composable
 fun CampaignHubScreen(
@@ -21,23 +18,11 @@ fun CampaignHubScreen(
     onJoinCampaignSelected: () -> Unit,
     onActiveCampaignsSelected: () -> Unit
 ) {
-    val isMoonstone = LocalAppThemeProperties.current.showExpandedStatsHeader
-
     Column(
         modifier = Modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(
-            text = "Campaigns",
-            style = if (isMoonstone) MaterialTheme.typography.displayLarge.copy(fontSize = 32.sp)
-                    else MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            color = if (isMoonstone) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
         SetupOptionCard(
             title = "Local Tracking",
             description = "Manage local campaign records and results.",
@@ -65,11 +50,13 @@ fun CampaignHubScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
 
+        val pendingTotal = state.onlineCampaigns.filter { it.isHost }.sumOf { it.pendingCount }
         SetupOptionCard(
             title = "Active Campaigns",
             description = "View and manage your online campaigns.",
             icon = Icons.Default.Campaign,
-            onClick = { if (state.isRegistered) onActiveCampaignsSelected() }
+            onClick = { if (state.isRegistered) onActiveCampaignsSelected() },
+            badgeCount = pendingTotal
         )
 
         if (!state.isRegistered) {

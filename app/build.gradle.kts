@@ -18,8 +18,8 @@ android {
         applicationId = "io.github.garemat.lunachron"
         minSdk = 24
         targetSdk = 36
-        versionCode = 21400
-        versionName = "2.14.0"
+        versionCode = 21500
+        versionName = "2.15.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -55,7 +55,7 @@ android {
     buildTypes {
         debug {
             // Emulator loopback — change to LAN IP for testing on a physical device.
-            buildConfigField("String", "LUNACHRON_API_URL", "\"http://10.0.2.2:3000\"")
+            buildConfigField("String", "LUNACHRON_API_URL", "\"https://api.garemat.co.uk\"")
         }
         release {
             buildConfigField("String", "LUNACHRON_API_URL", "\"https://api.garemat.co.uk\"")
