@@ -626,7 +626,7 @@ fun CharacterBack(character: Character, searchQuery: String, onFlip: () -> Unit,
  * If the natural content height fits, no scaling is applied. Clips overflow.
  */
 @Composable
-private fun ScaleToFit(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+private fun ScaleToFit(modifier: Modifier = Modifier, content: @Composable (isScaled: Boolean) -> Unit) {
     BoxWithConstraints(modifier = modifier.clipToBounds()) {
         val availableHeightPx = constraints.maxHeight
         var contentHeightPx by remember { mutableStateOf(availableHeightPx) }
@@ -640,7 +640,7 @@ private fun ScaleToFit(modifier: Modifier = Modifier, content: @Composable () ->
                 .graphicsLayer(scaleX = scale, scaleY = scale, transformOrigin = TransformOrigin(0f, 0f))
                 .onSizeChanged { size -> if (size.height != contentHeightPx) contentHeightPx = size.height }
         ) {
-            content()
+            content(scale < 1f)
         }
     }
 }
@@ -669,7 +669,7 @@ fun CommonCharacterCard(character: Character, searchQuery: String, isExpanded: B
             }
             if (isExpanded) {
                 if (theme.showCardDivider) HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                ScaleToFit(modifier = Modifier.fillMaxWidth().heightIn(max = maxCardBodyHeight)) {
+                ScaleToFit(modifier = Modifier.fillMaxWidth().heightIn(max = maxCardBodyHeight)) { isScaled ->
                     CharacterCardContent(
                         character = character,
                         searchQuery = searchQuery,
@@ -677,7 +677,7 @@ fun CommonCharacterCard(character: Character, searchQuery: String, isExpanded: B
                         onFlip = { isFlippedState = !isFlippedState },
                         modifier = Modifier.fillMaxWidth(),
                         animateFlip = true,
-                        showBackgroundImage = theme.showBackgroundImageOverlay,
+                        showBackgroundImage = !isScaled && theme.showBackgroundImageOverlay,
                         showHealthTracker = true,
                         onFlipPositioned = { onPositioned("FlipButton", it) }
                     )
@@ -778,7 +778,7 @@ fun CharacterCardContent(
                         .then(if (pinnedFooter) Modifier.fillMaxSize() else Modifier.onSizeChanged { sz -> frontHeightPx = sz.height })
                 ) {
                     if (pinnedFooter) {
-                        ScaleToFit(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                        ScaleToFit(modifier = Modifier.weight(1f).fillMaxWidth()) { _ ->
                             CharacterFront(
                                 character = character,
                                 searchQuery = searchQuery,
@@ -849,7 +849,7 @@ fun CharacterCardContent(
                         verticalArrangement = if (pinnedFooter) Arrangement.Top else Arrangement.SpaceBetween
                     ) {
                         if (pinnedFooter) {
-                            ScaleToFit(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                            ScaleToFit(modifier = Modifier.weight(1f).fillMaxWidth()) { _ ->
                                 CharacterBack(
                                     character = character,
                                     searchQuery = searchQuery,
