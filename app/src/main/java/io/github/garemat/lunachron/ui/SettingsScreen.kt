@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
 import io.github.garemat.lunachron.CharacterEvent
 import io.github.garemat.lunachron.ui.theme.ThemeRepository
+import io.github.garemat.lunachron.BuildConfig
 import io.github.garemat.lunachron.CharacterState
 import io.github.garemat.lunachron.GameTrackingMode
 import io.github.garemat.lunachron.ImageDownloadPreference
@@ -242,7 +243,10 @@ fun SettingsScreen(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Spacer(modifier = Modifier.height(theme.verticalSpacing))
 
-            Text("App Updates", style = theme.titleStyle.copy(fontSize = 20.sp), color = MaterialTheme.colorScheme.primary)
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("App Updates", style = theme.titleStyle.copy(fontSize = 20.sp), color = MaterialTheme.colorScheme.primary)
+                Text("v${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             Spacer(modifier = Modifier.height(theme.verticalSpacing / 4))
             if (state.installerSource == InstallerSource.FDROID) {
                 Text(
