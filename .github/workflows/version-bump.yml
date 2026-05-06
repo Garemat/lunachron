@@ -88,5 +88,5 @@ jobs:
         git config user.name  "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
         git add app/build.gradle.kts CHANGELOG.md data.version
-        git diff --staged --quiet || git commit -m "chore: bump version to ${{ steps.version.outputs.new_tag }}"
+        git diff --staged --quiet || git commit -m "chore: bump version to ${{ steps.version.outputs.new_tag }} [skip ci]"
         git push origin HEAD:${{ github.head_ref }}

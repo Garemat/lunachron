@@ -9,14 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Pre-release polish — icon, version display, keyword AND/OR/NOT search
-
-
-### Fixed
-
-- Icon v2 — face on crescent, no corner ornaments, remove monochrome
-
-- Icon v3 — remove face, centre crescent moon
+- Pre-release polish — icon, version display, keyword AND/OR/NOT search (#137)
 
 
 ## [2.15.0] - 2026-04-29
