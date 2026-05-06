@@ -26,6 +26,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
@@ -619,6 +621,30 @@ fun CharacterBack(character: Character, searchQuery: String, onFlip: () -> Unit,
     }
 }
 
+/**
+ * Renders [content] scaled down (from the top-left) to fit within the available height.
+ * If the natural content height fits, no scaling is applied. Clips overflow.
+ */
+@Composable
+private fun ScaleToFit(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    BoxWithConstraints(modifier = modifier.clipToBounds()) {
+        val availableHeightPx = constraints.maxHeight
+        var contentHeightPx by remember { mutableStateOf(availableHeightPx) }
+        val scale = if (availableHeightPx > 0 && contentHeightPx > availableHeightPx) {
+            availableHeightPx.toFloat() / contentHeightPx.toFloat()
+        } else 1f
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .wrapContentHeight(align = Alignment.Top, unbounded = true)
+                .graphicsLayer(scaleX = scale, scaleY = scale, transformOrigin = TransformOrigin(0f, 0f))
+                .onSizeChanged { size -> if (size.height != contentHeightPx) contentHeightPx = size.height }
+        ) {
+            content()
+        }
+    }
+}
+
 @Composable
 fun CommonCharacterCard(character: Character, searchQuery: String, isExpanded: Boolean, onExpandClick: () -> Unit, modifier: Modifier = Modifier, cardTargetName: String = "CharacterCard", onPositioned: (String, LayoutCoordinates) -> Unit = { _, _ -> }, forceFlipped: Boolean? = null, selectionControl: @Composable (RowScope.() -> Unit)? = null, bottomContent: (@Composable () -> Unit)? = null) {
     var isFlippedState by remember { mutableStateOf(false) }; val isFlipped = forceFlipped ?: isFlippedState
@@ -643,12 +669,7 @@ fun CommonCharacterCard(character: Character, searchQuery: String, isExpanded: B
             }
             if (isExpanded) {
                 if (theme.showCardDivider) HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = maxCardBodyHeight)
-                        .verticalScroll(rememberScrollState())
-                ) {
+                ScaleToFit(modifier = Modifier.fillMaxWidth().heightIn(max = maxCardBodyHeight)) {
                     CharacterCardContent(
                         character = character,
                         searchQuery = searchQuery,
@@ -750,28 +771,38 @@ fun CharacterCardContent(
         Box(modifier = flipModifier) {
             if (!showBack) {
                 // Front face.
-                // pinnedFooter = true  → content scrolls, footer anchored to bottom (modal)
+                // pinnedFooter = true  → content scales to fit, footer anchored to bottom (modal)
                 // pinnedFooter = false → card auto-sizes; track height so back face never shrinks
                 Column(
                     modifier = Modifier.fillMaxWidth()
                         .then(if (pinnedFooter) Modifier.fillMaxSize() else Modifier.onSizeChanged { sz -> frontHeightPx = sz.height })
                 ) {
-                    Column(
-                        modifier = if (pinnedFooter)
-                            Modifier.weight(1f).verticalScroll(rememberScrollState())
-                        else
-                            Modifier.fillMaxWidth()
-                    ) {
-                        CharacterFront(
-                            character = character,
-                            searchQuery = searchQuery,
-                            onFlip = onFlip,
-                            onFlipPositioned = onFlipPositioned,
-                            showHealthTracker = showHealthTracker,
-                            showSignatureLink = false,
-                            abilityUsedStates = abilityUsedStates,
-                            onAbilityUsedChange = onAbilityUsedChange
-                        )
+                    if (pinnedFooter) {
+                        ScaleToFit(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                            CharacterFront(
+                                character = character,
+                                searchQuery = searchQuery,
+                                onFlip = onFlip,
+                                onFlipPositioned = onFlipPositioned,
+                                showHealthTracker = showHealthTracker,
+                                showSignatureLink = false,
+                                abilityUsedStates = abilityUsedStates,
+                                onAbilityUsedChange = onAbilityUsedChange
+                            )
+                        }
+                    } else {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            CharacterFront(
+                                character = character,
+                                searchQuery = searchQuery,
+                                onFlip = onFlip,
+                                onFlipPositioned = onFlipPositioned,
+                                showHealthTracker = showHealthTracker,
+                                showSignatureLink = false,
+                                abilityUsedStates = abilityUsedStates,
+                                onAbilityUsedChange = onAbilityUsedChange
+                            )
+                        }
                     }
                     // Signature-move link — pinned at the visual bottom in both modes
                     character.signatureMove?.let { sigMove ->
@@ -817,19 +848,26 @@ fun CharacterCardContent(
                             Modifier.fillMaxWidth().heightIn(min = with(localDensity) { frontHeightPx.toDp() }),
                         verticalArrangement = if (pinnedFooter) Arrangement.Top else Arrangement.SpaceBetween
                     ) {
-                        Column(
-                            modifier = if (pinnedFooter)
-                                Modifier.weight(1f).verticalScroll(rememberScrollState())
-                            else
-                                Modifier.fillMaxWidth()
-                        ) {
-                            CharacterBack(
-                                character = character,
-                                searchQuery = searchQuery,
-                                onFlip = onFlip,
-                                onFlipPositioned = onFlipPositioned,
-                                showBackLink = false
-                            )
+                        if (pinnedFooter) {
+                            ScaleToFit(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                                CharacterBack(
+                                    character = character,
+                                    searchQuery = searchQuery,
+                                    onFlip = onFlip,
+                                    onFlipPositioned = onFlipPositioned,
+                                    showBackLink = false
+                                )
+                            }
+                        } else {
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                CharacterBack(
+                                    character = character,
+                                    searchQuery = searchQuery,
+                                    onFlip = onFlip,
+                                    onFlipPositioned = onFlipPositioned,
+                                    showBackLink = false
+                                )
+                            }
                         }
                         // Back-to-stats link — wrapped in Column so SpaceBetween treats it as
                         // one unit and places it at the visual bottom of the card
