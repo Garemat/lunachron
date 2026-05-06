@@ -1086,6 +1086,28 @@ fun HealthPip(
     )
 }
 
+fun filterCharacters(
+    characters: List<Character>,
+    searchQuery: String,
+    selectedFactions: Set<Faction>,
+    andTags: Set<String>,
+    orTags: Set<String>,
+    notTags: Set<String>
+): List<Character> = characters.filter { character ->
+    val matchesFaction = selectedFactions.isEmpty() || character.factions.any { it in selectedFactions }
+    val matchesSearch = searchQuery.isEmpty() ||
+        character.name.contains(searchQuery, ignoreCase = true) ||
+        character.keywords.any { it.contains(searchQuery, ignoreCase = true) } ||
+        character.abilities.any {
+            it.name.contains(searchQuery, ignoreCase = true) ||
+            it.description.contains(searchQuery, ignoreCase = true)
+        }
+    val matchesAnd = andTags.isEmpty() || character.keywords.containsAll(andTags)
+    val matchesOr = orTags.isEmpty() || character.keywords.any { it in orTags }
+    val matchesNot = notTags.isEmpty() || !character.keywords.any { it in notTags }
+    matchesFaction && matchesSearch && matchesAnd && matchesOr && matchesNot
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CharacterFilterHeader(
@@ -1098,10 +1120,10 @@ fun CharacterFilterHeader(
     availableTags: List<String>,
     modifier: Modifier = Modifier,
     isFactionFixed: Boolean = false,
-    // Exclusion support — when onExcludedTagsChange is non-null, tapping a keyword cycles
-    // through three states: unselected → include → exclude → unselected.
     excludedTags: Set<String> = emptySet(),
     onExcludedTagsChange: ((Set<String>) -> Unit)? = null,
+    orTags: Set<String> = emptySet(),
+    onOrTagsChange: ((Set<String>) -> Unit)? = null,
     showCollapseAll: Boolean = false,
     onCollapseAll: () -> Unit = {},
     onClearAll: () -> Unit = {},
@@ -1110,8 +1132,10 @@ fun CharacterFilterHeader(
     val theme = LocalAppThemeProperties.current
     val includeColor = MaterialTheme.colorScheme.primaryContainer
     val excludeColor = MaterialTheme.colorScheme.errorContainer
+    val orColor = MaterialTheme.colorScheme.secondaryContainer
     val includeTextColor = MaterialTheme.colorScheme.onPrimaryContainer
     val excludeTextColor = MaterialTheme.colorScheme.onErrorContainer
+    val orTextColor = MaterialTheme.colorScheme.onSecondaryContainer
     Column(modifier = modifier.padding(theme.screenPadding)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -1132,38 +1156,35 @@ fun CharacterFilterHeader(
                 OutlinedButton(onClick = { showKeywordsDialog = true }, shape = theme.cardShape) {
                     Text("Keywords")
                 }
-                val activeChipTags = selectedTags.toList() + excludedTags.filter { it !in selectedTags }.toList()
+                val activeChipTags = selectedTags.toList() + orTags.filter { it !in selectedTags }.toList() + excludedTags.filter { it !in selectedTags && it !in orTags }.toList()
                 if (activeChipTags.isNotEmpty()) {
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         items(activeChipTags) { tag ->
                             val isExcluded = tag in excludedTags
+                            val isOr = tag in orTags
+                            val chipLabel = when { isExcluded -> "NOT $tag"; isOr -> "OR $tag"; else -> tag }
+                            val chipIcon = when { isExcluded -> Icons.Default.Block; isOr -> Icons.Default.Add; else -> Icons.Default.Check }
+                            val chipContainer = when { isExcluded -> excludeColor; isOr -> orColor; else -> includeColor }
+                            val chipText = when { isExcluded -> excludeTextColor; isOr -> orTextColor; else -> includeTextColor }
                             FilterChip(
                                 selected = true,
                                 onClick = {
-                                    if (onExcludedTagsChange != null) {
-                                        when {
-                                            // include → exclude
-                                            tag in selectedTags -> { onTagsChange(selectedTags - tag); onExcludedTagsChange(excludedTags + tag) }
-                                            // exclude → unselected
-                                            isExcluded -> onExcludedTagsChange(excludedTags - tag)
-                                            else -> onTagsChange(selectedTags - tag)
-                                        }
-                                    } else {
-                                        onTagsChange(selectedTags - tag)
+                                    when {
+                                        tag in selectedTags && onOrTagsChange != null -> { onTagsChange(selectedTags - tag); onOrTagsChange(orTags + tag) }
+                                        tag in selectedTags && onExcludedTagsChange != null -> { onTagsChange(selectedTags - tag); onExcludedTagsChange(excludedTags + tag) }
+                                        tag in selectedTags -> onTagsChange(selectedTags - tag)
+                                        isOr && onExcludedTagsChange != null -> { onOrTagsChange!!(orTags - tag); onExcludedTagsChange(excludedTags + tag) }
+                                        isOr -> onOrTagsChange!!(orTags - tag)
+                                        isExcluded -> onExcludedTagsChange!!(excludedTags - tag)
+                                        else -> onTagsChange(selectedTags - tag)
                                     }
                                 },
-                                label = { Text(if (isExcluded) "NOT $tag" else tag) },
-                                leadingIcon = {
-                                    Icon(
-                                        if (isExcluded) Icons.Default.Block else Icons.Default.Check,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                },
+                                label = { Text(chipLabel) },
+                                leadingIcon = { Icon(chipIcon, contentDescription = null, modifier = Modifier.size(16.dp)) },
                                 colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = if (isExcluded) excludeColor else includeColor,
-                                    selectedLabelColor = if (isExcluded) excludeTextColor else includeTextColor,
-                                    selectedLeadingIconColor = if (isExcluded) excludeTextColor else includeTextColor
+                                    selectedContainerColor = chipContainer,
+                                    selectedLabelColor = chipText,
+                                    selectedLeadingIconColor = chipText
                                 ),
                                 shape = theme.cardShape
                             )
@@ -1186,10 +1207,11 @@ fun CharacterFilterHeader(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text("Keywords", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
-                            if (selectedTags.isNotEmpty() || excludedTags.isNotEmpty()) {
+                            if (selectedTags.isNotEmpty() || excludedTags.isNotEmpty() || orTags.isNotEmpty()) {
                                 TextButton(onClick = {
                                     onTagsChange(emptySet())
                                     onExcludedTagsChange?.invoke(emptySet())
+                                    onOrTagsChange?.invoke(emptySet())
                                 }) { Text("Clear") }
                             }
                         }
@@ -1201,12 +1223,16 @@ fun CharacterFilterHeader(
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     pair.forEach { tag ->
-                                        val isIncluded = tag in selectedTags
-                                        val isExcluded = onExcludedTagsChange != null && tag in excludedTags
+                                        val isAnd = tag in selectedTags
+                                        val isOr = onOrTagsChange != null && tag in orTags
+                                        val isNot = onExcludedTagsChange != null && tag in excludedTags
                                         when {
-                                            isIncluded -> Button(
+                                            isAnd -> Button(
                                                 onClick = {
-                                                    if (onExcludedTagsChange != null) {
+                                                    if (onOrTagsChange != null) {
+                                                        onTagsChange(selectedTags - tag)
+                                                        onOrTagsChange(orTags + tag)
+                                                    } else if (onExcludedTagsChange != null) {
                                                         onTagsChange(selectedTags - tag)
                                                         onExcludedTagsChange(excludedTags + tag)
                                                     } else {
@@ -1216,8 +1242,21 @@ fun CharacterFilterHeader(
                                                 modifier = Modifier.weight(1f),
                                                 shape = theme.cardShape
                                             ) { Text(tag, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-                                            isExcluded -> Button(
-                                                onClick = { onExcludedTagsChange(excludedTags - tag) },
+                                            isOr -> Button(
+                                                onClick = {
+                                                    if (onExcludedTagsChange != null) {
+                                                        onOrTagsChange!!(orTags - tag)
+                                                        onExcludedTagsChange(excludedTags + tag)
+                                                    } else {
+                                                        onOrTagsChange!!(orTags - tag)
+                                                    }
+                                                },
+                                                modifier = Modifier.weight(1f),
+                                                shape = theme.cardShape,
+                                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                                            ) { Text("OR $tag", maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                                            isNot -> Button(
+                                                onClick = { onExcludedTagsChange!!(excludedTags - tag) },
                                                 modifier = Modifier.weight(1f),
                                                 shape = theme.cardShape,
                                                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
@@ -1237,7 +1276,7 @@ fun CharacterFilterHeader(
                 }
             }
         }
-        if (searchQuery.isNotEmpty() || selectedFactions.isNotEmpty() || selectedTags.isNotEmpty() || excludedTags.isNotEmpty()) {
+        if (searchQuery.isNotEmpty() || selectedFactions.isNotEmpty() || selectedTags.isNotEmpty() || excludedTags.isNotEmpty() || orTags.isNotEmpty()) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 TextButton(onClick = onClearAll) { Text("Clear All") }
             }
