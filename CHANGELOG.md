@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Replace [skip ci] with paths-ignore for version bump commits
 
+- Run fdroid flavor instrumented tests only to avoid emulator re-attach failure
+
 
 ## [2.16.0] - 2026-05-06
 
