@@ -5,13 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.16.1] - 2026-05-06
+## [2.16.1] - 2026-05-07
 
 ### Fixed
 
-- Scale character card content to fit instead of scrolling
+- Scale character card content to fit instead of scrolling (#136)
 
-- Suppress background portrait art when card content is scaled down
+- Trigger release on push to main instead of pull_request closed
 
 
 ## [2.16.0] - 2026-05-06
