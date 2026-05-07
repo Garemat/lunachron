@@ -73,7 +73,8 @@ val appTutorialSteps: List<TutorialStep> = listOf(
     TutorialStep(
         targetTag = "MenuButton",
         message = "The menu button opens the side drawer. Tap it to take a look.",
-        advance = AdvanceCondition.OnSpotlightTap
+        advance = AdvanceCondition.OnSpotlightTap,
+        requiredRoute = Screen.Compendium.route
     ),
 
     // 4 — Drawer contents (arrowless — drawer is now open)
