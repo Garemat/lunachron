@@ -131,6 +131,11 @@ fun TutorialOverlay(
                     // Arrowless steps have no spotlight — never block.
                     if (spotlightBounds == null) return@awaitEachGesture
 
+                    // OnNavigation steps rely on the user freely tapping nav items that live
+                    // outside the NavHost (bottom bar, drawer). Blocking here would prevent those
+                    // taps from reaching sibling composables, so allow everything through.
+                    if (currentStep.advance is AdvanceCondition.OnNavigation) return@awaitEachGesture
+
                     val inSpotlight = spotlightBounds.expand(SPOTLIGHT_PADDING).contains(pos)
                     val inTooltip = tooltipBounds?.contains(pos) == true
                     val inSkip = skipBounds?.contains(pos) == true
