@@ -28,6 +28,16 @@ This is an Android project. Use Gradle wrapper from the project root:
 
 The app targets SDK 36, min SDK 24, Java 17.
 
+## CI / Release Workflows
+
+**Release trigger:** `release.yml` fires on `push: main` — every merge to main (including Dependabot) creates a tagged release. Do not change this to `pull_request: closed`; that event is unreliable and has silently dropped in the past.
+
+**Version bump:** The version bump happens inside `release.yml` as the first step after merge, not on the PR branch. PRs contain only developer code — no bot commits. The release workflow: rebases onto latest main (handles concurrent releases safely), computes the next version via git-cliff, updates `app/build.gradle.kts` / `CHANGELOG.md` / `data.version`, commits with `[skip ci]` and pushes to main, then builds and publishes. The `[skip ci]` commit prevents a second release from triggering on that push.
+
+**Concurrency:** `release.yml` uses `concurrency: group: release, cancel-in-progress: false`. Concurrent merges queue up; the `git pull --rebase origin main` step ensures each run sees the previous run's version bump before computing its own, so versions increment correctly.
+
+**Commit messages:** Never include the literal string `[skip ci]` anywhere in a commit message (including the body) — GitHub scans the full message and will suppress all workflow runs for that commit. The only exception is the automated version bump commit pushed by `release.yml` itself.
+
 ## F-Droid Distribution
 
 The app is distributed via [F-Droid](https://f-droid.org). The fdroiddata metadata lives in a separate fork at `gitlab.com/Garemat/fdroiddata` (MR: `fdroid/fdroiddata!34869`).
