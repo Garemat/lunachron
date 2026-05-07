@@ -22,7 +22,6 @@ import androidx.compose.ui.unit.*
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import io.github.garemat.lunachron.CharacterState
-import kotlinx.coroutines.flow.collect
 
 private const val SPOTLIGHT_PADDING = 14f
 private const val SPOTLIGHT_RADIUS = 18f
@@ -33,9 +32,20 @@ private fun Rect.expand(delta: Float) = Rect(
     right = right + delta, bottom = bottom + delta
 )
 
+private fun LayoutCoordinates.boundsRelativeTo(anchor: LayoutCoordinates): Rect {
+    val offset = positionInWindow() - anchor.positionInWindow()
+    return Rect(Offset(offset.x, offset.y), size.toSize())
+}
+
 /**
  * Non-blocking tutorial overlay. Sits above the NavHost in a root [Box] (NOT a Dialog) so that
  * touches within the spotlight hole pass through to the real UI beneath.
+ *
+ * Touch model:
+ * - Touches on the tooltip card or skip button are always allowed (tracked as exclusion zones).
+ * - Touches within the spotlight are allowed (and trigger [onAdvance] for [AdvanceCondition.OnSpotlightTap]).
+ * - All other touches are blocked so the user stays focused on the current step.
+ * - Arrowless steps (no spotlight) never block any touches.
  *
  * Scalability contract: adding a new step only requires:
  *  1. Appending a [TutorialStep] to [appTutorialSteps].
@@ -54,6 +64,7 @@ fun TutorialOverlay(
     onStepChanged: (Int) -> Unit = {},
 ) {
     val currentStep = steps.getOrNull(currentStepIndex) ?: return
+    val isLastStep = currentStepIndex == steps.lastIndex
     val totalSteps = steps.size
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -78,15 +89,13 @@ fun TutorialOverlay(
         }
     }
 
-    // OnNavigation advancement: watch route changes.
+    // OnNavigation advancement.
     LaunchedEffect(currentRoute) {
         val cond = currentStep.advance
-        if (cond is AdvanceCondition.OnNavigation && currentRoute == cond.route) {
-            onAdvance()
-        }
+        if (cond is AdvanceCondition.OnNavigation && currentRoute == cond.route) onAdvance()
     }
 
-    // OnStateChange advancement: watch relevant state fields.
+    // OnStateChange advancement.
     LaunchedEffect(state.troupes) {
         val cond = currentStep.advance
         if (cond !is AdvanceCondition.OnStateChange) return@LaunchedEffect
@@ -96,35 +105,46 @@ fun TutorialOverlay(
         }
     }
 
-    // Resolve spotlight bounds from registered coordinates.
+    // Coordinate tracking — overlay root, tooltip card, skip button.
     var overlayCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    var tooltipBounds by remember { mutableStateOf<Rect?>(null) }
+    var skipBounds by remember { mutableStateOf<Rect?>(null) }
+
+    // Spotlight bounds derived from the registered target coordinates.
     val targetCoords = currentStep.targetTag?.let { tutorialCoords[it] }
     val spotlightBounds: Rect? = remember(targetCoords, overlayCoords) {
         val tc = targetCoords ?: return@remember null
         val oc = overlayCoords ?: return@remember null
         if (!tc.isAttached) return@remember null
-        val offset = tc.positionInWindow() - oc.positionInWindow()
-        Rect(Offset(offset.x, offset.y), tc.size.toSize())
+        tc.boundsRelativeTo(oc)
     }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .onGloballyPositioned { overlayCoords = it }
-            .pointerInput(spotlightBounds, currentStep) {
+            .pointerInput(spotlightBounds, tooltipBounds, skipBounds, currentStep) {
                 awaitEachGesture {
                     val event = awaitPointerEvent(PointerEventPass.Initial)
                     val pos = event.changes.firstOrNull()?.position ?: return@awaitEachGesture
-                    val inSpotlight = spotlightBounds != null &&
-                            spotlightBounds.expand(SPOTLIGHT_PADDING).contains(pos)
 
-                    if (!inSpotlight) {
-                        // Block touches outside the spotlight.
-                        event.changes.forEach { it.consume() }
-                    } else if (currentStep.advance == AdvanceCondition.OnSpotlightTap) {
-                        // Observe the tap without consuming — real element also fires.
-                        val isDown = event.changes.any { it.pressed && !it.previousPressed }
-                        if (isDown) onAdvance()
+                    // Arrowless steps have no spotlight — never block.
+                    if (spotlightBounds == null) return@awaitEachGesture
+
+                    val inSpotlight = spotlightBounds.expand(SPOTLIGHT_PADDING).contains(pos)
+                    val inTooltip = tooltipBounds?.contains(pos) == true
+                    val inSkip = skipBounds?.contains(pos) == true
+
+                    when {
+                        inTooltip || inSkip -> { /* always allow — tooltip buttons and skip must work */ }
+                        inSpotlight -> {
+                            // Pass through to real UI; additionally advance on tap if required.
+                            if (currentStep.advance == AdvanceCondition.OnSpotlightTap) {
+                                val isDown = event.changes.any { it.pressed && !it.previousPressed }
+                                if (isDown) onAdvance()
+                            }
+                        }
+                        else -> event.changes.forEach { it.consume() }
                     }
                 }
             }
@@ -148,11 +168,22 @@ fun TutorialOverlay(
             }
         }
 
+        // ── Skip (X) icon — top-right corner ───────────────────────────────────
+        IconButton(
+            onClick = onSkip,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(8.dp)
+                .onGloballyPositioned { coords ->
+                    overlayCoords?.let { skipBounds = coords.boundsRelativeTo(it) }
+                }
+        ) {
+            Icon(Icons.Default.Close, contentDescription = "Skip tutorial", tint = Color.White)
+        }
+
         // ── Tooltip card ────────────────────────────────────────────────────────
         val screenHeightPx = LocalConfiguration.current.screenHeightDp * LocalDensity.current.density
-        val cardAbove = spotlightBounds != null &&
-                spotlightBounds.center.y > screenHeightPx * 0.55f
-
+        val cardAbove = spotlightBounds != null && spotlightBounds.center.y > screenHeightPx * 0.55f
         val cardAlignment = when {
             spotlightBounds == null -> Alignment.Center
             cardAbove -> Alignment.TopCenter
@@ -162,15 +193,15 @@ fun TutorialOverlay(
         Column(
             modifier = Modifier
                 .align(cardAlignment)
-                .padding(horizontal = 24.dp, vertical = 72.dp),
+                .padding(horizontal = 24.dp, vertical = 72.dp)
+                .onGloballyPositioned { coords ->
+                    overlayCoords?.let { tooltipBounds = coords.boundsRelativeTo(it) }
+                },
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Progress bar
             LinearProgressIndicator(
                 progress = { (currentStepIndex + 1).toFloat() / totalSteps },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(4.dp),
+                modifier = Modifier.fillMaxWidth().height(4.dp),
                 color = MaterialTheme.colorScheme.primary,
                 trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
             )
@@ -193,31 +224,30 @@ fun TutorialOverlay(
                         color = MaterialTheme.colorScheme.onSurface
                     )
 
+                    Spacer(Modifier.height(16.dp))
+
                     if (currentStep.advance == AdvanceCondition.Manual) {
-                        Spacer(Modifier.height(16.dp))
-                        Button(
-                            onClick = onAdvance,
+                        Button(onClick = onAdvance, modifier = Modifier.fillMaxWidth()) {
+                            Text(currentStep.buttonLabel)
+                        }
+                        Spacer(Modifier.height(4.dp))
+                    }
+
+                    // Skip option — visible on all steps except the final one.
+                    if (!isLastStep) {
+                        TextButton(
+                            onClick = onSkip,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text(currentStep.buttonLabel)
+                            Text(
+                                "Skip tutorial",
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                style = MaterialTheme.typography.bodySmall
+                            )
                         }
                     }
                 }
             }
-        }
-
-        // ── Skip (X) button — always visible ───────────────────────────────────
-        IconButton(
-            onClick = onSkip,
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(8.dp)
-        ) {
-            Icon(
-                Icons.Default.Close,
-                contentDescription = "Skip tutorial",
-                tint = Color.White
-            )
         }
     }
 }
