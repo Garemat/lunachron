@@ -1,5 +1,5 @@
 [versions]
-gradlePlayPublisher = "3.12.1"
+gradlePlayPublisher = "3.13.0"
 agp = "8.13.2"
 coreKtx = "1.18.0"
 junit = "4.13.2"
