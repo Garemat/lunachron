@@ -67,12 +67,15 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             val state by viewModel.state.collectAsState()
-            var showTutorialForcefully by remember { mutableStateOf(false) }
-            
-            // Global coordinate tracking for tutorial
+            // Global coordinate tracking for tutorial overlay
             val tutorialCoords = remember { mutableStateMapOf<String, LayoutCoordinates>() }
-            val isTutorialActive = false // disabled
-            var currentTutorialStep by remember { mutableStateOf<TutorialStep?>(null) }
+
+            // Trigger tutorial automatically on first launch
+            LaunchedEffect(Unit) {
+                if (!state.hasSeenGlobalTutorial) {
+                    viewModel.onEvent(CharacterEvent.StartTutorial)
+                }
+            }
 
             // State for manual troupe selection
             var targetManualPlayerId by remember { mutableStateOf<String?>(null) }
@@ -222,6 +225,21 @@ class MainActivity : ComponentActivity() {
                             Spacer(Modifier.weight(1f))
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                             NavigationDrawerItem(
+                                icon = { Icon(Icons.Default.HelpOutline, contentDescription = null) },
+                                label = { Text("Tutorial", style = theme.headerStyle.copy(fontSize = 18.sp)) },
+                                selected = false,
+                                onClick = {
+                                    scope.launch { drawerState.close() }
+                                    viewModel.onEvent(CharacterEvent.StartTutorial)
+                                },
+                                shape = theme.navItemShape,
+                                colors = NavigationDrawerItemDefaults.colors(
+                                    unselectedIconColor = MaterialTheme.colorScheme.primary,
+                                    unselectedTextColor = MaterialTheme.colorScheme.primary
+                                )
+                            )
+                            NavigationDrawerItem(
+                                modifier = Modifier.onGloballyPositioned { tutorialCoords["DrawerSettings"] = it },
                                 icon = { Icon(Icons.Default.Settings, contentDescription = null) },
                                 label = { Text("Settings", style = theme.headerStyle.copy(fontSize = 18.sp)) },
                                 selected = false,
@@ -512,7 +530,7 @@ class MainActivity : ComponentActivity() {
                                             navController.navigate(Screen.AddEditTroupe.route) 
                                         },
                                         onEditTroupe = { navController.navigate(Screen.AddEditTroupe.route) },
-                                        isTutorialActive = isTutorialActive,
+                                        isTutorialActive = state.isTutorialActive,
                                         onTargetPositioned = { name, coords -> tutorialCoords[name] = coords }
                                     )
                                 }
@@ -554,7 +572,7 @@ class MainActivity : ComponentActivity() {
                                         viewModel = viewModel,
                                         state = state,
                                         onNavigateBack = { navController.safePopBackStack() },
-                                        currentTutorialStep = currentTutorialStep,
+                                        currentTutorialStep = io.github.garemat.lunachron.ui.appTutorialSteps.getOrNull(state.currentTutorialStep),
                                         onTargetPositioned = { name, coords -> tutorialCoords[name] = coords }
                                     )
                                 }
@@ -584,7 +602,7 @@ class MainActivity : ComponentActivity() {
                                         onJoinTournament = {
                                             navController.navigate(Screen.TournamentWaitingRoom.route)
                                         },
-                                        currentTutorialStep = currentTutorialStep,
+                                        currentTutorialStep = io.github.garemat.lunachron.ui.appTutorialSteps.getOrNull(state.currentTutorialStep),
                                         onTargetPositioned = { name, coords -> tutorialCoords[name] = coords }
                                     )
                                 }
@@ -597,8 +615,8 @@ class MainActivity : ComponentActivity() {
                                         onQuitGame = { 
                                             navController.popBackStack(Screen.Home.route, inclusive = false)
                                         },
-                                        isTutorialActive = isTutorialActive,
-                                        currentTutorialStep = currentTutorialStep,
+                                        isTutorialActive = state.isTutorialActive,
+                                        currentTutorialStep = io.github.garemat.lunachron.ui.appTutorialSteps.getOrNull(state.currentTutorialStep),
                                         onTargetPositioned = { name, coords -> tutorialCoords[name] = coords }
                                     )
                                 }
@@ -780,21 +798,18 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
 
-                            if (isTutorialActive) {
+                            if (state.isTutorialActive) {
                                 TutorialOverlay(
-                                    steps = fullAppTutorialSteps,
-                                    targetCoordinates = tutorialCoords,
+                                    steps = io.github.garemat.lunachron.ui.appTutorialSteps,
+                                    currentStepIndex = state.currentTutorialStep,
+                                    tutorialCoords = tutorialCoords,
                                     navController = navController,
-                                    onStepChange = { currentTutorialStep = fullAppTutorialSteps.getOrNull(it) },
-                                    onComplete = {
-                                        viewModel.onEvent(CharacterEvent.SetHasSeenTutorial("global", true))
-                                        showTutorialForcefully = false
-                                        currentTutorialStep = null
-                                    },
-                                    onSkip = {
-                                        viewModel.onEvent(CharacterEvent.SetHasSeenTutorial("global", true))
-                                        showTutorialForcefully = false
-                                        currentTutorialStep = null
+                                    state = state,
+                                    onAdvance = { viewModel.onEvent(CharacterEvent.AdvanceTutorial) },
+                                    onSkip = { viewModel.onEvent(CharacterEvent.SkipTutorial) },
+                                    onStepChanged = { newStep ->
+                                        // Close the side drawer when moving past the "inspect drawer" step (index 4).
+                                        if (newStep == 5) scope.launch { drawerState.close() }
                                     }
                                 )
                             }

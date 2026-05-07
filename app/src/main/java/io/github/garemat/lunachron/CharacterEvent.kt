@@ -33,6 +33,9 @@ sealed interface CharacterEvent {
     
     // Tutorial
     data class SetHasSeenTutorial(val tutorialKey: String, val seen: Boolean) : CharacterEvent
+    data object StartTutorial : CharacterEvent
+    data object AdvanceTutorial : CharacterEvent
+    data object SkipTutorial : CharacterEvent
 
     // News
     data object RefreshNews : CharacterEvent

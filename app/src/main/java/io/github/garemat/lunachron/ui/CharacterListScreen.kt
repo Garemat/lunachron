@@ -139,7 +139,9 @@ fun CharacterListScreen(
 
         Box(modifier = Modifier.weight(1f)) {
             LazyColumn(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .onGloballyPositioned { onTargetPositioned("CharacterList", it) },
                 verticalArrangement = Arrangement.spacedBy(theme.verticalSpacing / 2),
                 contentPadding = PaddingValues(top = theme.verticalSpacing / 2, bottom = screenHeight * 0.6f, start = theme.screenPadding, end = theme.screenPadding),
                 state = listState

@@ -188,7 +188,8 @@ fun AddEditTroupeScreen(
                     },
                     onBack = onNavigateBack,
                     onImportSuccess = onNavigateBack,
-                    onTargetPositioned = onTargetPositioned
+                    onTargetPositioned = onTargetPositioned,
+                    importPrefill = currentTutorialStep?.importPrefill
                 )
 
                 TroupeEditStage.DASHBOARD -> DashboardStage(
@@ -330,11 +331,19 @@ private fun SetupStage(
     onNext: () -> Unit,
     onBack: () -> Unit,
     onImportSuccess: () -> Unit,
-    onTargetPositioned: (String, LayoutCoordinates) -> Unit
+    onTargetPositioned: (String, LayoutCoordinates) -> Unit,
+    importPrefill: String? = null,
 ) {
     val tabs = listOf("Create", "Import")
-    val pagerState = rememberPagerState(pageCount = { tabs.size })
+    val pagerState = rememberPagerState(
+        pageCount = { tabs.size },
+        initialPage = if (importPrefill != null) 1 else 0
+    )
     val scope = rememberCoroutineScope()
+
+    LaunchedEffect(importPrefill) {
+        if (importPrefill != null) pagerState.animateScrollToPage(1)
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         Spacer(modifier = Modifier.height(24.dp))
@@ -357,7 +366,7 @@ private fun SetupStage(
         HorizontalPager(state = pagerState, modifier = Modifier.weight(1f)) { page ->
             when (page) {
                 0 -> CreateTroupeTab(viewModel, theme, isNameError, onNameChange, onNext, onBack, onTargetPositioned)
-                1 -> ImportTroupeTab(viewModel, state, theme, onBack, onImportSuccess)
+                1 -> ImportTroupeTab(viewModel, state, theme, onBack, onImportSuccess, onTargetPositioned, importPrefill)
             }
         }
     }
@@ -435,10 +444,12 @@ private fun ImportTroupeTab(
     state: CharacterState,
     theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties,
     onBack: () -> Unit,
-    onImportSuccess: () -> Unit
+    onImportSuccess: () -> Unit,
+    onTargetPositioned: (String, LayoutCoordinates) -> Unit = { _, _ -> },
+    prefillCode: String? = null,
 ) {
     val context = LocalContext.current
-    var importCode by remember { mutableStateOf("") }
+    var importCode by remember { mutableStateOf(prefillCode ?: "") }
     var importError by remember { mutableStateOf(false) }
     var showScanner by remember { mutableStateOf(false) }
 
@@ -497,7 +508,7 @@ private fun ImportTroupeTab(
             }
             Button(
                 onClick = { tryImport(importCode) },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).onGloballyPositioned { onTargetPositioned("ImportButton", it) },
                 enabled = importCode.isNotBlank(),
                 shape = theme.cardShape
             ) {

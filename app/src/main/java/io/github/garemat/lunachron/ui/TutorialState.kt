@@ -2,69 +2,157 @@ package io.github.garemat.lunachron.ui
 
 import androidx.compose.ui.layout.LayoutCoordinates
 
-data class TutorialState(
-    val showTutorial: Boolean = false,
-    val currentStep: Int = 0,
-    val targetCoordinates: Map<String, LayoutCoordinates> = emptyMap()
-)
+sealed class AdvanceCondition {
+    /** User taps the "Got it" / labelled button in the tooltip. */
+    data object Manual : AdvanceCondition()
+    /** Auto-advances when NavController reaches the given route. */
+    data class OnNavigation(val route: String) : AdvanceCondition()
+    /** Auto-advances when a named state condition becomes true (resolved in TutorialOverlay). */
+    data class OnStateChange(val key: String) : AdvanceCondition()
+    /**
+     * The overlay intercepts a tap within the spotlight and advances automatically.
+     * The touch also passes through to the real UI beneath so the actual action fires.
+     */
+    data object OnSpotlightTap : AdvanceCondition()
+}
 
+/**
+ * A single tutorial step.
+ *
+ * All fields are plain data — no lambdas, no composable references. Adding or reordering steps
+ * only requires editing this list; no composable code needs to change unless a new [targetTag]
+ * is introduced (which then needs one [Modifier.onGloballyPositioned] call at the target site).
+ */
 data class TutorialStep(
-    val targetName: String,
-    val text: String,
-    val isArrowless: Boolean = false,
-    val requiredRoute: String? = null
+    /** Stable key registered via [Modifier.onGloballyPositioned] at the target call site. Null = no spotlight. */
+    val targetTag: String? = null,
+    val message: String,
+    val advance: AdvanceCondition = AdvanceCondition.Manual,
+    /** Label for the manual-advance button. */
+    val buttonLabel: String = "Got it",
+    /**
+     * When set, the tutorial navigates to this route before showing the step.
+     * Omit if the user is expected to navigate themselves (e.g. OnNavigation steps).
+     */
+    val requiredRoute: String? = null,
+    /**
+     * When non-null, [AddEditTroupeScreen] opens the Import tab with this code pre-filled.
+     * Carry this on both the step that triggers FAB navigation AND the Import-button step so
+     * the screen sees it regardless of which recomposition arrives first.
+     */
+    val importPrefill: String? = null,
 )
 
-val fullAppTutorialSteps = listOf(
-    // Welcome
-    TutorialStep("", "Welcome to the Moonstone Companion app! Let's take a quick tour of the features.", isArrowless = true, requiredRoute = Screen.Home.route),
-    
-    // Home Screen
-    TutorialStep("Latest News", "Here you can find the latest news and updates for Moonstone.", requiredRoute = Screen.Home.route),
-    TutorialStep("MenuButton", "Access the Rules reference and App Settings from this menu.", requiredRoute = Screen.Home.route),
-    
-    // Bottom Nav - Characters
-    TutorialStep("CharactersNav", "The Character Compendium contains a full reference of all available characters.", requiredRoute = Screen.Home.route),
-    
-    // Character List Screen
-    TutorialStep("FilterButtonOpen", "Tap the filter button to search and narrow down the characters.", requiredRoute = Screen.Characters.route),
-    TutorialStep("FirstCharacterCard", "Tap a character card to expand it and see their full stats and abilities.", requiredRoute = Screen.Characters.route),
-    
-    // Bottom Nav - Troupes
-    TutorialStep("TroupesNav", "Manage your own custom troupes here.", requiredRoute = Screen.Characters.route),
-    
-    // Troupe List Screen
-    TutorialStep("AddTroupe", "Create a brand new troupe from scratch!", requiredRoute = Screen.Troupes.route),
-    
-    // Build Troupe Screen
-    TutorialStep("TroupeName", "Start by giving your troupe a name!", requiredRoute = Screen.AddEditTroupe.route),
-    TutorialStep("SettingsCog", "Open settings to customize troupe behavior.", requiredRoute = Screen.AddEditTroupe.route),
-    TutorialStep("AutoSelectSwitch", "Enable Auto Select to skip team selection before games!", requiredRoute = Screen.AddEditTroupe.route),
+private const val EXAMPLE_TROUPE_CODE = "RXhhbXBsZSBUcm91cGV8QTBBQUFBQkFBQUFDQUFBQUQ="
 
-    // Back to Troupes for Sharing
-    TutorialStep("ShareTroupe", "Share your troupe with others by generating a share code.", requiredRoute = Screen.Troupes.route),
+val appTutorialSteps: List<TutorialStep> = listOf(
 
-    // Bottom Nav - Play
-    TutorialStep("PlayNav", "When you're ready to play, head over to the Play section.", requiredRoute = Screen.Troupes.route),
-    
-    // Game Setup Screen
-    TutorialStep("", "You can set up local games or join/host multiplayer sessions here.", isArrowless = true, requiredRoute = Screen.GameSetup.route),
-    TutorialStep("LocalGameOption", "Choose 'Local Game' to play with friends on a single device.", requiredRoute = Screen.GameSetup.route),
-    TutorialStep("PlayerCount", "Here you can select the number of players for your game.", requiredRoute = Screen.GameSetup.route),
-    TutorialStep("TroupeSelector", "Select a troupe for each player. You can also create new ones or scan opponent's codes here.", requiredRoute = Screen.GameSetup.route),
-    TutorialStep("StartBattleButton", "Once everyone has selected their troupes, hit BATTLE to begin tracking your game!", requiredRoute = Screen.GameSetup.route),
+    // 0 — Welcome
+    TutorialStep(
+        message = "Welcome to Lunachron! Let's take a quick tour of the key features — it'll only take a minute.",
+        advance = AdvanceCondition.Manual,
+        buttonLabel = "Let's go!",
+        requiredRoute = Screen.Characters.route
+    ),
 
-    // Active Game Screen
-    TutorialStep("CharacterDrawerButton", "Pull out the character drawer for quick navigation between your troupe members.", requiredRoute = Screen.ActiveGame.route),
-    TutorialStep("MoonstonePool", "The Moonstone Pool tracks unallocated stones. Drag them onto a character to give them one!", requiredRoute = Screen.ActiveGame.route),
-    TutorialStep("AbilityLegend", "Quick Glance Icons:\n\nPiercing, Impact, Slicing Buffs\nReduce all damage (Defensive)", isArrowless = true, requiredRoute = Screen.ActiveGame.route),
-    TutorialStep("NextTurnButton", "When everyone has finished their activations, hit the Next Turn button to refresh energy and clear once-per-turn abilities.", requiredRoute = Screen.ActiveGame.route),
-    TutorialStep("RewindButton", "Accidentally hit next turn? You can rewind back to the previous state here.", requiredRoute = Screen.ActiveGame.route),
-    TutorialStep("EndGameQuickButton", "If the game ends early, use this button to calculate the winner immediately.", requiredRoute = Screen.ActiveGame.route),
-    TutorialStep("CloseGameButton", "You can close this screen to return to the rest of the app. Your game state will be saved so you can jump right back in!", requiredRoute = Screen.ActiveGame.route),
-    
-    // Bottom Nav - Stats
-    TutorialStep("StatsNav", "Finally, track your win/loss records and other statistics here.", requiredRoute = Screen.Home.route),
-    
-    TutorialStep("", "That's it! You're ready to start using the Moonstone Companion. Enjoy your games!", isArrowless = true, requiredRoute = Screen.Stats.route)
+    // 1 — Character Compendium
+    TutorialStep(
+        targetTag = "CharacterList",
+        message = "This is the Character Compendium — a full reference of every character available in Moonstone.",
+        advance = AdvanceCondition.Manual
+    ),
+
+    // 2 — Filter button
+    TutorialStep(
+        targetTag = "FilterButtonOpen",
+        message = "Tap the filter button to search by name, faction, or keywords.",
+        advance = AdvanceCondition.OnSpotlightTap
+    ),
+
+    // 3 — Menu / drawer button
+    TutorialStep(
+        targetTag = "MenuButton",
+        message = "The menu button opens the side drawer. Tap it to take a look.",
+        advance = AdvanceCondition.OnSpotlightTap
+    ),
+
+    // 4 — Drawer contents (arrowless — drawer is now open)
+    TutorialStep(
+        message = "From here you can access the Rules reference, your Stats, and Settings. " +
+                "In Settings you can change your default start page — handy if you prefer to open straight to the Compendium.",
+        advance = AdvanceCondition.Manual,
+        buttonLabel = "Got it"
+    ),
+
+    // 5 — Troupes tab
+    TutorialStep(
+        targetTag = "TroupesNav",
+        message = "Next, let's head to My Troupes to build your roster.",
+        advance = AdvanceCondition.OnNavigation(Screen.Troupes.route)
+    ),
+
+    // 6 — Add / Import FAB  (importPrefill carried here so screen sees it even if state lags)
+    TutorialStep(
+        targetTag = "AddTroupe",
+        message = "Tap + to create or import a troupe. We've queued up an example troupe — the Import tab will be ready for you on the next screen!",
+        advance = AdvanceCondition.OnNavigation(Screen.AddEditTroupe.route),
+        importPrefill = EXAMPLE_TROUPE_CODE
+    ),
+
+    // 7 — Import button inside AddEditTroupeScreen (Import tab pre-filled)
+    TutorialStep(
+        targetTag = "ImportButton",
+        message = "The example share code is already filled in — tap Import to add it to your collection.",
+        advance = AdvanceCondition.OnStateChange("troupe_added"),
+        importPrefill = EXAMPLE_TROUPE_CODE
+    ),
+
+    // 8 — Example troupe card (QR, share, edit, troupe types)
+    TutorialStep(
+        targetTag = "TroupeCard0",
+        message = "Tap a troupe card to open the editor. You can also tap the QR icon or share button to swap rosters with opponents. " +
+                "Inside the editor you can switch between a Normal and Campaign troupe — Campaign troupes track upgrade cards and victory points across multiple games.",
+        advance = AdvanceCondition.Manual,
+        requiredRoute = Screen.Troupes.route
+    ),
+
+    // 9 — Favourite star
+    TutorialStep(
+        targetTag = "FavouriteStar0",
+        message = "Star a troupe as a favourite for quick access from the home screen.",
+        advance = AdvanceCondition.OnStateChange("troupe_favourited")
+    ),
+
+    // 10 — Quick Start on Home
+    TutorialStep(
+        targetTag = "QuickStartSection",
+        message = "Favourited troupes appear here in Quick Start — tap one to launch a game immediately without any setup.",
+        advance = AdvanceCondition.Manual,
+        requiredRoute = Screen.Home.route
+    ),
+
+    // 11 — Play tab
+    TutorialStep(
+        targetTag = "PlayNav",
+        message = "The Play tab is where you set up local games. Select your player count, pick your troupes, and go! " +
+                "If a troupe has more characters than the game size allows, you'll choose which ones to field. " +
+                "Synced troupe lists are coming in an upcoming update.",
+        advance = AdvanceCondition.OnNavigation(Screen.GameSetup.route)
+    ),
+
+    // 12 — Campaigns tab
+    TutorialStep(
+        targetTag = "CampaignsNav",
+        message = "The Campaigns tab is home to the Wizard Chamberlain — your campaign organiser. " +
+                "Run a local tracking campaign, or register your device to host a fully synced online campaign that others can join.",
+        advance = AdvanceCondition.OnNavigation(Screen.CampaignHub.route)
+    ),
+
+    // 13 — Cleanup (arrowless — example troupe position in list is unpredictable after re-runs)
+    TutorialStep(
+        message = "That's everything! If you'd like to remove the example troupe, tap its delete button (🗑) on the troupe card. Otherwise, feel free to keep it.",
+        advance = AdvanceCondition.Manual,
+        buttonLabel = "Done",
+        requiredRoute = Screen.Troupes.route
+    ),
 )

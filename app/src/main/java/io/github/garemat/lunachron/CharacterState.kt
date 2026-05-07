@@ -256,6 +256,8 @@ data class CharacterState(
 
     // Tutorial State
     val hasSeenGlobalTutorial: Boolean = false,
+    val isTutorialActive: Boolean = false,
+    val currentTutorialStep: Int = 0,
     
     // Game Session State (Nearby)
     val gameSession: GameSession? = null,
