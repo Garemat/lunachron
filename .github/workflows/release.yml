@@ -3,10 +3,11 @@ name: Automated Release
 on:
   push:
     branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
   release:
-    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    if: "github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[skip ci]')"
     runs-on: ubuntu-latest
     concurrency:
       group: release
