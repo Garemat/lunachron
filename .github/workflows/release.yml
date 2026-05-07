@@ -18,27 +18,68 @@ jobs:
     - uses: actions/checkout@v6
       with:
         fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Read version from build.gradle.kts
-      id: version
+    - name: Configure git
       run: |
-        VERSION_NAME=$(grep '^\s*versionName' app/build.gradle.kts | sed 's/.*"\(.*\)".*/\1/')
-        IFS='.' read -r major minor patch <<< "$VERSION_NAME"
-        VERSION_CODE=$(( major * 10000 + minor * 100 + patch ))
-        NEW_TAG="v${VERSION_NAME}"
-        # Safety: if tag already exists, increment patch
-        while git tag | grep -qx "$NEW_TAG"; do
-          patch=$((patch+1))
-          VERSION_NAME="${major}.${minor}.${patch}"
-          VERSION_CODE=$(( major * 10000 + minor * 100 + patch ))
-          NEW_TAG="v${VERSION_NAME}"
-        done
-        echo "new_tag=$NEW_TAG" >> $GITHUB_OUTPUT
-        echo "version_name=$VERSION_NAME" >> $GITHUB_OUTPUT
-        echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
+        git config user.name  "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+
+    - name: Rebase onto latest main
+      run: git pull --rebase origin main
 
     - name: Install git-cliff
       uses: kenji-miyake/setup-git-cliff@v2
+
+    - name: Compute next version
+      id: version
+      run: |
+        LATEST=$(git tag --sort=-v:refname | grep '^v' | head -1)
+        if [ -z "$LATEST" ]; then LATEST="v0.0.0"; fi
+
+        BUMPED=$(git cliff --bumped-version 2>/dev/null || echo "")
+
+        version_gte() { [ "$(printf '%s\n' "$1" "$2" | sort -V | tail -1)" = "$1" ]; }
+
+        if [ -z "$BUMPED" ] || ! version_gte "$BUMPED" "$LATEST" || [ "$BUMPED" = "$LATEST" ]; then
+          LATEST_VER="${LATEST#v}"
+          IFS='.' read -r major minor patch <<< "$LATEST_VER"
+          BUMPED="v${major}.${minor}.$((patch+1))"
+        fi
+
+        while git tag | grep -qx "$BUMPED"; do
+          VER="${BUMPED#v}"
+          IFS='.' read -r major minor patch <<< "$VER"
+          BUMPED="v${major}.${minor}.$((patch+1))"
+        done
+
+        VERSION_NAME="${BUMPED#v}"
+        IFS='.' read -r major minor patch <<< "$VERSION_NAME"
+        VERSION_CODE=$(( major * 10000 + minor * 100 + patch ))
+        echo "new_tag=$BUMPED" >> $GITHUB_OUTPUT
+        echo "version_name=$VERSION_NAME" >> $GITHUB_OUTPUT
+        echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
+
+    - name: Update versionName and versionCode
+      run: |
+        sed -i "s/        versionCode = .*/        versionCode = ${{ steps.version.outputs.version_code }}/" app/build.gradle.kts
+        sed -i "s/        versionName = .*/        versionName = \"${{ steps.version.outputs.version_name }}\"/" app/build.gradle.kts
+
+    - name: Generate changelog
+      run: git cliff --tag ${{ steps.version.outputs.new_tag }} -o CHANGELOG.md
+
+    - name: Pin latest lunachron-data release
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        DATA_TAG=$(gh api repos/garemat/lunachron-data/releases/latest --jq '.tag_name')
+        echo "$DATA_TAG" > data.version
+
+    - name: Commit and push version bump
+      run: |
+        git add app/build.gradle.kts CHANGELOG.md data.version
+        git diff --staged --quiet || git commit -m "chore: bump version to ${{ steps.version.outputs.new_tag }} [skip ci]"
+        git push origin main
 
     - name: Extract release notes
       id: release_notes

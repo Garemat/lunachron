@@ -32,11 +32,11 @@ The app targets SDK 36, min SDK 24, Java 17.
 
 **Release trigger:** `release.yml` fires on `push: main` — every merge to main (including Dependabot) creates a tagged release. Do not change this to `pull_request: closed`; that event is unreliable and has silently dropped in the past.
 
-**Version bump:** On every PR, `version-bump.yml` pushes a `chore: bump version to vX.X.X` commit to the PR branch. This commit only touches `app/build.gradle.kts`, `CHANGELOG.md`, and `data.version`.
+**Version bump:** The version bump happens inside `release.yml` as the first step after merge, not on the PR branch. PRs contain only developer code — no bot commits. The release workflow: rebases onto latest main (handles concurrent releases safely), computes the next version via git-cliff, updates `app/build.gradle.kts` / `CHANGELOG.md` / `data.version`, commits with `[skip ci]` and pushes to main, then builds and publishes. The `[skip ci]` commit prevents a second release from triggering on that push.
 
-**paths-ignore on Build and Test / CodeQL:** Both workflows skip those three files so the version bump commit doesn't re-trigger a full CI run. GitHub marks skipped required checks as satisfied when filtered by path — this is intentional. Do **not** replace `paths-ignore` with `[skip ci]`; `[skip ci]` leaves required checks in a permanent pending state and blocks merges.
+**Concurrency:** `release.yml` uses `concurrency: group: release, cancel-in-progress: false`. Concurrent merges queue up; the `git pull --rebase origin main` step ensures each run sees the previous run's version bump before computing its own, so versions increment correctly.
 
-**Commit messages:** Never include the literal string `[skip ci]` anywhere in a commit message (including the body) — GitHub scans the full message and will suppress all workflow runs for that commit.
+**Commit messages:** Never include the literal string `[skip ci]` anywhere in a commit message (including the body) — GitHub scans the full message and will suppress all workflow runs for that commit. The only exception is the automated version bump commit pushed by `release.yml` itself.
 
 ## F-Droid Distribution
 
