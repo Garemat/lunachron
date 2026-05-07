@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Trigger release on push to main instead of pull_request closed
 
+- Replace [skip ci] with paths-ignore for version bump commits
+
 
 ## [2.16.0] - 2026-05-06
 
