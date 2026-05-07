@@ -7,11 +7,11 @@ fun gitVersionName(): String {
             .directory(rootProject.projectDir)
             .redirectErrorStream(true)
             .start()
-        val output = process.inputStream.bufferedReader().readLine()?.trim() ?: "v0.0.0"
+        val output = process.inputStream.bufferedReader().readLine()?.trim() ?: ""
         process.waitFor()
-        if (output.startsWith("v")) output.removePrefix("v") else "0.0.0"
+        if (output.startsWith("v")) output.removePrefix("v") else "0.0.1"
     } catch (e: Exception) {
-        "0.0.0"
+        "0.0.1"
     }
 }
 
