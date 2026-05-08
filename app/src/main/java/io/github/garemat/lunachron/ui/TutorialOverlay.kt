@@ -6,6 +6,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.material3.DrawerState
+import androidx.compose.material3.DrawerValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.*
@@ -62,6 +64,7 @@ fun TutorialOverlay(
     onAdvance: () -> Unit,
     onSkip: () -> Unit,
     onStepChanged: (Int) -> Unit = {},
+    drawerState: DrawerState? = null,
 ) {
     val currentStep = steps.getOrNull(currentStepIndex) ?: return
     val isLastStep = currentStepIndex == steps.lastIndex
@@ -102,6 +105,15 @@ fun TutorialOverlay(
         when (cond.key) {
             "troupe_added" -> if (state.troupes.size > troupeCountAtStepStart) onAdvance()
             "troupe_favourited" -> if (state.troupes.any { it.isFavourite }) onAdvance()
+        }
+    }
+
+    // drawer_opened advancement — advances once the drawer is actually open.
+    val drawerIsOpen = drawerState?.currentValue == DrawerValue.Open
+    LaunchedEffect(drawerIsOpen) {
+        if (drawerIsOpen) {
+            val cond = currentStep.advance
+            if (cond is AdvanceCondition.OnStateChange && cond.key == "drawer_opened") onAdvance()
         }
     }
 

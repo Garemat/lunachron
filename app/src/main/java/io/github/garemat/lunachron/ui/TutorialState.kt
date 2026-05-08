@@ -62,22 +62,25 @@ val appTutorialSteps: List<TutorialStep> = listOf(
         advance = AdvanceCondition.Manual
     ),
 
-    // 2 — Filter button
+    // 2 — Filter button (the search panel is open by default on this screen)
     TutorialStep(
         targetTag = "FilterButtonOpen",
-        message = "Tap the filter button to search by name, faction, or keywords.",
+        message = "Tap the filter button to hide the search panel — you can reopen it anytime to filter by name, faction, or keywords.",
         advance = AdvanceCondition.OnSpotlightTap
     ),
 
     // 3 — Menu / drawer button
+    // Uses OnStateChange("drawer_opened") rather than OnSpotlightTap so the tutorial waits for
+    // the drawer to actually finish opening before advancing — that way the user sees its contents
+    // before step 4 explains them.
     TutorialStep(
         targetTag = "MenuButton",
         message = "The menu button opens the side drawer. Tap it to take a look.",
-        advance = AdvanceCondition.OnSpotlightTap,
+        advance = AdvanceCondition.OnStateChange("drawer_opened"),
         requiredRoute = Screen.Compendium.route
     ),
 
-    // 4 — Drawer contents (arrowless — drawer is now open)
+    // 4 — Drawer contents (arrowless — drawer is open from step 3)
     TutorialStep(
         message = "From here you can access the Rules reference, your Stats, and Settings. " +
                 "In Settings you can change your default start page — handy if you prefer to open straight to the Compendium.",
@@ -85,7 +88,7 @@ val appTutorialSteps: List<TutorialStep> = listOf(
         buttonLabel = "Got it"
     ),
 
-    // 5 — Troupes tab
+    // 5 — Troupes tab  (onStepChanged(5) in MainActivity closes the drawer)
     TutorialStep(
         targetTag = "TroupesNav",
         message = "Next, let's head to My Troupes to build your roster.",
@@ -108,23 +111,38 @@ val appTutorialSteps: List<TutorialStep> = listOf(
         importPrefill = EXAMPLE_TROUPE_CODE
     ),
 
-    // 8 — Example troupe card (QR, share, edit, troupe types)
+    // 8 — Tap troupe card to open the editor
     TutorialStep(
         targetTag = "TroupeCard0",
-        message = "Tap a troupe card to open the editor. You can also tap the QR icon or share button to swap rosters with opponents. " +
-                "Inside the editor you can switch between a Normal and Campaign troupe — Campaign troupes track upgrade cards and victory points across multiple games.",
+        message = "Tap a troupe card to open it in the editor.",
+        advance = AdvanceCondition.OnNavigation(Screen.AddEditTroupe.route),
+        requiredRoute = Screen.Troupes.route
+    ),
+
+    // 9 — Inside the editor: troupe types (arrowless — user is now in AddEditTroupeScreen)
+    TutorialStep(
+        message = "Inside the editor you can switch between a Normal and Campaign troupe — " +
+                "Campaign troupes track upgrade cards and victory points across multiple games.",
+        advance = AdvanceCondition.Manual,
+        buttonLabel = "Got it"
+    ),
+
+    // 10 — Back on Troupes: share codes and QR
+    TutorialStep(
+        targetTag = "TroupeCard0",
+        message = "You can also tap the QR icon or share button on a troupe card to swap rosters with opponents — handy for quickly loading someone else's troupe.",
         advance = AdvanceCondition.Manual,
         requiredRoute = Screen.Troupes.route
     ),
 
-    // 9 — Favourite star
+    // 11 — Favourite star
     TutorialStep(
         targetTag = "FavouriteStar0",
         message = "Star a troupe as a favourite for quick access from the home screen.",
         advance = AdvanceCondition.OnStateChange("troupe_favourited")
     ),
 
-    // 10 — Quick Start on Home
+    // 12 — Quick Start on Home
     TutorialStep(
         targetTag = "QuickStartSection",
         message = "Favourited troupes appear here in Quick Start — tap one to launch a game immediately without any setup.",
@@ -132,7 +150,7 @@ val appTutorialSteps: List<TutorialStep> = listOf(
         requiredRoute = Screen.Home.route
     ),
 
-    // 11 — Play tab
+    // 13 — Play tab
     TutorialStep(
         targetTag = "PlayNav",
         message = "The Play tab is where you set up local games. Select your player count, pick your troupes, and go! " +
@@ -141,7 +159,7 @@ val appTutorialSteps: List<TutorialStep> = listOf(
         advance = AdvanceCondition.OnNavigation(Screen.GameSetup.route)
     ),
 
-    // 12 — Campaigns tab
+    // 14 — Campaigns tab
     TutorialStep(
         targetTag = "CampaignsNav",
         message = "The Campaigns tab is home to the Wizard Chamberlain — your campaign organiser. " +
@@ -149,7 +167,7 @@ val appTutorialSteps: List<TutorialStep> = listOf(
         advance = AdvanceCondition.OnNavigation(Screen.CampaignHub.route)
     ),
 
-    // 13 — Cleanup (arrowless — example troupe position in list is unpredictable after re-runs)
+    // 15 — Cleanup (arrowless — example troupe position in list is unpredictable after re-runs)
     TutorialStep(
         message = "That's everything! If you'd like to remove the example troupe, tap its delete button (🗑) on the troupe card. Otherwise, feel free to keep it.",
         advance = AdvanceCondition.Manual,

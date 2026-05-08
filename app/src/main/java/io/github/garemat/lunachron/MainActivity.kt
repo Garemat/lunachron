@@ -812,7 +812,8 @@ class MainActivity : ComponentActivity() {
                             onSkip = { viewModel.onEvent(CharacterEvent.SkipTutorial) },
                             onStepChanged = { newStep ->
                                 if (newStep == 5) scope.launch { drawerState.close() }
-                            }
+                            },
+                            drawerState = drawerState
                         )
                     }
                     } // end fullscreen tutorial Box
