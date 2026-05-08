@@ -211,8 +211,8 @@ fun ActiveGameScreen(
     }
 
     LaunchedEffect(currentTutorialStep) {
-        if (currentTutorialStep?.targetName == "CharacterDrawerButton") isSummonPanelOpen = true
-        else if (isTutorialActive && currentTutorialStep?.targetName != "CharacterDrawerButton") isSummonPanelOpen = false
+        if (currentTutorialStep?.targetTag == "CharacterDrawerButton") isSummonPanelOpen = true
+        else if (isTutorialActive && currentTutorialStep?.targetTag != "CharacterDrawerButton") isSummonPanelOpen = false
     }
 
     // Local player display chars (for pool bar)

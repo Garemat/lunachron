@@ -78,6 +78,7 @@ fun TroupeListScreen(
                     verticalArrangement = Arrangement.spacedBy(theme.verticalSpacing / 2)
                 ) {
                     items(troupesToShow) { troupe ->
+                        val isFirstTroupe = troupesToShow.firstOrNull() == troupe
                         val isValid = if (tournamentCriteria != null) {
                             val req = if (tournamentCriteria.troupeSize == TroupeSizeSetting.V6_10) 10 else 8
                             troupe.isTournamentList && troupe.characterIds.size == req
@@ -108,7 +109,10 @@ fun TroupeListScreen(
                             isDimmed = selectionMode && !isValid,
                             selectionMode = selectionMode,
                             characters = troupeCharacters,
-                            onPositioned = onTargetPositioned
+                            onPositioned = { name, coords ->
+                                onTargetPositioned(name, coords)
+                                if (isFirstTroupe) onTargetPositioned("${name}0", coords)
+                            }
                         )
                     }
                 }
@@ -147,7 +151,7 @@ fun TroupeListItem(
 ) {
     val theme = LocalAppThemeProperties.current
     Card(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = theme.screenPadding, vertical = theme.verticalSpacing / 8).alpha(if (isDimmed) 0.5f else 1.0f).clickable { onClick() },
+        modifier = Modifier.fillMaxWidth().padding(horizontal = theme.screenPadding, vertical = theme.verticalSpacing / 8).alpha(if (isDimmed) 0.5f else 1.0f).clickable { onClick() }.onGloballyPositioned { onPositioned("TroupeCard", it) },
         shape = theme.cardShape,
         elevation = CardDefaults.cardElevation(defaultElevation = theme.surfaceElevation),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
@@ -180,7 +184,7 @@ fun TroupeListItem(
                     )
                 }
                 if (onToggleFavourite != null) {
-                    IconButton(onClick = onToggleFavourite, modifier = Modifier.size(36.dp)) {
+                    IconButton(onClick = onToggleFavourite, modifier = Modifier.size(36.dp).onGloballyPositioned { onPositioned("FavouriteStar", it) }) {
                         Icon(
                             imageVector = if (troupe.isFavourite) Icons.Default.Star else Icons.Outlined.StarOutline,
                             contentDescription = if (troupe.isFavourite) "Unfavourite" else "Favourite",
