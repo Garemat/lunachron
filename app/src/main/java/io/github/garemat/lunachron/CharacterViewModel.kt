@@ -598,6 +598,22 @@ class CharacterViewModel(
                 if (event.tutorialKey == "global") _state.update { it.copy(hasSeenGlobalTutorial = event.seen) }
                 prefs.edit { putBoolean(if (event.tutorialKey == "global") "has_seen_global_tutorial" else "has_seen_${event.tutorialKey}_tutorial", event.seen) }
             }
+            CharacterEvent.StartTutorial -> {
+                _state.update { it.copy(isTutorialActive = true, currentTutorialStep = 0) }
+            }
+            CharacterEvent.AdvanceTutorial -> {
+                val next = _state.value.currentTutorialStep + 1
+                if (next >= io.github.garemat.lunachron.ui.appTutorialSteps.size) {
+                    _state.update { it.copy(isTutorialActive = false, hasSeenGlobalTutorial = true) }
+                    prefs.edit { putBoolean("has_seen_global_tutorial", true) }
+                } else {
+                    _state.update { it.copy(currentTutorialStep = next) }
+                }
+            }
+            CharacterEvent.SkipTutorial -> {
+                _state.update { it.copy(isTutorialActive = false, hasSeenGlobalTutorial = true) }
+                prefs.edit { putBoolean("has_seen_global_tutorial", true) }
+            }
             CharacterEvent.RefreshNews -> fetchNews()
             is CharacterEvent.SetAutoFetchNews -> {
                 _state.update { it.copy(autoFetchNews = event.enabled) }
