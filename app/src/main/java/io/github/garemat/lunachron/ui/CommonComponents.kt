@@ -29,9 +29,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.LayoutCoordinates
@@ -290,22 +295,54 @@ fun FactionIcon(faction: Faction, size: Dp = 40.dp, modifier: Modifier = Modifie
     }
 }
 
+// Diagonal split shapes: line from bottom-left (0,h) to top-right (w,0).
+private object DiagonalTopLeftShape : Shape {
+    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density) =
+        Outline.Generic(Path().apply {
+            moveTo(0f, 0f)
+            lineTo(size.width, 0f)
+            lineTo(0f, size.height)
+            close()
+        })
+}
+
+private object DiagonalBottomRightShape : Shape {
+    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density) =
+        Outline.Generic(Path().apply {
+            moveTo(size.width, size.height)
+            lineTo(size.width, 0f)
+            lineTo(0f, size.height)
+            close()
+        })
+}
+
 /**
- * Displays one or two faction symbols blended together, matching the official dual-faction
- * card art. Both icons are centered in the [size] footprint with a small diagonal drift so
- * the primary sits slightly lower-left and the secondary upper-right. The secondary is
- * rendered with [BlendMode.Multiply] so its dark symbol elements show through the lighter
- * areas of the primary, approximating the translucent overlap in the physical card art.
- * For single-faction characters, delegates to [FactionIcon].
- */
-/**
- * Displays the primary faction symbol for a character. Multi-faction blending is
- * deferred to a later patch — for now only factions[0] is shown via [FactionIcon].
+ * Single-faction: renders [FactionIcon]. Dual-faction: diagonal split (bottom-left to
+ * top-right) with the primary faction in the top-left half and secondary in the bottom-right.
  */
 @Composable
 fun MultiFactionIcon(factions: List<Faction>, size: Dp = 40.dp, modifier: Modifier = Modifier) {
     if (factions.isEmpty()) return
-    FactionIcon(faction = factions[0], size = size, modifier = modifier)
+    if (factions.size == 1) {
+        FactionIcon(faction = factions[0], size = size, modifier = modifier)
+        return
+    }
+    val primary = factions[0]
+    val secondary = factions[1]
+    Box(modifier = modifier.size(size)) {
+        Box(
+            modifier = Modifier.size(size).clip(DiagonalTopLeftShape),
+            contentAlignment = Alignment.Center
+        ) {
+            FactionSymbol(faction = primary, modifier = Modifier.size(size * factionVisualScale(primary)))
+        }
+        Box(
+            modifier = Modifier.size(size).clip(DiagonalBottomRightShape),
+            contentAlignment = Alignment.Center
+        ) {
+            FactionSymbol(faction = secondary, modifier = Modifier.size(size * factionVisualScale(secondary)))
+        }
+    }
 }
 
 @Composable
