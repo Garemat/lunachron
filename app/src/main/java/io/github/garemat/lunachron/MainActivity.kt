@@ -176,6 +176,7 @@ class MainActivity : ComponentActivity() {
                 // Data update dialogs
                 DataUpdateDialogs(state = state, onEvent = viewModel::onEvent, theme = theme)
 
+                Box(modifier = Modifier.fillMaxSize()) {
                 ModalNavigationDrawer(
                     drawerState = drawerState,
                     gesturesEnabled = showNavBars,
@@ -256,7 +257,6 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 ) {
-                    Box(modifier = Modifier.fillMaxSize()) {
                     Scaffold(
                         modifier = Modifier.fillMaxSize(),
                         topBar = {
@@ -801,22 +801,22 @@ class MainActivity : ComponentActivity() {
 
                         }
                     }
-                    if (state.isTutorialActive) {
-                        TutorialOverlay(
-                            steps = io.github.garemat.lunachron.ui.appTutorialSteps,
-                            currentStepIndex = state.currentTutorialStep,
-                            tutorialCoords = tutorialCoords,
-                            navController = navController,
-                            state = state,
-                            onAdvance = { viewModel.onEvent(CharacterEvent.AdvanceTutorial) },
-                            onSkip = { viewModel.onEvent(CharacterEvent.SkipTutorial) },
-                            onStepChanged = { newStep ->
-                                if (newStep == 5) scope.launch { drawerState.close() }
-                            },
-                            drawerState = drawerState
-                        )
-                    }
-                    } // end fullscreen tutorial Box
+                }
+                if (state.isTutorialActive) {
+                    TutorialOverlay(
+                        steps = io.github.garemat.lunachron.ui.appTutorialSteps,
+                        currentStepIndex = state.currentTutorialStep,
+                        tutorialCoords = tutorialCoords,
+                        navController = navController,
+                        state = state,
+                        onAdvance = { viewModel.onEvent(CharacterEvent.AdvanceTutorial) },
+                        onSkip = { viewModel.onEvent(CharacterEvent.SkipTutorial) },
+                        onStepChanged = { newStep ->
+                            if (newStep == 5) scope.launch { drawerState.close() }
+                        },
+                        drawerState = drawerState
+                    )
+                }
                 }
             }
         }
