@@ -29,10 +29,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.drawWithContent
+import kotlin.math.sqrt
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -294,21 +299,93 @@ fun FactionIcon(faction: Faction, size: Dp = 40.dp, modifier: Modifier = Modifie
 }
 
 /**
- * Displays one or two faction symbols blended together, matching the official dual-faction
- * card art. Both icons are centered in the [size] footprint with a small diagonal drift so
- * the primary sits slightly lower-left and the secondary upper-right. The secondary is
- * rendered with [BlendMode.Multiply] so its dark symbol elements show through the lighter
- * areas of the primary, approximating the translucent overlap in the physical card art.
- * For single-faction characters, delegates to [FactionIcon].
- */
-/**
- * Displays the primary faction symbol for a character. Multi-faction blending is
- * deferred to a later patch — for now only factions[0] is shown via [FactionIcon].
+ * Single-faction: renders [FactionIcon]. Dual-faction: diagonal split using gradient alpha
+ * masks (BlendMode.DstIn). The gradient runs perpendicular to the diagonal so its 50/50
+ * midpoint lands exactly on the split line. A ~15% blend strip softens the edge so spiky
+ * elements (antlers, sun rays) don't produce a harsh hard cut.
+ *
+ * The icon is half-clipped by the card edge (offset x = size/2), so the diagonal anchors
+ * at (0, h×2/3)→(w, 0) to give equal visible area for each faction.
  */
 @Composable
 fun MultiFactionIcon(factions: List<Faction>, size: Dp = 40.dp, modifier: Modifier = Modifier) {
     if (factions.isEmpty()) return
-    FactionIcon(faction = factions[0], size = size, modifier = modifier)
+    if (factions.size == 1) {
+        FactionIcon(faction = factions[0], size = size, modifier = modifier)
+        return
+    }
+    val primary = factions[0]
+    val secondary = factions[1]
+
+    Box(modifier = modifier.size(size)) {
+        // Primary: top-left half fading toward diagonal
+        Box(
+            modifier = Modifier
+                .size(size)
+                .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
+                .drawWithContent {
+                    drawContent()
+                    // 'this.size' is DrawScope.size (pixels), not the outer Dp parameter.
+                    val w = this.size.width
+                    val h = this.size.height
+                    val anchored = h * 2f / 3f
+                    val diagLen = sqrt(w * w + anchored * anchored)
+                    val perpX = anchored / diagLen
+                    val perpY = w / diagLen
+                    val cx = w / 2f; val cy = h / 3f
+                    val blendFrac = (w * 0.15f) / (2f * diagLen)
+                    drawRect(
+                        brush = Brush.linearGradient(
+                            colorStops = arrayOf<Pair<Float, Color>>(
+                                Pair(0f, Color.Black),
+                                Pair(0.5f - blendFrac, Color.Black),
+                                Pair(0.5f + blendFrac, Color.Transparent),
+                                Pair(1f, Color.Transparent)
+                            ),
+                            start = Offset(cx - perpX * diagLen, cy - perpY * diagLen),
+                            end   = Offset(cx + perpX * diagLen, cy + perpY * diagLen)
+                        ),
+                        blendMode = BlendMode.DstIn
+                    )
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            FactionSymbol(faction = primary, modifier = Modifier.size(size * factionVisualScale(primary)))
+        }
+        // Secondary: bottom-right half fading toward diagonal
+        Box(
+            modifier = Modifier
+                .size(size)
+                .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
+                .drawWithContent {
+                    drawContent()
+                    val w = this.size.width
+                    val h = this.size.height
+                    val anchored = h * 2f / 3f
+                    val diagLen = sqrt(w * w + anchored * anchored)
+                    val perpX = anchored / diagLen
+                    val perpY = w / diagLen
+                    val cx = w / 2f; val cy = h / 3f
+                    val blendFrac = (w * 0.15f) / (2f * diagLen)
+                    drawRect(
+                        brush = Brush.linearGradient(
+                            colorStops = arrayOf<Pair<Float, Color>>(
+                                Pair(0f, Color.Transparent),
+                                Pair(0.5f - blendFrac, Color.Transparent),
+                                Pair(0.5f + blendFrac, Color.Black),
+                                Pair(1f, Color.Black)
+                            ),
+                            start = Offset(cx - perpX * diagLen, cy - perpY * diagLen),
+                            end   = Offset(cx + perpX * diagLen, cy + perpY * diagLen)
+                        ),
+                        blendMode = BlendMode.DstIn
+                    )
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            FactionSymbol(faction = secondary, modifier = Modifier.size(size * factionVisualScale(secondary)))
+        }
+    }
 }
 
 @Composable
