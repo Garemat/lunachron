@@ -295,13 +295,14 @@ fun FactionIcon(faction: Faction, size: Dp = 40.dp, modifier: Modifier = Modifie
     }
 }
 
-// Diagonal split shapes: line from bottom-left (0,h) to top-right (w,0).
+// Diagonal split shapes. The icon is half-clipped by the card edge (right 50% overflows),
+// so the dividing line is anchored at (0, h*2/3) → (w, 0) to give a 50/50 visible split.
 private object DiagonalTopLeftShape : Shape {
     override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density) =
         Outline.Generic(Path().apply {
             moveTo(0f, 0f)
             lineTo(size.width, 0f)
-            lineTo(0f, size.height)
+            lineTo(0f, size.height * 2f / 3f)
             close()
         })
 }
@@ -309,8 +310,9 @@ private object DiagonalTopLeftShape : Shape {
 private object DiagonalBottomRightShape : Shape {
     override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density) =
         Outline.Generic(Path().apply {
-            moveTo(size.width, size.height)
+            moveTo(0f, size.height * 2f / 3f)
             lineTo(size.width, 0f)
+            lineTo(size.width, size.height)
             lineTo(0f, size.height)
             close()
         })
