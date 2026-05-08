@@ -119,20 +119,19 @@ val appTutorialSteps: List<TutorialStep> = listOf(
         requiredRoute = Screen.Troupes.route
     ),
 
-    // 9 — Inside the editor: troupe types (arrowless — user is now in AddEditTroupeScreen)
+    // 9 — Inside the editor: troupe types — advance when user navigates back to Troupes
     TutorialStep(
-        message = "Inside the editor you can switch between a Normal and Campaign troupe — " +
-                "Campaign troupes track upgrade cards and victory points across multiple games.",
-        advance = AdvanceCondition.Manual,
-        buttonLabel = "Got it"
+        message = "Inside the editor you can switch between Normal and Campaign troupe types — " +
+                "Campaign troupes track upgrade cards and victory points. " +
+                "When you're done exploring, tap the back arrow to return to your troupes.",
+        advance = AdvanceCondition.OnNavigation(Screen.Troupes.route),
     ),
 
-    // 10 — Back on Troupes: share codes and QR
+    // 10 — Back on Troupes: share codes and QR (no requiredRoute — user navigated here naturally)
     TutorialStep(
         targetTag = "TroupeCard0",
         message = "You can also tap the QR icon or share button on a troupe card to swap rosters with opponents — handy for quickly loading someone else's troupe.",
         advance = AdvanceCondition.Manual,
-        requiredRoute = Screen.Troupes.route
     ),
 
     // 11 — Favourite star
