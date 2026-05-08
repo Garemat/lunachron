@@ -1,6 +1,5 @@
 package io.github.garemat.lunachron.ui
 
-import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -22,6 +21,7 @@ import androidx.compose.ui.unit.*
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import io.github.garemat.lunachron.CharacterState
+import kotlin.math.roundToInt
 
 private const val SPOTLIGHT_PADDING = 14f
 private const val SPOTLIGHT_RADIUS = 18f
@@ -38,19 +38,19 @@ private fun LayoutCoordinates.boundsRelativeTo(anchor: LayoutCoordinates): Rect 
 }
 
 /**
- * Non-blocking tutorial overlay. Sits above the NavHost in a root [Box] (NOT a Dialog) so that
- * touches within the spotlight hole pass through to the real UI beneath.
+ * Non-blocking tutorial overlay. Sits above the Scaffold in a root [Box] so that touches within
+ * the spotlight hole pass through to the real UI beneath.
  *
  * Touch model:
- * - Touches on the tooltip card or skip button are always allowed (tracked as exclusion zones).
- * - Touches within the spotlight are allowed (and trigger [onAdvance] for [AdvanceCondition.OnSpotlightTap]).
- * - All other touches are blocked so the user stays focused on the current step.
- * - Arrowless steps (no spotlight) never block any touches.
- *
- * Scalability contract: adding a new step only requires:
- *  1. Appending a [TutorialStep] to [appTutorialSteps].
- *  2. Adding `Modifier.onGloballyPositioned { onTargetPositioned("<tag>", it) }` at the target site
- *     if the tag is new.
+ * - The overlay root Box has NO pointerInput modifier — it is transparent to touches.
+ * - Four [Spacer]s are placed as children around the spotlight hole and consume all touches
+ *   (blocking the user from interacting with the scrim area).
+ * - The spotlight hole itself has no child composable on top of it, so touches fall through
+ *   directly to the sibling Scaffold without any interception.
+ * - For [AdvanceCondition.OnSpotlightTap] a thin transparent Box exactly covers the spotlight and
+ *   fires [onAdvance] on DOWN without consuming, so the underlying action also fires.
+ * - For [AdvanceCondition.OnNavigation] no blockers are added (nav bar items are siblings).
+ * - Arrowless steps (no spotlight) have no blockers — all touches pass through.
  */
 @Composable
 fun TutorialOverlay(
@@ -105,12 +105,9 @@ fun TutorialOverlay(
         }
     }
 
-    // Coordinate tracking — overlay root, tooltip card, skip button.
+    // Overlay root coordinates — used to compute spotlight bounds in overlay-local space.
     var overlayCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
-    var tooltipBounds by remember { mutableStateOf<Rect?>(null) }
-    var skipBounds by remember { mutableStateOf<Rect?>(null) }
 
-    // Spotlight bounds derived from the registered target coordinates.
     val targetCoords = currentStep.targetTag?.let { tutorialCoords[it] }
     val spotlightBounds: Rect? = remember(targetCoords, overlayCoords) {
         val tc = targetCoords ?: return@remember null
@@ -119,43 +116,17 @@ fun TutorialOverlay(
         tc.boundsRelativeTo(oc)
     }
 
-    // Only attach a pointerInput interceptor when the step actually needs touch blocking:
-    // - there must be a spotlight (arrowless / OnNavigation steps never block)
-    // - OnNavigation steps must not block — the target (nav bar, drawer) is a sibling of this
-    //   overlay in the z-order; attaching pointerInput here prevents the sibling Scaffold from
-    //   receiving the gesture even when we return early, because awaitEachGesture holds the
-    //   gesture via awaitAllPointersUp. Removing the modifier entirely is the only safe fix.
-    val needsInterception = spotlightBounds != null &&
-            currentStep.advance !is AdvanceCondition.OnNavigation
+    val density = LocalDensity.current
+    val config = LocalConfiguration.current
+    val screenW = config.screenWidthDp * density.density
+    val screenH = config.screenHeightDp * density.density
 
+    // The root Box intentionally has no pointerInput — it is transparent to touches.
+    // Blocking is done by child Spacers that cover only the non-spotlight area.
     Box(
         modifier = Modifier
             .fillMaxSize()
             .onGloballyPositioned { overlayCoords = it }
-            .let { base ->
-                if (!needsInterception) base
-                else base.pointerInput(spotlightBounds, tooltipBounds, skipBounds, currentStep) {
-                    awaitEachGesture {
-                        val event = awaitPointerEvent(PointerEventPass.Initial)
-                        val pos = event.changes.firstOrNull()?.position ?: return@awaitEachGesture
-
-                        val inSpotlight = spotlightBounds!!.expand(SPOTLIGHT_PADDING).contains(pos)
-                        val inTooltip = tooltipBounds?.contains(pos) == true
-                        val inSkip = skipBounds?.contains(pos) == true
-
-                        when {
-                            inTooltip || inSkip -> { /* always allow */ }
-                            inSpotlight -> {
-                                if (currentStep.advance == AdvanceCondition.OnSpotlightTap) {
-                                    val isDown = event.changes.any { it.pressed && !it.previousPressed }
-                                    if (isDown) onAdvance()
-                                }
-                            }
-                            else -> event.changes.forEach { it.consume() }
-                        }
-                    }
-                }
-            }
     ) {
         // ── Scrim + spotlight hole ──────────────────────────────────────────────
         androidx.compose.foundation.Canvas(
@@ -176,22 +147,106 @@ fun TutorialOverlay(
             }
         }
 
+        // ── Touch blockers — 4 Spacers surrounding the spotlight hole ──────────
+        // These are drawn BEFORE the skip button and tooltip so that the tooltip/skip
+        // (higher z-order = innermost in Main pass = run first) are never blocked.
+        // OnNavigation steps skip blocking entirely: nav targets (bottom bar, drawer)
+        // are siblings of this overlay and would not be reachable even with non-consuming
+        // pointerInput on a full-screen composable.
+        val shouldBlock = spotlightBounds != null &&
+                currentStep.advance !is AdvanceCondition.OnNavigation
+        if (shouldBlock && spotlightBounds != null) {
+            val padded = spotlightBounds.expand(SPOTLIGHT_PADDING)
+            val consumeAll = Modifier.pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        awaitPointerEvent(PointerEventPass.Main).changes.forEach { it.consume() }
+                    }
+                }
+            }
+            with(density) {
+                // Top strip
+                if (padded.top > 0f) {
+                    Spacer(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(padded.top.toDp())
+                            .then(consumeAll)
+                    )
+                }
+                // Bottom strip
+                val bottomH = (screenH - padded.bottom).coerceAtLeast(0f)
+                if (bottomH > 0f) {
+                    Spacer(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(bottomH.toDp())
+                            .offset { IntOffset(0, padded.bottom.roundToInt()) }
+                            .then(consumeAll)
+                    )
+                }
+                // Left strip (spotlight band)
+                val bandH = (padded.bottom - padded.top).coerceAtLeast(0f)
+                if (padded.left > 0f && bandH > 0f) {
+                    Spacer(
+                        Modifier
+                            .width(padded.left.toDp())
+                            .height(bandH.toDp())
+                            .offset { IntOffset(0, padded.top.roundToInt()) }
+                            .then(consumeAll)
+                    )
+                }
+                // Right strip (spotlight band)
+                val rightW = (screenW - padded.right).coerceAtLeast(0f)
+                if (rightW > 0f && bandH > 0f) {
+                    Spacer(
+                        Modifier
+                            .width(rightW.toDp())
+                            .height(bandH.toDp())
+                            .offset { IntOffset(padded.right.roundToInt(), padded.top.roundToInt()) }
+                            .then(consumeAll)
+                    )
+                }
+            }
+        }
+
+        // ── OnSpotlightTap detector — transparent Box over the spotlight hole ──
+        // Fires onAdvance() on DOWN without consuming, so the underlying composable
+        // (inside Scaffold's subtree) also receives the touch and fires its own click.
+        if (currentStep.advance == AdvanceCondition.OnSpotlightTap && spotlightBounds != null) {
+            val padded = spotlightBounds.expand(SPOTLIGHT_PADDING)
+            with(density) {
+                Box(
+                    Modifier
+                        .size(padded.width.toDp(), padded.height.toDp())
+                        .offset { IntOffset(padded.left.roundToInt(), padded.top.roundToInt()) }
+                        .pointerInput(currentStep) {
+                            awaitPointerEventScope {
+                                while (true) {
+                                    val event = awaitPointerEvent(PointerEventPass.Main)
+                                    if (event.changes.any { it.pressed && !it.previousPressed }) {
+                                        onAdvance()
+                                        // Do not consume — Scaffold's subtree receives the touch too.
+                                    }
+                                }
+                            }
+                        }
+                )
+            }
+        }
+
         // ── Skip (X) icon — top-right corner ───────────────────────────────────
         IconButton(
             onClick = onSkip,
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(8.dp)
-                .onGloballyPositioned { coords ->
-                    overlayCoords?.let { skipBounds = coords.boundsRelativeTo(it) }
-                }
         ) {
             Icon(Icons.Default.Close, contentDescription = "Skip tutorial", tint = Color.White)
         }
 
         // ── Tooltip card ────────────────────────────────────────────────────────
-        val screenHeightPx = LocalConfiguration.current.screenHeightDp * LocalDensity.current.density
-        val cardAbove = spotlightBounds != null && spotlightBounds.center.y > screenHeightPx * 0.55f
+        val cardAbove = spotlightBounds != null && spotlightBounds.center.y > screenH * 0.55f
         val cardAlignment = when {
             spotlightBounds == null -> Alignment.Center
             cardAbove -> Alignment.TopCenter
@@ -201,10 +256,7 @@ fun TutorialOverlay(
         Column(
             modifier = Modifier
                 .align(cardAlignment)
-                .padding(horizontal = 24.dp, vertical = 72.dp)
-                .onGloballyPositioned { coords ->
-                    overlayCoords?.let { tooltipBounds = coords.boundsRelativeTo(it) }
-                },
+                .padding(horizontal = 24.dp, vertical = 72.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             LinearProgressIndicator(
@@ -241,7 +293,6 @@ fun TutorialOverlay(
                         Spacer(Modifier.height(4.dp))
                     }
 
-                    // Skip option — visible on all steps except the final one.
                     if (!isLastStep) {
                         TextButton(
                             onClick = onSkip,
