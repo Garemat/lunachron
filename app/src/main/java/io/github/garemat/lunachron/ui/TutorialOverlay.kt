@@ -119,37 +119,40 @@ fun TutorialOverlay(
         tc.boundsRelativeTo(oc)
     }
 
+    // Only attach a pointerInput interceptor when the step actually needs touch blocking:
+    // - there must be a spotlight (arrowless / OnNavigation steps never block)
+    // - OnNavigation steps must not block — the target (nav bar, drawer) is a sibling of this
+    //   overlay in the z-order; attaching pointerInput here prevents the sibling Scaffold from
+    //   receiving the gesture even when we return early, because awaitEachGesture holds the
+    //   gesture via awaitAllPointersUp. Removing the modifier entirely is the only safe fix.
+    val needsInterception = spotlightBounds != null &&
+            currentStep.advance !is AdvanceCondition.OnNavigation
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .onGloballyPositioned { overlayCoords = it }
-            .pointerInput(spotlightBounds, tooltipBounds, skipBounds, currentStep) {
-                awaitEachGesture {
-                    val event = awaitPointerEvent(PointerEventPass.Initial)
-                    val pos = event.changes.firstOrNull()?.position ?: return@awaitEachGesture
+            .let { base ->
+                if (!needsInterception) base
+                else base.pointerInput(spotlightBounds, tooltipBounds, skipBounds, currentStep) {
+                    awaitEachGesture {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        val pos = event.changes.firstOrNull()?.position ?: return@awaitEachGesture
 
-                    // Arrowless steps have no spotlight — never block.
-                    if (spotlightBounds == null) return@awaitEachGesture
+                        val inSpotlight = spotlightBounds!!.expand(SPOTLIGHT_PADDING).contains(pos)
+                        val inTooltip = tooltipBounds?.contains(pos) == true
+                        val inSkip = skipBounds?.contains(pos) == true
 
-                    // OnNavigation steps rely on the user freely tapping nav items that live
-                    // outside the NavHost (bottom bar, drawer). Blocking here would prevent those
-                    // taps from reaching sibling composables, so allow everything through.
-                    if (currentStep.advance is AdvanceCondition.OnNavigation) return@awaitEachGesture
-
-                    val inSpotlight = spotlightBounds.expand(SPOTLIGHT_PADDING).contains(pos)
-                    val inTooltip = tooltipBounds?.contains(pos) == true
-                    val inSkip = skipBounds?.contains(pos) == true
-
-                    when {
-                        inTooltip || inSkip -> { /* always allow — tooltip buttons and skip must work */ }
-                        inSpotlight -> {
-                            // Pass through to real UI; additionally advance on tap if required.
-                            if (currentStep.advance == AdvanceCondition.OnSpotlightTap) {
-                                val isDown = event.changes.any { it.pressed && !it.previousPressed }
-                                if (isDown) onAdvance()
+                        when {
+                            inTooltip || inSkip -> { /* always allow */ }
+                            inSpotlight -> {
+                                if (currentStep.advance == AdvanceCondition.OnSpotlightTap) {
+                                    val isDown = event.changes.any { it.pressed && !it.previousPressed }
+                                    if (isDown) onAdvance()
+                                }
                             }
+                            else -> event.changes.forEach { it.consume() }
                         }
-                        else -> event.changes.forEach { it.consume() }
                     }
                 }
             }
