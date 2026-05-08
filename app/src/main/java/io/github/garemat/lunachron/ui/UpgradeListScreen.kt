@@ -38,6 +38,8 @@ fun UpgradeListScreen(
     }
     
     var showFilterBar by remember { mutableStateOf(true) }
+    val listState = rememberLazyListState()
+    LaunchedEffect(searchQuery) { listState.scrollToItem(0) }
 
     val filteredUpgrades = remember(state.upgradeCards, searchQuery, selectedFactions, selectedTags) {
         state.upgradeCards.filter { card ->
@@ -85,7 +87,7 @@ fun UpgradeListScreen(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(theme.verticalSpacing / 2),
                 contentPadding = PaddingValues(top = theme.verticalSpacing / 2, bottom = 100.dp, start = theme.screenPadding, end = theme.screenPadding),
-                state = rememberLazyListState()
+                state = listState
             ) {
                 if (filteredUpgrades.isEmpty()) {
                     item {

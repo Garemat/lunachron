@@ -60,7 +60,11 @@ fun CharacterListScreen(
         onExpansionChanged(expandedCharacterIds.isNotEmpty())
     }
 
+    val listState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
+
     LaunchedEffect(searchQuery) {
+        listState.scrollToItem(0)
         if (searchQuery.isEmpty()) {
             expandedCharacterIdsList = emptyList()
         } else {
@@ -71,9 +75,6 @@ fun CharacterListScreen(
             if (matchingIds.size in 1..3) expandedCharacterIdsList = matchingIds
         }
     }
-
-    val listState = rememberLazyListState()
-    val coroutineScope = rememberCoroutineScope()
     val screenHeight = LocalConfiguration.current.screenHeightDp.dp
 
     LaunchedEffect(availableTags) {
