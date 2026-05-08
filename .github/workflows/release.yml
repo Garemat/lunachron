@@ -1,13 +1,13 @@
 name: Automated Release
 
 on:
-  pull_request:
+  push:
     branches: [ "main" ]
-    types: [ "closed" ]
+  workflow_dispatch:
 
 jobs:
   release:
-    if: github.event.pull_request.merged == true
+    if: "github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[skip ci]')"
     runs-on: ubuntu-latest
     concurrency:
       group: release
@@ -20,31 +20,37 @@ jobs:
       with:
         fetch-depth: 0
 
-    - name: Read version from build.gradle.kts
-      id: version
-      run: |
-        VERSION_NAME=$(grep '^\s*versionName' app/build.gradle.kts | sed 's/.*"\(.*\)".*/\1/')
-        IFS='.' read -r major minor patch <<< "$VERSION_NAME"
-        VERSION_CODE=$(( major * 10000 + minor * 100 + patch ))
-        NEW_TAG="v${VERSION_NAME}"
-        # Safety: if tag already exists, increment patch
-        while git tag | grep -qx "$NEW_TAG"; do
-          patch=$((patch+1))
-          VERSION_NAME="${major}.${minor}.${patch}"
-          VERSION_CODE=$(( major * 10000 + minor * 100 + patch ))
-          NEW_TAG="v${VERSION_NAME}"
-        done
-        echo "new_tag=$NEW_TAG" >> $GITHUB_OUTPUT
-        echo "version_name=$VERSION_NAME" >> $GITHUB_OUTPUT
-        echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
-
     - name: Install git-cliff
       uses: kenji-miyake/setup-git-cliff@v2
+
+    - name: Compute next version
+      id: version
+      run: |
+        LATEST=$(git tag --sort=-v:refname | grep '^v' | head -1)
+        if [ -z "$LATEST" ]; then LATEST="v0.0.0"; fi
+
+        BUMPED=$(git cliff --bumped-version 2>/dev/null || echo "")
+
+        version_gte() { [ "$(printf '%s\n' "$1" "$2" | sort -V | tail -1)" = "$1" ]; }
+
+        if [ -z "$BUMPED" ] || ! version_gte "$BUMPED" "$LATEST" || [ "$BUMPED" = "$LATEST" ]; then
+          LATEST_VER="${LATEST#v}"
+          IFS='.' read -r major minor patch <<< "$LATEST_VER"
+          BUMPED="v${major}.${minor}.$((patch+1))"
+        fi
+
+        while git tag | grep -qx "$BUMPED"; do
+          VER="${BUMPED#v}"
+          IFS='.' read -r major minor patch <<< "$VER"
+          BUMPED="v${major}.${minor}.$((patch+1))"
+        done
+
+        echo "new_tag=$BUMPED" >> $GITHUB_OUTPUT
 
     - name: Extract release notes
       id: release_notes
       run: |
-        NOTES=$(git cliff --unreleased --strip header)
+        NOTES=$(git cliff --tag ${{ steps.version.outputs.new_tag }} --unreleased --strip header)
         echo "notes<<EOF" >> $GITHUB_OUTPUT
         echo "$NOTES" >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
@@ -76,6 +82,7 @@ jobs:
         KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
         KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
         KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: ./gradlew assembleGithubRelease bundleGithubRelease bundleFdroidRelease
 
     - name: Write Play Store credentials to file

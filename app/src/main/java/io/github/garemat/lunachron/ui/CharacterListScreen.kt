@@ -51,9 +51,10 @@ fun CharacterListScreen(
     }
 
     var includedTags by remember { mutableStateOf(setOf<String>()) }
+    var orTags by remember { mutableStateOf(setOf<String>()) }
     var excludedTags by remember { mutableStateOf(setOf<String>()) }
     var showFilterExpanded by remember { mutableStateOf(true) }
-    val filtersActive = selectedFactions.isNotEmpty() || includedTags.isNotEmpty() || excludedTags.isNotEmpty() || searchQuery.isNotEmpty()
+    val filtersActive = selectedFactions.isNotEmpty() || includedTags.isNotEmpty() || orTags.isNotEmpty() || excludedTags.isNotEmpty() || searchQuery.isNotEmpty()
 
     LaunchedEffect(expandedCharacterIds) {
         onExpansionChanged(expandedCharacterIds.isNotEmpty())
@@ -77,19 +78,13 @@ fun CharacterListScreen(
 
     LaunchedEffect(availableTags) {
         includedTags = includedTags.filter { it in availableTags }.toSet()
+        orTags = orTags.filter { it in availableTags }.toSet()
         excludedTags = excludedTags.filter { it in availableTags }.toSet()
     }
 
-    val filteredCharacters = remember(state.characters, searchQuery, selectedFactions, includedTags, excludedTags) {
-        state.characters.filter { character ->
-            val matchesFaction = selectedFactions.isEmpty() || character.factions.any { it in selectedFactions }
-            val matchesIncluded = includedTags.isEmpty() || character.keywords.containsAll(includedTags)
-            val matchesExcluded = excludedTags.isEmpty() || !character.keywords.any { it in excludedTags }
-            val matchesSearch = searchQuery.isEmpty() ||
-                character.name.contains(searchQuery, ignoreCase = true) ||
-                character.abilities.any { it.name.contains(searchQuery, ignoreCase = true) || it.description.contains(searchQuery, ignoreCase = true) }
-            matchesFaction && matchesIncluded && matchesExcluded && matchesSearch
-        }.sortedBy { it.name }
+    val filteredCharacters = remember(state.characters, searchQuery, selectedFactions, includedTags, orTags, excludedTags) {
+        filterCharacters(state.characters, searchQuery, selectedFactions, includedTags, orTags, excludedTags)
+            .sortedBy { it.name }
     }
 
     val letterIndex = remember(filteredCharacters) {
@@ -118,6 +113,8 @@ fun CharacterListScreen(
                     onTagsChange = { includedTags = it },
                     excludedTags = excludedTags,
                     onExcludedTagsChange = { excludedTags = it },
+                    orTags = orTags,
+                    onOrTagsChange = { orTags = it },
                     availableTags = availableTags,
                     showCollapseAll = expandedCharacterIds.isNotEmpty(),
                     onCollapseAll = { expandedCharacterIdsList = emptyList() },
@@ -125,6 +122,7 @@ fun CharacterListScreen(
                         searchQuery = ""
                         selectedFactions = emptySet()
                         includedTags = emptySet()
+                        orTags = emptySet()
                         excludedTags = emptySet()
                         expandedCharacterIdsList = emptyList()
                     },

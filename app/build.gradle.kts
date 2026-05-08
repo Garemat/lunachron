@@ -1,6 +1,28 @@
 import groovy.json.JsonSlurper
 import java.net.URI
 
+fun gitVersionName(): String {
+    return try {
+        val process = ProcessBuilder("git", "describe", "--tags", "--match", "v*", "--abbrev=0")
+            .directory(rootProject.projectDir)
+            .redirectErrorStream(true)
+            .start()
+        val output = process.inputStream.bufferedReader().readLine()?.trim() ?: ""
+        process.waitFor()
+        if (output.startsWith("v")) output.removePrefix("v") else "0.0.1"
+    } catch (e: Exception) {
+        "0.0.1"
+    }
+}
+
+fun gitVersionCode(): Int {
+    val parts = gitVersionName().split(".")
+    val major = parts.getOrNull(0)?.toIntOrNull() ?: 0
+    val minor = parts.getOrNull(1)?.toIntOrNull() ?: 0
+    val patch = parts.getOrNull(2)?.toIntOrNull() ?: 0
+    return major * 10000 + minor * 100 + patch
+}
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -18,8 +40,8 @@ android {
         applicationId = "io.github.garemat.lunachron"
         minSdk = 24
         targetSdk = 36
-        versionCode = 21500
-        versionName = "2.15.0"
+        versionCode = gitVersionCode()
+        versionName = gitVersionName()
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

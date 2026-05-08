@@ -28,6 +28,20 @@ This is an Android project. Use Gradle wrapper from the project root:
 
 The app targets SDK 36, min SDK 24, Java 17.
 
+## CI / Release Workflows
+
+**Release trigger:** `release.yml` fires on `push: main` — every merge to main (including Dependabot) creates a tagged release. Do not change this to `pull_request: closed`; that event is unreliable and has silently dropped in the past. A `workflow_dispatch` trigger is also available for manual recovery.
+
+**Versioning:** `versionName` and `versionCode` in `app/build.gradle.kts` are derived at build time from the latest git tag (via `git describe --tags`). Do not hardcode them. The release workflow computes the next version via git-cliff, creates the tag on the merge commit, pushes it, and then builds — Gradle reads the tag automatically.
+
+**No bot commits to main:** The release workflow never pushes commits to main. It only pushes a tag. This means no branch-protection bypass is required and no `[skip ci]` tricks are needed.
+
+**Concurrency:** `release.yml` uses `concurrency: group: release, cancel-in-progress: false`. Concurrent merges queue; each run fetches all tags via `fetch-depth: 0` on checkout, so it always sees the previous run's tag before computing its own version.
+
+**`data.version`:** Pinned lunachron-data release tag used by Gradle to download the bundled asset snapshot. Update this file manually via PR when you want to bundle a newer data release. Do not automate it from the release workflow — the app fetches data updates at runtime anyway, so the bundled seed only needs updating occasionally.
+
+**Commit messages:** Never include the literal string `[skip ci]` anywhere in a commit message (including the body) — GitHub scans the full message and will suppress all workflow runs for that commit.
+
 ## F-Droid Distribution
 
 The app is distributed via [F-Droid](https://f-droid.org). The fdroiddata metadata lives in a separate fork at `gitlab.com/Garemat/fdroiddata` (MR: `fdroid/fdroiddata!34869`).

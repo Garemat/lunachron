@@ -141,9 +141,13 @@ fun AddEditTroupeScreen(
             .flatMap { it.keywords }.distinct().sorted()
     }
     var selectedTags by remember { mutableStateOf(setOf<String>()) }
+    var orTags by remember { mutableStateOf(setOf<String>()) }
+    var excludedTags by remember { mutableStateOf(setOf<String>()) }
 
     LaunchedEffect(availableTags) {
         selectedTags = selectedTags.filter { it in availableTags }.toSet()
+        orTags = orTags.filter { it in availableTags }.toSet()
+        excludedTags = excludedTags.filter { it in availableTags }.toSet()
     }
 
     BackHandler {
@@ -212,6 +216,10 @@ fun AddEditTroupeScreen(
                     onSearchQueryChange = { searchQuery = it },
                     selectedTags = selectedTags,
                     onTagsChange = { selectedTags = it },
+                    orTags = orTags,
+                    onOrTagsChange = { orTags = it },
+                    excludedTags = excludedTags,
+                    onExcludedTagsChange = { excludedTags = it },
                     availableTags = availableTags,
                     temporarySelectedIds,
                     onSelectionChange = { temporarySelectedIds = it },
@@ -1871,6 +1879,10 @@ private fun CharacterSelectionStage(
     onSearchQueryChange: (String) -> Unit,
     selectedTags: Set<String>,
     onTagsChange: (Set<String>) -> Unit,
+    orTags: Set<String>,
+    onOrTagsChange: (Set<String>) -> Unit,
+    excludedTags: Set<String>,
+    onExcludedTagsChange: (Set<String>) -> Unit,
     availableTags: List<String>,
     selectedIds: Set<Int>,
     onSelectionChange: (Set<Int>) -> Unit,
@@ -1879,12 +1891,11 @@ private fun CharacterSelectionStage(
     onTargetPositioned: (String, LayoutCoordinates) -> Unit,
     selectedTroupeFaction: Faction
 ) {
-    val factionCharacters = remember(state.characters, selectedTroupeFaction, searchQuery, selectedTags) {
-        state.characters.filter { it.factions.contains(selectedTroupeFaction) }.filter { char ->
-            val matchesSearch = searchQuery.isEmpty() || char.name.contains(searchQuery, ignoreCase = true) || char.keywords.any { it.contains(searchQuery, ignoreCase = true) } || char.abilities.any { it.name.contains(searchQuery, ignoreCase = true) || it.description.contains(searchQuery, ignoreCase = true) }
-            val matchesTags = selectedTags.isEmpty() || selectedTags.all { it in char.keywords }
-            matchesSearch && matchesTags
-        }
+    val factionCharacters = remember(state.characters, selectedTroupeFaction, searchQuery, selectedTags, orTags, excludedTags) {
+        filterCharacters(
+            state.characters.filter { it.factions.contains(selectedTroupeFaction) },
+            searchQuery, emptySet(), selectedTags, orTags, excludedTags
+        )
     }
     Column(modifier = Modifier.fillMaxSize()) {
         Text("Add Characters", style = theme.titleStyle.copy(fontSize = 24.sp), modifier = Modifier.padding(top = 16.dp, bottom = 8.dp))
@@ -1895,9 +1906,13 @@ private fun CharacterSelectionStage(
             onFactionsChange = {},
             selectedTags = selectedTags,
             onTagsChange = onTagsChange,
+            orTags = orTags,
+            onOrTagsChange = onOrTagsChange,
+            excludedTags = excludedTags,
+            onExcludedTagsChange = onExcludedTagsChange,
             availableTags = availableTags,
             isFactionFixed = true,
-            onClearAll = { onSearchQueryChange(""); onTagsChange(emptySet()) },
+            onClearAll = { onSearchQueryChange(""); onTagsChange(emptySet()); onOrTagsChange(emptySet()); onExcludedTagsChange(emptySet()) },
             onTargetPositioned = { name, coords -> onTargetPositioned(name, coords) }
         )
         LazyColumn(
