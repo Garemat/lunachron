@@ -440,7 +440,7 @@ fun CommonAbilityItem(name: String, description: String, searchQuery: String = "
                     if (oncePerTurn) withStyle(style = SpanStyle(fontStyle = FontStyle.Italic, fontWeight = FontWeight.Normal)) { append(" - Once per turn") }
                     if (oncePerGame) withStyle(style = SpanStyle(fontStyle = FontStyle.Italic, fontWeight = FontWeight.Normal)) { append(if (reloadable) " - Once per game, unless reloaded" else " - Once per game") }
                 }
-                Text(text = title, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                Text(text = title, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 if (oncePerGame && onUsedChange != null) {
                     Box(modifier = Modifier.padding(start = 8.dp).size(16.dp).clip(CircleShape).background(if (isUsed) MaterialTheme.colorScheme.onSurfaceVariant else Color.Transparent).border(1.2.dp, if (isEditable) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, CircleShape).then(if (isEditable) Modifier.clickable { onUsedChange(!isUsed) } else Modifier), contentAlignment = Alignment.Center) {
                         if (isUsed) Icon(imageVector = Icons.Default.Close, contentDescription = null, modifier = Modifier.size(10.dp), tint = Color.White)
@@ -655,7 +655,7 @@ fun CommonCharacterCard(character: Character, searchQuery: String, isExpanded: B
     val animationsEnabled = LocalAnimationsEnabled.current
     val configuration = LocalConfiguration.current
     val density = LocalDensity.current
-    val showAsPopup = configuration.screenWidthDp < 360 || density.fontScale > 1.3f
+    val showAsPopup = configuration.screenWidthDp < 420 || density.fontScale > 1.15f
     var showPopup by remember { mutableStateOf(false) }
     val screenHeight = configuration.screenHeightDp.dp
     // Constrain card body to leave room for top bar (~48dp), bottom nav (~80dp), card header (~72dp) and margins
@@ -785,7 +785,8 @@ private fun CompendiumCharacterPopup(
                         animateFlip = true,
                         showBackgroundImage = theme.showBackgroundImageOverlay,
                         showHealthTracker = true,
-                        pinnedFooter = true
+                        pinnedFooter = true,
+                        scrollable = true
                     )
                 }
             }
@@ -811,12 +812,12 @@ private fun CompendiumCharacterPopup(
  * @param showBackgroundImage  If true and the character has a portrait image, renders it as a
  *                     translucent background behind the card content.
  * @param showHealthTracker  Passed through to [CharacterFront] — shows health pips on the card.
- * @param pinnedFooter Controls whether the card content area is scrollable. Both `true` and `false`
- *                     render the Signature-Move / ← Character stats link as a pinned footer row
- *                     separated by a [HorizontalDivider]. When `true`, the content area gets a
- *                     `verticalScroll` wrapper and fills the available height — use this for
- *                     fixed-height containers (game modal). When `false` (default), the card
- *                     auto-sizes to its content — use this inside a [LazyColumn] (compendium).
+ * @param pinnedFooter When `true`, fills the available height with a pinned signature-move footer
+ *                     at the bottom. Use with `scrollable = true` for modal contexts. When `false`
+ *                     (default), the card auto-sizes to its content — use inside a [LazyColumn].
+ * @param scrollable   Only meaningful when [pinnedFooter] is `true`. When `true`, the content area
+ *                     scrolls vertically (full-size text, user scrolls). When `false` (default),
+ *                     [ScaleToFit] shrinks the text to fit the fixed container height.
  */
 @Composable
 fun CharacterCardContent(
@@ -831,6 +832,7 @@ fun CharacterCardContent(
     abilityUsedStates: Map<String, Boolean>? = null,
     onAbilityUsedChange: ((String, Boolean) -> Unit)? = null,
     pinnedFooter: Boolean = false,
+    scrollable: Boolean = false,
     onFlipPositioned: (LayoutCoordinates) -> Unit = {}
 ) {
     val theme = LocalAppThemeProperties.current
@@ -885,24 +887,39 @@ fun CharacterCardContent(
         Box(modifier = flipModifier) {
             if (!showBack) {
                 // Front face.
-                // pinnedFooter = true  → content scales to fit, footer anchored to bottom (modal)
+                // pinnedFooter = true  → fixed height with pinned footer; content scrolls (scrollable=true) or scales
                 // pinnedFooter = false → card auto-sizes; track height so back face never shrinks
                 Column(
                     modifier = Modifier.fillMaxWidth()
                         .then(if (pinnedFooter) Modifier.fillMaxSize() else Modifier.onSizeChanged { sz -> frontHeightPx = sz.height })
                 ) {
                     if (pinnedFooter) {
-                        ScaleToFit(modifier = Modifier.weight(1f).fillMaxWidth()) { _ ->
-                            CharacterFront(
-                                character = character,
-                                searchQuery = searchQuery,
-                                onFlip = onFlip,
-                                onFlipPositioned = onFlipPositioned,
-                                showHealthTracker = showHealthTracker,
-                                showSignatureLink = false,
-                                abilityUsedStates = abilityUsedStates,
-                                onAbilityUsedChange = onAbilityUsedChange
-                            )
+                        if (scrollable) {
+                            Column(modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())) {
+                                CharacterFront(
+                                    character = character,
+                                    searchQuery = searchQuery,
+                                    onFlip = onFlip,
+                                    onFlipPositioned = onFlipPositioned,
+                                    showHealthTracker = showHealthTracker,
+                                    showSignatureLink = false,
+                                    abilityUsedStates = abilityUsedStates,
+                                    onAbilityUsedChange = onAbilityUsedChange
+                                )
+                            }
+                        } else {
+                            ScaleToFit(modifier = Modifier.weight(1f).fillMaxWidth()) { _ ->
+                                CharacterFront(
+                                    character = character,
+                                    searchQuery = searchQuery,
+                                    onFlip = onFlip,
+                                    onFlipPositioned = onFlipPositioned,
+                                    showHealthTracker = showHealthTracker,
+                                    showSignatureLink = false,
+                                    abilityUsedStates = abilityUsedStates,
+                                    onAbilityUsedChange = onAbilityUsedChange
+                                )
+                            }
                         }
                     } else {
                         Column(modifier = Modifier.fillMaxWidth()) {
@@ -963,14 +980,26 @@ fun CharacterCardContent(
                         verticalArrangement = if (pinnedFooter) Arrangement.Top else Arrangement.SpaceBetween
                     ) {
                         if (pinnedFooter) {
-                            ScaleToFit(modifier = Modifier.weight(1f).fillMaxWidth()) { _ ->
-                                CharacterBack(
-                                    character = character,
-                                    searchQuery = searchQuery,
-                                    onFlip = onFlip,
-                                    onFlipPositioned = onFlipPositioned,
-                                    showBackLink = false
-                                )
+                            if (scrollable) {
+                                Column(modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())) {
+                                    CharacterBack(
+                                        character = character,
+                                        searchQuery = searchQuery,
+                                        onFlip = onFlip,
+                                        onFlipPositioned = onFlipPositioned,
+                                        showBackLink = false
+                                    )
+                                }
+                            } else {
+                                ScaleToFit(modifier = Modifier.weight(1f).fillMaxWidth()) { _ ->
+                                    CharacterBack(
+                                        character = character,
+                                        searchQuery = searchQuery,
+                                        onFlip = onFlip,
+                                        onFlipPositioned = onFlipPositioned,
+                                        showBackLink = false
+                                    )
+                                }
                             }
                         } else {
                             Column(modifier = Modifier.fillMaxWidth()) {

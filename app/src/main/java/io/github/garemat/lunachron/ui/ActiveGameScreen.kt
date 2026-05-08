@@ -1071,7 +1071,8 @@ private fun GameCharacterCardModal(
                         showHealthTracker = true,
                         abilityUsedStates = if (isFullTracking && isEditable) playState.usedAbilities else null,
                         onAbilityUsedChange = if (isFullTracking && isEditable) onAbilityToggle else null,
-                        pinnedFooter = true
+                        pinnedFooter = true,
+                        scrollable = true
                     )
 
                     // Transform button
