@@ -96,6 +96,9 @@ class CharacterViewModel(
         gameTrackingMode = GameTrackingMode.valueOf(prefs.getString("game_tracking_mode", GameTrackingMode.LOW_DETAIL.name) ?: GameTrackingMode.LOW_DETAIL.name),
         enableAnimations = prefs.getBoolean("enable_animations", true),
         defaultStartPage = prefs.getString("default_start_page", "home") ?: "home",
+        cardDisplayMode = CardDisplayMode.valueOf(prefs.getString("card_display_mode", CardDisplayMode.AUTO.name) ?: CardDisplayMode.AUTO.name),
+        skipCompendiumLanding = prefs.getBoolean("skip_compendium_landing", false),
+        hideCampaignTab = prefs.getBoolean("hide_campaign_tab", false),
         newsItems = loadCachedNews(),
         autoFetchNews = prefs.getBoolean("auto_fetch_news", false),
         autoCheckDataUpdates = dataUpdateRepository.loadAutoCheck(),
@@ -650,6 +653,18 @@ class CharacterViewModel(
             is CharacterEvent.SetDefaultStartPage -> {
                 _state.update { it.copy(defaultStartPage = event.route) }
                 prefs.edit { putString("default_start_page", event.route) }
+            }
+            is CharacterEvent.SetCardDisplayMode -> {
+                _state.update { it.copy(cardDisplayMode = event.mode) }
+                prefs.edit { putString("card_display_mode", event.mode.name) }
+            }
+            is CharacterEvent.SetSkipCompendiumLanding -> {
+                _state.update { it.copy(skipCompendiumLanding = event.skip) }
+                prefs.edit { putBoolean("skip_compendium_landing", event.skip) }
+            }
+            is CharacterEvent.SetHideCampaignTab -> {
+                _state.update { it.copy(hideCampaignTab = event.hide) }
+                prefs.edit { putBoolean("hide_campaign_tab", event.hide) }
             }
             is CharacterEvent.AddSummonedCharacter -> {
                 _state.update { cur ->
