@@ -1021,6 +1021,44 @@ private fun GameCharacterCardModal(
                         HorizontalDivider()
                     }
 
+                    // Character name + keywords header
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = theme.screenPadding, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                        ) {
+                            CharacterPortrait(character = character, size = 32.dp)
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = character.name,
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            if (character.keywords.isNotEmpty()) {
+                                Text(
+                                    text = character.keywords.joinToString(", "),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontStyle = FontStyle.Italic,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                    }
+                    HorizontalDivider()
+
                     // Flip-animated card content (fills remaining space, pinned footer)
                     CharacterCardContent(
                         character = character,
@@ -1033,7 +1071,8 @@ private fun GameCharacterCardModal(
                         showHealthTracker = true,
                         abilityUsedStates = if (isFullTracking && isEditable) playState.usedAbilities else null,
                         onAbilityUsedChange = if (isFullTracking && isEditable) onAbilityToggle else null,
-                        pinnedFooter = true
+                        pinnedFooter = true,
+                        scrollable = true
                     )
 
                     // Transform button
@@ -1054,14 +1093,17 @@ private fun GameCharacterCardModal(
                     }
                 }
 
-                // Floating close button — overlays top-right corner
-                Box(modifier = Modifier.align(Alignment.TopEnd).zIndex(10f)) {
-                    IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = "Close")
-                    }
-                }
             }
         }
+
+        Text(
+            text = "Tap outside to close",
+            style = MaterialTheme.typography.labelSmall,
+            color = Color.White.copy(alpha = 0.5f),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 12.dp)
+        )
     }
 }
 

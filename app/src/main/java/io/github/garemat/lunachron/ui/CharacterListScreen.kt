@@ -158,6 +158,7 @@ fun CharacterListScreen(
                         character = character,
                         searchQuery = searchQuery,
                         isExpanded = expandedCharacterIds.contains(character.id),
+                        cardDisplayMode = state.cardDisplayMode,
                         onExpandClick = {
                             val isCurrentlyExpanded = character.id in expandedCharacterIds
                             if (isCurrentlyExpanded) {

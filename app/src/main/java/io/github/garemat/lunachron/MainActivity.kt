@@ -380,13 +380,14 @@ class MainActivity : ComponentActivity() {
                                 ) {
                                     val playRoute = if (state.useLocalModeByDefault && state.useSinglePlayerMode)
                                         Screen.SoloTroupeSelect.route else Screen.GameSetup.route
-                                    val items = listOf(
-                                        BottomNavItem("Home", Screen.Home.route, Icons.Default.Home),
-                                        BottomNavItem("Compendium", Screen.Compendium.route, Icons.Default.MenuBook),
-                                        BottomNavItem("Play", playRoute, Icons.Default.PlayArrow),
-                                        BottomNavItem("Troupes", Screen.Troupes.route, Icons.Default.Groups),
-                                        BottomNavItem("Campaigns", Screen.CampaignHub.route, Icons.Default.HistoryEdu)
-                                    )
+                                    val compendiumRoute = if (state.skipCompendiumLanding) Screen.Characters.route else Screen.Compendium.route
+                                    val items = buildList {
+                                        add(BottomNavItem("Home", Screen.Home.route, Icons.Default.Home))
+                                        add(BottomNavItem("Compendium", compendiumRoute, Icons.Default.MenuBook))
+                                        add(BottomNavItem("Play", playRoute, Icons.Default.PlayArrow))
+                                        add(BottomNavItem("Troupes", Screen.Troupes.route, Icons.Default.Groups))
+                                        if (!state.hideCampaignTab) add(BottomNavItem("Campaigns", Screen.CampaignHub.route, Icons.Default.HistoryEdu))
+                                    }
                                     items.forEach { item ->
                                         val isPlayButton = item.label == "Play"
                                         val isSelected = if (isPlayButton) {
@@ -463,7 +464,12 @@ class MainActivity : ComponentActivity() {
                         }
                     ) { innerPadding ->
                         Box(modifier = Modifier.fillMaxSize()) {
-                            val startDestination = remember { state.defaultStartPage }
+                            val startDestination = remember {
+                                if (state.defaultStartPage == Screen.Compendium.route && state.skipCompendiumLanding)
+                                    Screen.Characters.route
+                                else
+                                    state.defaultStartPage
+                            }
                         NavHost(
                                 navController = navController,
                                 startDestination = startDestination,
