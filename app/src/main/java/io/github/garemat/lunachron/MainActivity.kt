@@ -464,7 +464,12 @@ class MainActivity : ComponentActivity() {
                         }
                     ) { innerPadding ->
                         Box(modifier = Modifier.fillMaxSize()) {
-                            val startDestination = remember { state.defaultStartPage }
+                            val startDestination = remember {
+                                if (state.defaultStartPage == Screen.Compendium.route && state.skipCompendiumLanding)
+                                    Screen.Characters.route
+                                else
+                                    state.defaultStartPage
+                            }
                         NavHost(
                                 navController = navController,
                                 startDestination = startDestination,

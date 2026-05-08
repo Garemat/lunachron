@@ -660,7 +660,7 @@ fun CommonCharacterCard(character: Character, searchQuery: String, isExpanded: B
         else -> when (cardDisplayMode) {
             CardDisplayMode.POPUP -> true
             CardDisplayMode.COLLAPSIBLE -> false
-            CardDisplayMode.AUTO -> configuration.screenWidthDp < 420 || density.fontScale > 1.15f
+            CardDisplayMode.AUTO -> LocalContext.current.resources.displayMetrics.densityDpi < 350 || density.fontScale > 1.15f
         }
     }
     var showPopup by remember { mutableStateOf(false) }
