@@ -437,8 +437,8 @@ fun CommonAbilityItem(name: String, description: String, searchQuery: String = "
                         appendWithHighlight(name, searchQuery)
                         if (showColon) append(": ")
                     }
-                    if (oncePerTurn) withStyle(style = SpanStyle(fontStyle = FontStyle.Italic, fontWeight = FontWeight.Normal)) { append(" - Once per turn") }
-                    if (oncePerGame) withStyle(style = SpanStyle(fontStyle = FontStyle.Italic, fontWeight = FontWeight.Normal)) { append(if (reloadable) " - Once per game, unless reloaded" else " - Once per game") }
+                    if (oncePerTurn) withStyle(style = SpanStyle(fontStyle = FontStyle.Italic, fontWeight = FontWeight.Normal, fontSize = 11.sp)) { append(" - Once per turn") }
+                    if (oncePerGame) withStyle(style = SpanStyle(fontStyle = FontStyle.Italic, fontWeight = FontWeight.Normal, fontSize = 11.sp)) { append(if (reloadable) " - Once per game, unless reloaded" else " - Once per game") }
                 }
                 Text(text = title, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 if (oncePerGame && onUsedChange != null) {
@@ -649,13 +649,20 @@ private fun ScaleToFit(modifier: Modifier = Modifier, content: @Composable (isSc
 }
 
 @Composable
-fun CommonCharacterCard(character: Character, searchQuery: String, isExpanded: Boolean, onExpandClick: () -> Unit, modifier: Modifier = Modifier, cardTargetName: String = "CharacterCard", onPositioned: (String, LayoutCoordinates) -> Unit = { _, _ -> }, forceFlipped: Boolean? = null, selectionControl: @Composable (RowScope.() -> Unit)? = null, bottomContent: (@Composable () -> Unit)? = null) {
+fun CommonCharacterCard(character: Character, searchQuery: String, isExpanded: Boolean, onExpandClick: () -> Unit, modifier: Modifier = Modifier, cardTargetName: String = "CharacterCard", onPositioned: (String, LayoutCoordinates) -> Unit = { _, _ -> }, forceFlipped: Boolean? = null, selectionControl: @Composable (RowScope.() -> Unit)? = null, bottomContent: (@Composable () -> Unit)? = null, cardDisplayMode: CardDisplayMode = CardDisplayMode.AUTO) {
     var isFlippedState by remember { mutableStateOf(false) }; val isFlipped = forceFlipped ?: isFlippedState
     val theme = LocalAppThemeProperties.current
     val animationsEnabled = LocalAnimationsEnabled.current
     val configuration = LocalConfiguration.current
     val density = LocalDensity.current
-    val showAsPopup = configuration.screenWidthDp < 420 || density.fontScale > 1.15f
+    val showAsPopup = when {
+        selectionControl != null -> false
+        else -> when (cardDisplayMode) {
+            CardDisplayMode.POPUP -> true
+            CardDisplayMode.COLLAPSIBLE -> false
+            CardDisplayMode.AUTO -> configuration.screenWidthDp < 420 || density.fontScale > 1.15f
+        }
+    }
     var showPopup by remember { mutableStateOf(false) }
     val screenHeight = configuration.screenHeightDp.dp
     // Constrain card body to leave room for top bar (~48dp), bottom nav (~80dp), card header (~72dp) and margins
