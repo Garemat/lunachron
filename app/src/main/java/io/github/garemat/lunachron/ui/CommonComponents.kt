@@ -56,6 +56,9 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.zIndex
 import coil.compose.AsyncImage
 import io.github.garemat.lunachron.*
 import io.github.garemat.lunachron.R
@@ -529,7 +532,7 @@ fun CharacterFront(
             }
         }
         if (showHealthTracker) {
-            HealthTracker(character.health, character.health, character.energyTrack, {}, isEditable = false)
+            HealthPipsChunked(character.health, character.health, character.energyTrack, compact = false, isEditable = false, onHealthChange = {})
         }
         Text(text = "Base: ${character.baseSize}", style = MaterialTheme.typography.labelSmall, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End)
     }
@@ -650,12 +653,25 @@ fun CommonCharacterCard(character: Character, searchQuery: String, isExpanded: B
     var isFlippedState by remember { mutableStateOf(false) }; val isFlipped = forceFlipped ?: isFlippedState
     val theme = LocalAppThemeProperties.current
     val animationsEnabled = LocalAnimationsEnabled.current
-    val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+    val configuration = LocalConfiguration.current
+    val density = LocalDensity.current
+    val showAsPopup = configuration.screenWidthDp < 360 || density.fontScale > 1.3f
+    var showPopup by remember { mutableStateOf(false) }
+    val screenHeight = configuration.screenHeightDp.dp
     // Constrain card body to leave room for top bar (~48dp), bottom nav (~80dp), card header (~72dp) and margins
     val maxCardBodyHeight = (screenHeight - 48.dp - 80.dp - 72.dp - 32.dp).coerceAtLeast(300.dp)
+
+    if (showPopup) {
+        CompendiumCharacterPopup(
+            character = character,
+            searchQuery = searchQuery,
+            onDismiss = { showPopup = false }
+        )
+    }
+
     ThemedCard(modifier = modifier.fillMaxWidth().then(if (animationsEnabled) Modifier.animateContentSize() else Modifier).onGloballyPositioned { onPositioned(cardTargetName, it) }) {
         Column {
-            Row(modifier = Modifier.fillMaxWidth().clickable { onExpandClick() }.padding(theme.cardContentPadding), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Row(modifier = Modifier.fillMaxWidth().clickable { if (showAsPopup) showPopup = true else onExpandClick() }.padding(theme.cardContentPadding), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 if (selectionControl != null) { selectionControl(); Spacer(modifier = Modifier.width(4.dp)) }
                 Box(modifier = Modifier.size(if (selectionControl != null) 40.dp else 56.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
                     CharacterPortrait(character = character, size = if (selectionControl != null) 40.dp else 56.dp)
@@ -665,9 +681,15 @@ fun CommonCharacterCard(character: Character, searchQuery: String, isExpanded: B
                     Text(text = highlightText(character.name, searchQuery), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(text = character.keywords.joinToString(", "), style = MaterialTheme.typography.bodySmall, fontStyle = FontStyle.Italic, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
                 }
-                Icon(imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, contentDescription = null, modifier = Modifier.padding(start = 8.dp))
+                Icon(
+                    imageVector = if (showAsPopup) Icons.Default.OpenInFull
+                                  else if (isExpanded) Icons.Default.KeyboardArrowUp
+                                  else Icons.Default.KeyboardArrowDown,
+                    contentDescription = null,
+                    modifier = Modifier.padding(start = 8.dp)
+                )
             }
-            if (isExpanded) {
+            if (isExpanded && !showAsPopup) {
                 if (theme.showCardDivider) HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                 ScaleToFit(modifier = Modifier.fillMaxWidth().heightIn(max = maxCardBodyHeight)) { isScaled ->
                     CharacterCardContent(
@@ -684,6 +706,98 @@ fun CommonCharacterCard(character: Character, searchQuery: String, isExpanded: B
                 }
             }
             bottomContent?.invoke()
+        }
+    }
+}
+
+@Composable
+private fun CompendiumCharacterPopup(
+    character: Character,
+    searchQuery: String,
+    onDismiss: () -> Unit
+) {
+    val theme = LocalAppThemeProperties.current
+    var isFlipped by remember { mutableStateOf(false) }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.72f))
+                    .clickable { onDismiss() }
+            )
+
+            ThemedCard(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .fillMaxWidth(0.94f)
+                    .fillMaxHeight(0.88f)
+                    .clickable {}
+            ) {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = theme.screenPadding, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                        ) {
+                            CharacterPortrait(character = character, size = 40.dp)
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = highlightText(character.name, searchQuery),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            if (character.keywords.isNotEmpty()) {
+                                Text(
+                                    text = character.keywords.joinToString(", "),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontStyle = FontStyle.Italic,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 2
+                                )
+                            }
+                        }
+                    }
+                    HorizontalDivider()
+
+                    CharacterCardContent(
+                        character = character,
+                        searchQuery = searchQuery,
+                        isFlipped = isFlipped,
+                        onFlip = { isFlipped = !isFlipped },
+                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                        animateFlip = true,
+                        showBackgroundImage = theme.showBackgroundImageOverlay,
+                        showHealthTracker = true,
+                        pinnedFooter = true
+                    )
+                }
+            }
+
+            Text(
+                text = "Tap outside to close",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White.copy(alpha = 0.5f),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 12.dp)
+            )
         }
     }
 }
@@ -811,7 +925,7 @@ fun CharacterCardContent(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable { onFlip() }
-                                .padding(vertical = 8.dp, horizontal = 16.dp),
+                                .padding(vertical = 4.dp, horizontal = 16.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
@@ -822,12 +936,12 @@ fun CharacterCardContent(
                                     }
                                     append(".")
                                 },
-                                style = MaterialTheme.typography.bodyMedium,
+                                style = MaterialTheme.typography.labelMedium,
                                 fontStyle = FontStyle.Italic,
                                 modifier = Modifier.weight(1f),
                                 color = MaterialTheme.colorScheme.secondary
                             )
-                            Icon(imageVector = Icons.Default.KeyboardArrowRight, contentDescription = "View signature move", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.secondary)
+                            Icon(imageVector = Icons.Default.KeyboardArrowRight, contentDescription = "View signature move", modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.secondary)
                         }
                     }
                 }
