@@ -280,12 +280,20 @@ class CharacterViewModel(
     }.onEach { players ->
         if (players.isNotEmpty() && _state.value.characterPlayStates.isEmpty()) {
             val initial = mutableMapOf<String, CharacterPlayState>()
-            players.forEachIndexed { pIdx, (_, characters) ->
+            val initialSummons = mutableMapOf<Int, List<SummonEntry>>()
+            players.forEachIndexed { pIdx, (troupe, characters) ->
+                val baseIds = troupe.characterIds.toSet()
+                val summonEntries = mutableListOf<SummonEntry>()
                 characters.forEachIndexed { cIdx, character ->
                     initial["${pIdx}_${cIdx}"] = CharacterPlayState(character.health, calculateReplenishedEnergy(character, character.health))
+                    if (character.id !in baseIds) {
+                        val summonedBy = characters.find { it.id in baseIds && character.id in it.summonsCharacterIds }
+                        summonEntries.add(SummonEntry(character.id, summonedBy?.id))
+                    }
                 }
+                if (summonEntries.isNotEmpty()) initialSummons[pIdx] = summonEntries
             }
-            _state.update { it.copy(characterPlayStates = initial, currentTurn = it.currentTurn, turnHistory = it.turnHistory) }
+            _state.update { it.copy(characterPlayStates = initial, activeSummons = initialSummons, currentTurn = it.currentTurn, turnHistory = it.turnHistory) }
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -954,7 +962,7 @@ class CharacterViewModel(
     }
 
     fun startNewGame(troupes: List<Troupe>) {
-        _state.update { it.copy(characterPlayStates = emptyMap(), currentTurn = 1, activeTroupes = troupes, turnHistory = emptyList(), readyForNextTurn = emptySet(), readyForRewind = emptySet(), winnerName = null, isTie = false) }
+        _state.update { it.copy(characterPlayStates = emptyMap(), activeSummons = emptyMap(), currentTurn = 1, activeTroupes = troupes, turnHistory = emptyList(), readyForNextTurn = emptySet(), readyForRewind = emptySet(), winnerName = null, isTie = false) }
     }
 
     fun saveTroupe(troupe: Troupe) {
