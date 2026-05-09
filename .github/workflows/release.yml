@@ -83,7 +83,7 @@ jobs:
         KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
         KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: ./gradlew assembleGithubRelease bundleGithubRelease bundleFdroidRelease
+      run: ./gradlew assembleGithubRelease bundleGithubRelease assembleFdroidRelease
 
     - name: Write Play Store credentials to file
       run: echo '${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}' > /tmp/play-service-account.json
@@ -104,7 +104,7 @@ jobs:
         files: |
           app/build/outputs/apk/github/release/app-github-release.apk
           app/build/outputs/bundle/githubRelease/app-github-release.aab
-          app/build/outputs/bundle/fdroidRelease/app-fdroid-release.aab
+          app/build/outputs/apk/fdroid/release/app-fdroid-release.apk
         name: Release ${{ steps.version.outputs.new_tag }}
         body: ${{ steps.release_notes.outputs.notes }}
       env:
