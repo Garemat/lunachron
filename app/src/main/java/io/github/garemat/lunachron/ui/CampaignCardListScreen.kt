@@ -30,6 +30,8 @@ fun CampaignCardListScreen(
     val theme = LocalAppThemeProperties.current
     
     var showFilterBar by remember { mutableStateOf(true) }
+    val listState = rememberLazyListState()
+    LaunchedEffect(searchQuery) { listState.scrollToItem(0) }
 
     val filteredCards = remember(state.campaignCards, searchQuery, selectedFactions) {
         state.campaignCards.filter { card ->
@@ -75,7 +77,7 @@ fun CampaignCardListScreen(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(theme.verticalSpacing / 2),
                 contentPadding = PaddingValues(top = theme.verticalSpacing / 2, bottom = 100.dp, start = theme.screenPadding, end = theme.screenPadding),
-                state = rememberLazyListState()
+                state = listState
             ) {
                 if (filteredCards.isEmpty()) {
                     item {

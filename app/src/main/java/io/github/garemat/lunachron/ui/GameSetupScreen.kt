@@ -57,7 +57,7 @@ fun GameSetupScreen(
 
     // Tutorial interaction logic
     LaunchedEffect(currentTutorialStep) {
-        val target = currentTutorialStep?.targetName
+        val target = currentTutorialStep?.targetTag
         if (target in listOf("PlayerCount", "TroupeSelector", "StartBattleButton")) {
             setupMode.value = SetupMode.LOCAL
         } else if (target == "LocalGameOption") {

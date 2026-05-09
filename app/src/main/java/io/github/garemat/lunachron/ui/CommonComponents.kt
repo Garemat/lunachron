@@ -29,10 +29,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.drawWithContent
+import kotlin.math.sqrt
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -56,6 +61,9 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.zIndex
 import coil.compose.AsyncImage
 import io.github.garemat.lunachron.*
 import io.github.garemat.lunachron.R
@@ -291,21 +299,93 @@ fun FactionIcon(faction: Faction, size: Dp = 40.dp, modifier: Modifier = Modifie
 }
 
 /**
- * Displays one or two faction symbols blended together, matching the official dual-faction
- * card art. Both icons are centered in the [size] footprint with a small diagonal drift so
- * the primary sits slightly lower-left and the secondary upper-right. The secondary is
- * rendered with [BlendMode.Multiply] so its dark symbol elements show through the lighter
- * areas of the primary, approximating the translucent overlap in the physical card art.
- * For single-faction characters, delegates to [FactionIcon].
- */
-/**
- * Displays the primary faction symbol for a character. Multi-faction blending is
- * deferred to a later patch — for now only factions[0] is shown via [FactionIcon].
+ * Single-faction: renders [FactionIcon]. Dual-faction: diagonal split using gradient alpha
+ * masks (BlendMode.DstIn). The gradient runs perpendicular to the diagonal so its 50/50
+ * midpoint lands exactly on the split line. A ~15% blend strip softens the edge so spiky
+ * elements (antlers, sun rays) don't produce a harsh hard cut.
+ *
+ * The icon is half-clipped by the card edge (offset x = size/2), so the diagonal anchors
+ * at (0, h×2/3)→(w, 0) to give equal visible area for each faction.
  */
 @Composable
 fun MultiFactionIcon(factions: List<Faction>, size: Dp = 40.dp, modifier: Modifier = Modifier) {
     if (factions.isEmpty()) return
-    FactionIcon(faction = factions[0], size = size, modifier = modifier)
+    if (factions.size == 1) {
+        FactionIcon(faction = factions[0], size = size, modifier = modifier)
+        return
+    }
+    val primary = factions[0]
+    val secondary = factions[1]
+
+    Box(modifier = modifier.size(size)) {
+        // Primary: top-left half fading toward diagonal
+        Box(
+            modifier = Modifier
+                .size(size)
+                .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
+                .drawWithContent {
+                    drawContent()
+                    // 'this.size' is DrawScope.size (pixels), not the outer Dp parameter.
+                    val w = this.size.width
+                    val h = this.size.height
+                    val anchored = h * 2f / 3f
+                    val diagLen = sqrt(w * w + anchored * anchored)
+                    val perpX = anchored / diagLen
+                    val perpY = w / diagLen
+                    val cx = w / 2f; val cy = h / 3f
+                    val blendFrac = (w * 0.15f) / (2f * diagLen)
+                    drawRect(
+                        brush = Brush.linearGradient(
+                            colorStops = arrayOf<Pair<Float, Color>>(
+                                Pair(0f, Color.Black),
+                                Pair(0.5f - blendFrac, Color.Black),
+                                Pair(0.5f + blendFrac, Color.Transparent),
+                                Pair(1f, Color.Transparent)
+                            ),
+                            start = Offset(cx - perpX * diagLen, cy - perpY * diagLen),
+                            end   = Offset(cx + perpX * diagLen, cy + perpY * diagLen)
+                        ),
+                        blendMode = BlendMode.DstIn
+                    )
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            FactionSymbol(faction = primary, modifier = Modifier.size(size * factionVisualScale(primary)))
+        }
+        // Secondary: bottom-right half fading toward diagonal
+        Box(
+            modifier = Modifier
+                .size(size)
+                .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
+                .drawWithContent {
+                    drawContent()
+                    val w = this.size.width
+                    val h = this.size.height
+                    val anchored = h * 2f / 3f
+                    val diagLen = sqrt(w * w + anchored * anchored)
+                    val perpX = anchored / diagLen
+                    val perpY = w / diagLen
+                    val cx = w / 2f; val cy = h / 3f
+                    val blendFrac = (w * 0.15f) / (2f * diagLen)
+                    drawRect(
+                        brush = Brush.linearGradient(
+                            colorStops = arrayOf<Pair<Float, Color>>(
+                                Pair(0f, Color.Transparent),
+                                Pair(0.5f - blendFrac, Color.Transparent),
+                                Pair(0.5f + blendFrac, Color.Black),
+                                Pair(1f, Color.Black)
+                            ),
+                            start = Offset(cx - perpX * diagLen, cy - perpY * diagLen),
+                            end   = Offset(cx + perpX * diagLen, cy + perpY * diagLen)
+                        ),
+                        blendMode = BlendMode.DstIn
+                    )
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            FactionSymbol(faction = secondary, modifier = Modifier.size(size * factionVisualScale(secondary)))
+        }
+    }
 }
 
 @Composable
@@ -434,10 +514,10 @@ fun CommonAbilityItem(name: String, description: String, searchQuery: String = "
                         appendWithHighlight(name, searchQuery)
                         if (showColon) append(": ")
                     }
-                    if (oncePerTurn) withStyle(style = SpanStyle(fontStyle = FontStyle.Italic, fontWeight = FontWeight.Normal)) { append(" - Once per turn") }
-                    if (oncePerGame) withStyle(style = SpanStyle(fontStyle = FontStyle.Italic, fontWeight = FontWeight.Normal)) { append(if (reloadable) " - Once per game, unless reloaded" else " - Once per game") }
+                    if (oncePerTurn) withStyle(style = SpanStyle(fontStyle = FontStyle.Italic, fontWeight = FontWeight.Normal, fontSize = 11.sp)) { append(" - Once per turn") }
+                    if (oncePerGame) withStyle(style = SpanStyle(fontStyle = FontStyle.Italic, fontWeight = FontWeight.Normal, fontSize = 11.sp)) { append(if (reloadable) " - Once per game, unless reloaded" else " - Once per game") }
                 }
-                Text(text = title, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                Text(text = title, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 if (oncePerGame && onUsedChange != null) {
                     Box(modifier = Modifier.padding(start = 8.dp).size(16.dp).clip(CircleShape).background(if (isUsed) MaterialTheme.colorScheme.onSurfaceVariant else Color.Transparent).border(1.2.dp, if (isEditable) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, CircleShape).then(if (isEditable) Modifier.clickable { onUsedChange(!isUsed) } else Modifier), contentAlignment = Alignment.Center) {
                         if (isUsed) Icon(imageVector = Icons.Default.Close, contentDescription = null, modifier = Modifier.size(10.dp), tint = Color.White)
@@ -529,7 +609,7 @@ fun CharacterFront(
             }
         }
         if (showHealthTracker) {
-            HealthTracker(character.health, character.health, character.energyTrack, {}, isEditable = false)
+            HealthPipsChunked(character.health, character.health, character.energyTrack, compact = false, isEditable = false, onHealthChange = {})
         }
         Text(text = "Base: ${character.baseSize}", style = MaterialTheme.typography.labelSmall, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End)
     }
@@ -646,16 +726,36 @@ private fun ScaleToFit(modifier: Modifier = Modifier, content: @Composable (isSc
 }
 
 @Composable
-fun CommonCharacterCard(character: Character, searchQuery: String, isExpanded: Boolean, onExpandClick: () -> Unit, modifier: Modifier = Modifier, cardTargetName: String = "CharacterCard", onPositioned: (String, LayoutCoordinates) -> Unit = { _, _ -> }, forceFlipped: Boolean? = null, selectionControl: @Composable (RowScope.() -> Unit)? = null, bottomContent: (@Composable () -> Unit)? = null) {
+fun CommonCharacterCard(character: Character, searchQuery: String, isExpanded: Boolean, onExpandClick: () -> Unit, modifier: Modifier = Modifier, cardTargetName: String = "CharacterCard", onPositioned: (String, LayoutCoordinates) -> Unit = { _, _ -> }, forceFlipped: Boolean? = null, selectionControl: @Composable (RowScope.() -> Unit)? = null, bottomContent: (@Composable () -> Unit)? = null, cardDisplayMode: CardDisplayMode = CardDisplayMode.AUTO) {
     var isFlippedState by remember { mutableStateOf(false) }; val isFlipped = forceFlipped ?: isFlippedState
     val theme = LocalAppThemeProperties.current
     val animationsEnabled = LocalAnimationsEnabled.current
-    val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+    val configuration = LocalConfiguration.current
+    val density = LocalDensity.current
+    val showAsPopup = when {
+        selectionControl != null -> false
+        else -> when (cardDisplayMode) {
+            CardDisplayMode.POPUP -> true
+            CardDisplayMode.COLLAPSIBLE -> false
+            CardDisplayMode.AUTO -> LocalContext.current.resources.displayMetrics.densityDpi < 350 || density.fontScale > 1.15f
+        }
+    }
+    var showPopup by remember { mutableStateOf(false) }
+    val screenHeight = configuration.screenHeightDp.dp
     // Constrain card body to leave room for top bar (~48dp), bottom nav (~80dp), card header (~72dp) and margins
     val maxCardBodyHeight = (screenHeight - 48.dp - 80.dp - 72.dp - 32.dp).coerceAtLeast(300.dp)
+
+    if (showPopup) {
+        CompendiumCharacterPopup(
+            character = character,
+            searchQuery = searchQuery,
+            onDismiss = { showPopup = false }
+        )
+    }
+
     ThemedCard(modifier = modifier.fillMaxWidth().then(if (animationsEnabled) Modifier.animateContentSize() else Modifier).onGloballyPositioned { onPositioned(cardTargetName, it) }) {
         Column {
-            Row(modifier = Modifier.fillMaxWidth().clickable { onExpandClick() }.padding(theme.cardContentPadding), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Row(modifier = Modifier.fillMaxWidth().clickable { if (showAsPopup) showPopup = true else onExpandClick() }.padding(theme.cardContentPadding), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 if (selectionControl != null) { selectionControl(); Spacer(modifier = Modifier.width(4.dp)) }
                 Box(modifier = Modifier.size(if (selectionControl != null) 40.dp else 56.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
                     CharacterPortrait(character = character, size = if (selectionControl != null) 40.dp else 56.dp)
@@ -665,9 +765,15 @@ fun CommonCharacterCard(character: Character, searchQuery: String, isExpanded: B
                     Text(text = highlightText(character.name, searchQuery), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(text = character.keywords.joinToString(", "), style = MaterialTheme.typography.bodySmall, fontStyle = FontStyle.Italic, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
                 }
-                Icon(imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, contentDescription = null, modifier = Modifier.padding(start = 8.dp))
+                Icon(
+                    imageVector = if (showAsPopup) Icons.Default.OpenInFull
+                                  else if (isExpanded) Icons.Default.KeyboardArrowUp
+                                  else Icons.Default.KeyboardArrowDown,
+                    contentDescription = null,
+                    modifier = Modifier.padding(start = 8.dp)
+                )
             }
-            if (isExpanded) {
+            if (isExpanded && !showAsPopup) {
                 if (theme.showCardDivider) HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                 ScaleToFit(modifier = Modifier.fillMaxWidth().heightIn(max = maxCardBodyHeight)) { isScaled ->
                     CharacterCardContent(
@@ -688,6 +794,99 @@ fun CommonCharacterCard(character: Character, searchQuery: String, isExpanded: B
     }
 }
 
+@Composable
+private fun CompendiumCharacterPopup(
+    character: Character,
+    searchQuery: String,
+    onDismiss: () -> Unit
+) {
+    val theme = LocalAppThemeProperties.current
+    var isFlipped by remember { mutableStateOf(false) }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.72f))
+                    .clickable { onDismiss() }
+            )
+
+            ThemedCard(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .fillMaxWidth(0.94f)
+                    .fillMaxHeight(0.88f)
+                    .clickable {}
+            ) {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = theme.screenPadding, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                        ) {
+                            CharacterPortrait(character = character, size = 40.dp)
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = highlightText(character.name, searchQuery),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            if (character.keywords.isNotEmpty()) {
+                                Text(
+                                    text = character.keywords.joinToString(", "),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontStyle = FontStyle.Italic,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 2
+                                )
+                            }
+                        }
+                    }
+                    HorizontalDivider()
+
+                    CharacterCardContent(
+                        character = character,
+                        searchQuery = searchQuery,
+                        isFlipped = isFlipped,
+                        onFlip = { isFlipped = !isFlipped },
+                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                        animateFlip = true,
+                        showBackgroundImage = theme.showBackgroundImageOverlay,
+                        showHealthTracker = true,
+                        pinnedFooter = true,
+                        scrollable = true
+                    )
+                }
+            }
+
+            Text(
+                text = "Tap outside to close",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White.copy(alpha = 0.5f),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 12.dp)
+            )
+        }
+    }
+}
+
 /**
  * Shared card content composable used by both the compendium list and the in-game character modal.
  *
@@ -697,12 +896,12 @@ fun CommonCharacterCard(character: Character, searchQuery: String, isExpanded: B
  * @param showBackgroundImage  If true and the character has a portrait image, renders it as a
  *                     translucent background behind the card content.
  * @param showHealthTracker  Passed through to [CharacterFront] — shows health pips on the card.
- * @param pinnedFooter Controls whether the card content area is scrollable. Both `true` and `false`
- *                     render the Signature-Move / ← Character stats link as a pinned footer row
- *                     separated by a [HorizontalDivider]. When `true`, the content area gets a
- *                     `verticalScroll` wrapper and fills the available height — use this for
- *                     fixed-height containers (game modal). When `false` (default), the card
- *                     auto-sizes to its content — use this inside a [LazyColumn] (compendium).
+ * @param pinnedFooter When `true`, fills the available height with a pinned signature-move footer
+ *                     at the bottom. Use with `scrollable = true` for modal contexts. When `false`
+ *                     (default), the card auto-sizes to its content — use inside a [LazyColumn].
+ * @param scrollable   Only meaningful when [pinnedFooter] is `true`. When `true`, the content area
+ *                     scrolls vertically (full-size text, user scrolls). When `false` (default),
+ *                     [ScaleToFit] shrinks the text to fit the fixed container height.
  */
 @Composable
 fun CharacterCardContent(
@@ -717,6 +916,7 @@ fun CharacterCardContent(
     abilityUsedStates: Map<String, Boolean>? = null,
     onAbilityUsedChange: ((String, Boolean) -> Unit)? = null,
     pinnedFooter: Boolean = false,
+    scrollable: Boolean = false,
     onFlipPositioned: (LayoutCoordinates) -> Unit = {}
 ) {
     val theme = LocalAppThemeProperties.current
@@ -771,24 +971,39 @@ fun CharacterCardContent(
         Box(modifier = flipModifier) {
             if (!showBack) {
                 // Front face.
-                // pinnedFooter = true  → content scales to fit, footer anchored to bottom (modal)
+                // pinnedFooter = true  → fixed height with pinned footer; content scrolls (scrollable=true) or scales
                 // pinnedFooter = false → card auto-sizes; track height so back face never shrinks
                 Column(
                     modifier = Modifier.fillMaxWidth()
                         .then(if (pinnedFooter) Modifier.fillMaxSize() else Modifier.onSizeChanged { sz -> frontHeightPx = sz.height })
                 ) {
                     if (pinnedFooter) {
-                        ScaleToFit(modifier = Modifier.weight(1f).fillMaxWidth()) { _ ->
-                            CharacterFront(
-                                character = character,
-                                searchQuery = searchQuery,
-                                onFlip = onFlip,
-                                onFlipPositioned = onFlipPositioned,
-                                showHealthTracker = showHealthTracker,
-                                showSignatureLink = false,
-                                abilityUsedStates = abilityUsedStates,
-                                onAbilityUsedChange = onAbilityUsedChange
-                            )
+                        if (scrollable) {
+                            Column(modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())) {
+                                CharacterFront(
+                                    character = character,
+                                    searchQuery = searchQuery,
+                                    onFlip = onFlip,
+                                    onFlipPositioned = onFlipPositioned,
+                                    showHealthTracker = showHealthTracker,
+                                    showSignatureLink = false,
+                                    abilityUsedStates = abilityUsedStates,
+                                    onAbilityUsedChange = onAbilityUsedChange
+                                )
+                            }
+                        } else {
+                            ScaleToFit(modifier = Modifier.weight(1f).fillMaxWidth()) { _ ->
+                                CharacterFront(
+                                    character = character,
+                                    searchQuery = searchQuery,
+                                    onFlip = onFlip,
+                                    onFlipPositioned = onFlipPositioned,
+                                    showHealthTracker = showHealthTracker,
+                                    showSignatureLink = false,
+                                    abilityUsedStates = abilityUsedStates,
+                                    onAbilityUsedChange = onAbilityUsedChange
+                                )
+                            }
                         }
                     } else {
                         Column(modifier = Modifier.fillMaxWidth()) {
@@ -811,7 +1026,7 @@ fun CharacterCardContent(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable { onFlip() }
-                                .padding(vertical = 8.dp, horizontal = 16.dp),
+                                .padding(vertical = 4.dp, horizontal = 16.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
@@ -822,12 +1037,12 @@ fun CharacterCardContent(
                                     }
                                     append(".")
                                 },
-                                style = MaterialTheme.typography.bodyMedium,
+                                style = MaterialTheme.typography.labelMedium,
                                 fontStyle = FontStyle.Italic,
                                 modifier = Modifier.weight(1f),
                                 color = MaterialTheme.colorScheme.secondary
                             )
-                            Icon(imageVector = Icons.Default.KeyboardArrowRight, contentDescription = "View signature move", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.secondary)
+                            Icon(imageVector = Icons.Default.KeyboardArrowRight, contentDescription = "View signature move", modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.secondary)
                         }
                     }
                 }
@@ -849,14 +1064,26 @@ fun CharacterCardContent(
                         verticalArrangement = if (pinnedFooter) Arrangement.Top else Arrangement.SpaceBetween
                     ) {
                         if (pinnedFooter) {
-                            ScaleToFit(modifier = Modifier.weight(1f).fillMaxWidth()) { _ ->
-                                CharacterBack(
-                                    character = character,
-                                    searchQuery = searchQuery,
-                                    onFlip = onFlip,
-                                    onFlipPositioned = onFlipPositioned,
-                                    showBackLink = false
-                                )
+                            if (scrollable) {
+                                Column(modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())) {
+                                    CharacterBack(
+                                        character = character,
+                                        searchQuery = searchQuery,
+                                        onFlip = onFlip,
+                                        onFlipPositioned = onFlipPositioned,
+                                        showBackLink = false
+                                    )
+                                }
+                            } else {
+                                ScaleToFit(modifier = Modifier.weight(1f).fillMaxWidth()) { _ ->
+                                    CharacterBack(
+                                        character = character,
+                                        searchQuery = searchQuery,
+                                        onFlip = onFlip,
+                                        onFlipPositioned = onFlipPositioned,
+                                        showBackLink = false
+                                    )
+                                }
                             }
                         } else {
                             Column(modifier = Modifier.fillMaxWidth()) {

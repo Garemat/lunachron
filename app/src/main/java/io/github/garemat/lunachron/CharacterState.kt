@@ -14,6 +14,8 @@ enum class LayoutDensity {
 @Serializable
 enum class GameTrackingMode { LOW_DETAIL, FULL_TRACKING }
 
+enum class CardDisplayMode { AUTO, POPUP, COLLAPSIBLE }
+
 
 @Serializable
 enum class ImageDownloadPreference { PROMPT, ENABLED, DISABLED }
@@ -256,6 +258,8 @@ data class CharacterState(
 
     // Tutorial State
     val hasSeenGlobalTutorial: Boolean = false,
+    val isTutorialActive: Boolean = false,
+    val currentTutorialStep: Int = 0,
     
     // Game Session State (Nearby)
     val gameSession: GameSession? = null,
@@ -271,6 +275,9 @@ data class CharacterState(
     val gameTrackingMode: GameTrackingMode = GameTrackingMode.LOW_DETAIL,
     val enableAnimations: Boolean = true,
     val defaultStartPage: String = "home",
+    val cardDisplayMode: CardDisplayMode = CardDisplayMode.AUTO,
+    val skipCompendiumLanding: Boolean = false,
+    val hideCampaignTab: Boolean = false,
 
     // Active Game Play State
     val currentTurn: Int = 1,

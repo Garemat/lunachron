@@ -19,6 +19,7 @@ import io.github.garemat.lunachron.CharacterEvent
 import io.github.garemat.lunachron.ui.theme.ThemeRepository
 import io.github.garemat.lunachron.BuildConfig
 import io.github.garemat.lunachron.CharacterState
+import io.github.garemat.lunachron.CardDisplayMode
 import io.github.garemat.lunachron.GameTrackingMode
 import io.github.garemat.lunachron.ImageDownloadPreference
 import io.github.garemat.lunachron.InstallerSource
@@ -237,6 +238,74 @@ fun SettingsScreen(
                         theme = theme
                     )
                 }
+            }
+
+            Spacer(modifier = Modifier.height(theme.verticalSpacing))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Spacer(modifier = Modifier.height(theme.verticalSpacing))
+
+            Text("Compendium", style = theme.titleStyle.copy(fontSize = 20.sp), color = MaterialTheme.colorScheme.primary)
+            Spacer(modifier = Modifier.height(theme.verticalSpacing / 4))
+            Text("Character card style", style = theme.headerStyle.copy(fontSize = 18.sp))
+            Text("How character cards appear in the compendium list.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
+            Column {
+                SelectionOption(
+                    title = "Automatic",
+                    subtitle = "Pop-out on small screens or large text, collapsible otherwise.",
+                    selected = state.cardDisplayMode == CardDisplayMode.AUTO,
+                    onSelect = { onEvent(CharacterEvent.SetCardDisplayMode(CardDisplayMode.AUTO)) },
+                    theme = theme
+                )
+                SelectionOption(
+                    title = "Pop-out",
+                    subtitle = "Tapping a card always opens it in a full-screen popup.",
+                    selected = state.cardDisplayMode == CardDisplayMode.POPUP,
+                    onSelect = { onEvent(CharacterEvent.SetCardDisplayMode(CardDisplayMode.POPUP)) },
+                    theme = theme
+                )
+                SelectionOption(
+                    title = "Collapsible",
+                    subtitle = "Tapping a card always expands it inline in the list.",
+                    selected = state.cardDisplayMode == CardDisplayMode.COLLAPSIBLE,
+                    onSelect = { onEvent(CharacterEvent.SetCardDisplayMode(CardDisplayMode.COLLAPSIBLE)) },
+                    theme = theme
+                )
+            }
+            Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onEvent(CharacterEvent.SetSkipCompendiumLanding(!state.skipCompendiumLanding)) }
+                    .padding(vertical = theme.verticalSpacing / 4),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Skip compendium landing", style = theme.headerStyle.copy(fontSize = 18.sp))
+                    Text("Go straight to the character list when opening the Compendium tab.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(
+                    checked = state.skipCompendiumLanding,
+                    onCheckedChange = { onEvent(CharacterEvent.SetSkipCompendiumLanding(it)) }
+                )
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onEvent(CharacterEvent.SetHideCampaignTab(!state.hideCampaignTab)) }
+                    .padding(vertical = theme.verticalSpacing / 4),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Hide Campaigns tab", style = theme.headerStyle.copy(fontSize = 18.sp))
+                    Text("Remove the Campaigns tab from the bottom navigation bar.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(
+                    checked = state.hideCampaignTab,
+                    onCheckedChange = { onEvent(CharacterEvent.SetHideCampaignTab(it)) }
+                )
             }
 
             Spacer(modifier = Modifier.height(theme.verticalSpacing))
