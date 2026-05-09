@@ -33,6 +33,9 @@ sealed interface CharacterEvent {
     
     // Tutorial
     data class SetHasSeenTutorial(val tutorialKey: String, val seen: Boolean) : CharacterEvent
+    data object StartTutorial : CharacterEvent
+    data object AdvanceTutorial : CharacterEvent
+    data object SkipTutorial : CharacterEvent
 
     // News
     data object RefreshNews : CharacterEvent
@@ -59,6 +62,9 @@ sealed interface CharacterEvent {
     data class ChangeGameTrackingMode(val mode: GameTrackingMode) : CharacterEvent
     data class SetEnableAnimations(val enabled: Boolean) : CharacterEvent
     data class SetDefaultStartPage(val route: String) : CharacterEvent
+    data class SetCardDisplayMode(val mode: CardDisplayMode) : CharacterEvent
+    data class SetSkipCompendiumLanding(val skip: Boolean) : CharacterEvent
+    data class SetHideCampaignTab(val hide: Boolean) : CharacterEvent
     data class AddSummonedCharacter(val playerIndex: Int, val characterId: Int, val summonedByCharacterId: Int?) : CharacterEvent
     data class RemoveSummonedCharacter(val playerIndex: Int, val characterId: Int) : CharacterEvent
     data class UpdatePoolResource(val playerIndex: Int, val resourceName: String, val count: Int) : CharacterEvent

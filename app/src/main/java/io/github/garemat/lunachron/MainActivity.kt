@@ -67,12 +67,15 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             val state by viewModel.state.collectAsState()
-            var showTutorialForcefully by remember { mutableStateOf(false) }
-            
-            // Global coordinate tracking for tutorial
+            // Global coordinate tracking for tutorial overlay
             val tutorialCoords = remember { mutableStateMapOf<String, LayoutCoordinates>() }
-            val isTutorialActive = false // disabled
-            var currentTutorialStep by remember { mutableStateOf<TutorialStep?>(null) }
+
+            // Trigger tutorial automatically on first launch
+            LaunchedEffect(Unit) {
+                if (!state.hasSeenGlobalTutorial) {
+                    viewModel.onEvent(CharacterEvent.StartTutorial)
+                }
+            }
 
             // State for manual troupe selection
             var targetManualPlayerId by remember { mutableStateOf<String?>(null) }
@@ -173,6 +176,7 @@ class MainActivity : ComponentActivity() {
                 // Data update dialogs
                 DataUpdateDialogs(state = state, onEvent = viewModel::onEvent, theme = theme)
 
+                Box(modifier = Modifier.fillMaxSize()) {
                 ModalNavigationDrawer(
                     drawerState = drawerState,
                     gesturesEnabled = showNavBars,
@@ -222,6 +226,21 @@ class MainActivity : ComponentActivity() {
                             Spacer(Modifier.weight(1f))
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                             NavigationDrawerItem(
+                                icon = { Icon(Icons.Default.HelpOutline, contentDescription = null) },
+                                label = { Text("Tutorial", style = theme.headerStyle.copy(fontSize = 18.sp)) },
+                                selected = false,
+                                onClick = {
+                                    scope.launch { drawerState.close() }
+                                    viewModel.onEvent(CharacterEvent.StartTutorial)
+                                },
+                                shape = theme.navItemShape,
+                                colors = NavigationDrawerItemDefaults.colors(
+                                    unselectedIconColor = MaterialTheme.colorScheme.primary,
+                                    unselectedTextColor = MaterialTheme.colorScheme.primary
+                                )
+                            )
+                            NavigationDrawerItem(
+                                modifier = Modifier.onGloballyPositioned { tutorialCoords["DrawerSettings"] = it },
                                 icon = { Icon(Icons.Default.Settings, contentDescription = null) },
                                 label = { Text("Settings", style = theme.headerStyle.copy(fontSize = 18.sp)) },
                                 selected = false,
@@ -361,13 +380,14 @@ class MainActivity : ComponentActivity() {
                                 ) {
                                     val playRoute = if (state.useLocalModeByDefault && state.useSinglePlayerMode)
                                         Screen.SoloTroupeSelect.route else Screen.GameSetup.route
-                                    val items = listOf(
-                                        BottomNavItem("Home", Screen.Home.route, Icons.Default.Home),
-                                        BottomNavItem("Compendium", Screen.Compendium.route, Icons.Default.MenuBook),
-                                        BottomNavItem("Play", playRoute, Icons.Default.PlayArrow),
-                                        BottomNavItem("Troupes", Screen.Troupes.route, Icons.Default.Groups),
-                                        BottomNavItem("Campaigns", Screen.CampaignHub.route, Icons.Default.HistoryEdu)
-                                    )
+                                    val compendiumRoute = if (state.skipCompendiumLanding) Screen.Characters.route else Screen.Compendium.route
+                                    val items = buildList {
+                                        add(BottomNavItem("Home", Screen.Home.route, Icons.Default.Home))
+                                        add(BottomNavItem("Compendium", compendiumRoute, Icons.Default.MenuBook))
+                                        add(BottomNavItem("Play", playRoute, Icons.Default.PlayArrow))
+                                        add(BottomNavItem("Troupes", Screen.Troupes.route, Icons.Default.Groups))
+                                        if (!state.hideCampaignTab) add(BottomNavItem("Campaigns", Screen.CampaignHub.route, Icons.Default.HistoryEdu))
+                                    }
                                     items.forEach { item ->
                                         val isPlayButton = item.label == "Play"
                                         val isSelected = if (isPlayButton) {
@@ -444,7 +464,12 @@ class MainActivity : ComponentActivity() {
                         }
                     ) { innerPadding ->
                         Box(modifier = Modifier.fillMaxSize()) {
-                            val startDestination = remember { state.defaultStartPage }
+                            val startDestination = remember {
+                                if (state.defaultStartPage == Screen.Compendium.route && state.skipCompendiumLanding)
+                                    Screen.Characters.route
+                                else
+                                    state.defaultStartPage
+                            }
                         NavHost(
                                 navController = navController,
                                 startDestination = startDestination,
@@ -512,7 +537,7 @@ class MainActivity : ComponentActivity() {
                                             navController.navigate(Screen.AddEditTroupe.route) 
                                         },
                                         onEditTroupe = { navController.navigate(Screen.AddEditTroupe.route) },
-                                        isTutorialActive = isTutorialActive,
+                                        isTutorialActive = state.isTutorialActive,
                                         onTargetPositioned = { name, coords -> tutorialCoords[name] = coords }
                                     )
                                 }
@@ -554,7 +579,7 @@ class MainActivity : ComponentActivity() {
                                         viewModel = viewModel,
                                         state = state,
                                         onNavigateBack = { navController.safePopBackStack() },
-                                        currentTutorialStep = currentTutorialStep,
+                                        currentTutorialStep = io.github.garemat.lunachron.ui.appTutorialSteps.getOrNull(state.currentTutorialStep),
                                         onTargetPositioned = { name, coords -> tutorialCoords[name] = coords }
                                     )
                                 }
@@ -584,7 +609,7 @@ class MainActivity : ComponentActivity() {
                                         onJoinTournament = {
                                             navController.navigate(Screen.TournamentWaitingRoom.route)
                                         },
-                                        currentTutorialStep = currentTutorialStep,
+                                        currentTutorialStep = io.github.garemat.lunachron.ui.appTutorialSteps.getOrNull(state.currentTutorialStep),
                                         onTargetPositioned = { name, coords -> tutorialCoords[name] = coords }
                                     )
                                 }
@@ -597,8 +622,8 @@ class MainActivity : ComponentActivity() {
                                         onQuitGame = { 
                                             navController.popBackStack(Screen.Home.route, inclusive = false)
                                         },
-                                        isTutorialActive = isTutorialActive,
-                                        currentTutorialStep = currentTutorialStep,
+                                        isTutorialActive = state.isTutorialActive,
+                                        currentTutorialStep = io.github.garemat.lunachron.ui.appTutorialSteps.getOrNull(state.currentTutorialStep),
                                         onTargetPositioned = { name, coords -> tutorialCoords[name] = coords }
                                     )
                                 }
@@ -780,26 +805,24 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
 
-                            if (isTutorialActive) {
-                                TutorialOverlay(
-                                    steps = fullAppTutorialSteps,
-                                    targetCoordinates = tutorialCoords,
-                                    navController = navController,
-                                    onStepChange = { currentTutorialStep = fullAppTutorialSteps.getOrNull(it) },
-                                    onComplete = {
-                                        viewModel.onEvent(CharacterEvent.SetHasSeenTutorial("global", true))
-                                        showTutorialForcefully = false
-                                        currentTutorialStep = null
-                                    },
-                                    onSkip = {
-                                        viewModel.onEvent(CharacterEvent.SetHasSeenTutorial("global", true))
-                                        showTutorialForcefully = false
-                                        currentTutorialStep = null
-                                    }
-                                )
-                            }
                         }
                     }
+                }
+                if (state.isTutorialActive) {
+                    TutorialOverlay(
+                        steps = io.github.garemat.lunachron.ui.appTutorialSteps,
+                        currentStepIndex = state.currentTutorialStep,
+                        tutorialCoords = tutorialCoords,
+                        navController = navController,
+                        state = state,
+                        onAdvance = { viewModel.onEvent(CharacterEvent.AdvanceTutorial) },
+                        onSkip = { viewModel.onEvent(CharacterEvent.SkipTutorial) },
+                        onStepChanged = { newStep ->
+                            if (newStep == 5) scope.launch { drawerState.close() }
+                        },
+                        drawerState = drawerState
+                    )
+                }
                 }
             }
         }
