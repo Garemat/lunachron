@@ -180,8 +180,13 @@ fun AnnotatedString.Builder.appendWithHighlight(text: String, searchQuery: Strin
 
 fun buildArcaneDescription(ability: Ability): String {
     val outcomeLines = ability.arcaneOutcomes.joinToString("\n") { outcome ->
-        val cardLabel = outcome.validCards.joinToString(" or ") { card ->
+        val cards = outcome.validCards.map { card ->
             if (card.colour == "Catastrophe") "Catastrophe" else "[${card.colour.first()}]${card.value}"
+        }
+        val cardLabel = when (cards.size) {
+            0 -> ""
+            1 -> cards[0]
+            else -> cards.dropLast(1).joinToString(",") + " or " + cards.last()
         }
         "$cardLabel: ${outcome.text}"
     }
