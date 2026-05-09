@@ -60,7 +60,11 @@ fun CharacterListScreen(
         onExpansionChanged(expandedCharacterIds.isNotEmpty())
     }
 
+    val listState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
+
     LaunchedEffect(searchQuery) {
+        listState.scrollToItem(0)
         if (searchQuery.isEmpty()) {
             expandedCharacterIdsList = emptyList()
         } else {
@@ -71,9 +75,6 @@ fun CharacterListScreen(
             if (matchingIds.size in 1..3) expandedCharacterIdsList = matchingIds
         }
     }
-
-    val listState = rememberLazyListState()
-    val coroutineScope = rememberCoroutineScope()
     val screenHeight = LocalConfiguration.current.screenHeightDp.dp
 
     LaunchedEffect(availableTags) {
@@ -137,7 +138,9 @@ fun CharacterListScreen(
 
         Box(modifier = Modifier.weight(1f)) {
             LazyColumn(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .onGloballyPositioned { onTargetPositioned("CharacterList", it) },
                 verticalArrangement = Arrangement.spacedBy(theme.verticalSpacing / 2),
                 contentPadding = PaddingValues(top = theme.verticalSpacing / 2, bottom = screenHeight * 0.6f, start = theme.screenPadding, end = theme.screenPadding),
                 state = listState
@@ -155,6 +158,7 @@ fun CharacterListScreen(
                         character = character,
                         searchQuery = searchQuery,
                         isExpanded = expandedCharacterIds.contains(character.id),
+                        cardDisplayMode = state.cardDisplayMode,
                         onExpandClick = {
                             val isCurrentlyExpanded = character.id in expandedCharacterIds
                             if (isCurrentlyExpanded) {
