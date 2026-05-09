@@ -241,7 +241,7 @@ class DataUpdateRepository(
     ): File {
         val body = client.get("https://api.github.com/repos/$APP_REPO/releases/tags/${release.tagName}").bodyAsText()
         val apiRelease = json.decodeFromString<ApiRelease>(body)
-        val apkAsset = apiRelease.assets.firstOrNull { it.name.endsWith(".apk") && !it.name.contains("debug", ignoreCase = true) }
+        val apkAsset = apiRelease.assets.firstOrNull { it.name == "app-github-release.apk" }
             ?: throw IllegalStateException("No release APK found in ${release.tagName}")
 
         val response = client.get(apkAsset.browserDownloadUrl)
