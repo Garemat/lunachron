@@ -818,7 +818,7 @@ class MainActivity : ComponentActivity() {
                         onAdvance = { viewModel.onEvent(CharacterEvent.AdvanceTutorial) },
                         onSkip = { viewModel.onEvent(CharacterEvent.SkipTutorial) },
                         onStepChanged = { newStep ->
-                            if (newStep == 5) scope.launch { drawerState.close() }
+                            if (newStep == 6) scope.launch { drawerState.close() }
                         },
                         drawerState = drawerState
                     )
