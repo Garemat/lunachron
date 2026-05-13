@@ -137,11 +137,18 @@ android.sourceSets.getByName("androidTest") {
 }
 
 // ---------------------------------------------------------------------------
-// Task: download the pinned lunachron-data release assets into
-// app/src/main/assets/ so the bundled seed is deterministic at build time.
-// The pinned tag is read from data.version in the repo root — this file is
-// committed and updated by CI on each app release, giving F-Droid and local
-// builds a reproducible, auditable data snapshot.
+// Task: produce compendium.json in app/src/main/assets/ so the bundled seed
+// is deterministic at build time.  Two strategies, tried in order:
+//
+// 1. Submodule (preferred — works in F-Droid's sandboxed build environment):
+//    The data/ submodule is pinned to the same tag as data.version.  When
+//    present, aggregate.py is run against the raw source files so no network
+//    access is needed.
+//
+// 2. GitHub API download (fallback for CI builds that don't initialise the
+//    submodule, e.g. the release workflow which already has GITHUB_TOKEN set):
+//    Fetches the pre-built compendium.json release asset.
+//
 // The assets/ folder is gitignored — these files are never committed.
 // ---------------------------------------------------------------------------
 val dataAssetsDir = file("src/main/assets")
@@ -150,9 +157,10 @@ val dataRepo = "garemat/lunachron-data"
 // Read pinned version from data.version in the repo root.
 val dataVersionFile = rootProject.file("data.version")
 val pinnedDataTag = if (dataVersionFile.exists()) dataVersionFile.readText().trim() else "v0.1.0"
+val dataSubmoduleDir = rootProject.file("data")
 
 tasks.register("downloadDataAssets") {
-    description = "Downloads compendium.json from the pinned lunachron-data release (tag in data.version)."
+    description = "Aggregates compendium.json from the data submodule, or downloads it from GitHub as a fallback."
     group = "lunachron"
 
     outputs.files(file("${dataAssetsDir}/$compendiumAsset"))
@@ -164,7 +172,24 @@ tasks.register("downloadDataAssets") {
     doLast {
         dataAssetsDir.mkdirs()
 
-        // Use GITHUB_TOKEN when present (CI) so the API call works against private repos.
+        // Strategy 1: aggregate from the local data submodule (no network needed).
+        if (file("${dataSubmoduleDir}/characters").exists()) {
+            logger.lifecycle("Aggregating $compendiumAsset from data submodule ($pinnedDataTag)...")
+            val process = ProcessBuilder("python3", "scripts/aggregate.py")
+                .directory(dataSubmoduleDir)
+                .redirectErrorStream(true)
+                .also { it.environment()["COMPENDIUM_VERSION"] = pinnedDataTag }
+                .start()
+            val output = process.inputStream.bufferedReader().readText()
+            val exitCode = process.waitFor()
+            if (exitCode != 0) error("aggregate.py failed (exit $exitCode):\n$output")
+            file("${dataSubmoduleDir}/build/$compendiumAsset")
+                .copyTo(file("${dataAssetsDir}/$compendiumAsset"), overwrite = true)
+            logger.lifecycle("$compendiumAsset aggregated from submodule.")
+            return@doLast
+        }
+
+        // Strategy 2: download from GitHub release (requires GITHUB_TOKEN and network).
         val githubToken = System.getenv("GITHUB_TOKEN")
         fun openAuthenticatedStream(url: String): java.io.InputStream {
             val conn = URI(url).toURL().openConnection() as java.net.HttpURLConnection
