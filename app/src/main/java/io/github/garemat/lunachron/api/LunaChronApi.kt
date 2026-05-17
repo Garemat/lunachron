@@ -118,18 +118,15 @@ class LunaChronApi(
     private val json = Json { ignoreUnknownKeys = true; coerceInputValues = true; encodeDefaults = true }
     private val http = client ?: HttpClient(Android) {
         install(HttpTimeout) {
-            // 35s gives headroom above the OCI Function's own 30s timeout so the
-            // function's error (502) reaches us rather than the client timing out first.
-            requestTimeoutMillis = 35_000
-            connectTimeoutMillis = 35_000
-            socketTimeoutMillis  = 35_000
+            // ORDS runs inside ADB — no cold starts, so 15s is ample.
+            requestTimeoutMillis = 15_000
+            connectTimeoutMillis = 15_000
+            socketTimeoutMillis  = 15_000
         }
         install(HttpRequestRetry) {
-            // One retry on timeout — if the cold start exhausted the first attempt,
-            // the container is warm by the time the retry lands.
             maxRetries = 1
             retryOnException(retryOnTimeout = true)
-            delayMillis { 2_000 }
+            delayMillis { 1_000 }
         }
     }
 
