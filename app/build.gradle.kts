@@ -77,10 +77,10 @@ android {
     buildTypes {
         debug {
             // Emulator loopback — change to LAN IP for testing on a physical device.
-            buildConfigField("String", "LUNACHRON_API_URL", "\"https://api.garemat.co.uk\"")
+            buildConfigField("String", "LUNACHRON_API_URL", "\"https://GE122272A5BD5AC-GAREMAT.adb.uk-london-1.oraclecloudapps.com/ords/lunachron\"")
         }
         release {
-            buildConfigField("String", "LUNACHRON_API_URL", "\"https://api.garemat.co.uk\"")
+            buildConfigField("String", "LUNACHRON_API_URL", "\"https://GE122272A5BD5AC-GAREMAT.adb.uk-london-1.oraclecloudapps.com/ords/lunachron\"")
             isMinifyEnabled = false
             isCrunchPngs = false
             // Only apply signingConfig if it exists and storeFile is set.
