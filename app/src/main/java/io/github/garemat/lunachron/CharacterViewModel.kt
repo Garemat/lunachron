@@ -199,10 +199,9 @@ class CharacterViewModel(
     }
 
     private fun loadRules() {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             try {
-                val jsonString = getApplication<Application>().assets.open("rules.json").bufferedReader().use { it.readText() }
-                _rules.value = Json.decodeFromString<List<RuleSection>>(jsonString)
+                _rules.value = CharacterData.readCompendium(getApplication()).rules
             } catch (e: Exception) { e.printStackTrace() }
         }
     }

@@ -155,7 +155,8 @@ data class CompendiumData(
     val version: String,
     val characters: List<Character> = emptyList(),
     val upgrades: List<UpgradeCard> = emptyList(),
-    val campaign: List<CampaignCard> = emptyList()
+    val campaign: List<CampaignCard> = emptyList(),
+    val rules: List<RuleSection> = emptyList()
 )
 
 // ── Other game entities ────────────────────────────────────────────────────────
