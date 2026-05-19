@@ -164,6 +164,14 @@ sealed interface CharacterEvent {
     // LunaChron API — match result verification (opponent approves or contests)
     data class VerifyMatchResult(val campaignId: String, val resultId: String, val agree: Boolean) : CharacterEvent
 
+    // LunaChron API — round troupe confirmation (before a match, mutual reveal)
+    data class ConfirmRoundTroupe(
+        val campaignId: String,
+        val roundNumber: Int,
+        val troupeData: String,
+        val targetDeviceId: String? = null   // host only: confirm for a local player
+    ) : CharacterEvent
+
     // LunaChron API — machinations phase
     data class SubmitMachination(
         val campaignId: String,

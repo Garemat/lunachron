@@ -93,6 +93,13 @@ internal fun OnlineMachinationsTab(
         .firstOrNull { myDeviceId in it }
         ?.firstOrNull { it != myDeviceId }
 
+    // Bonus 3rd slot: free for bye players, or spendable if player has banked bonus MP
+    val hasNextRoundSchedule = campaign.schedule?.containsKey(nextRoundKey) == true
+    val hasByeBonus = hasNextRoundSchedule && myNextOpponentId == null
+    val myMember = approvedMembers.find { it.deviceId == myDeviceId }
+    val hasMpBonus = !hasByeBonus && (myMember?.bonusMp ?: 0) > 0
+    val has3rdSlot = hasByeBonus || hasMpBonus
+
     val eligibleTargets = approvedMembers.filter {
         it.deviceId != myDeviceId && it.deviceId != myNextOpponentId
     }
@@ -111,6 +118,13 @@ internal fun OnlineMachinationsTab(
             else MachSlotState()
         )
     }
+    var slot3 by remember(mySubmission) {
+        val c = mySubmission?.choices?.getOrNull(2)
+        mutableStateOf(
+            if (c != null) MachSlotState(selectedType = c.type, targetDeviceId = c.targetDeviceId)
+            else MachSlotState()
+        )
+    }
     var atk by remember(mySubmission) {
         val a = mySubmission?.attack
         mutableStateOf(
@@ -123,7 +137,7 @@ internal fun OnlineMachinationsTab(
         )
     }
 
-    // Clear slot2 target if it conflicts with slot1 after slot1 is edited
+    // Clear downstream slots when an earlier slot's target creates a conflict
     LaunchedEffect(slot1.selectedType, slot1.targetDeviceId) {
         if (!slot2.abstained && slot2.selectedType != null && slot2.targetDeviceId.isNotEmpty() &&
             slot2.selectedType == slot1.selectedType &&
@@ -131,6 +145,15 @@ internal fun OnlineMachinationsTab(
             slot1.targetDeviceId.isNotEmpty()
         ) {
             slot2 = slot2.copy(targetDeviceId = "", isOpen = true)
+        }
+    }
+    LaunchedEffect(slot1.selectedType, slot1.targetDeviceId, slot2.selectedType, slot2.targetDeviceId) {
+        if (has3rdSlot && !slot3.abstained && slot3.selectedType != null && slot3.targetDeviceId.isNotEmpty()) {
+            val conflictsWithSlot1 = slot3.selectedType == slot1.selectedType && slot3.targetDeviceId == slot1.targetDeviceId && slot1.targetDeviceId.isNotEmpty()
+            val conflictsWithSlot2 = slot3.selectedType == slot2.selectedType && slot3.targetDeviceId == slot2.targetDeviceId && slot2.targetDeviceId.isNotEmpty()
+            if (conflictsWithSlot1 || conflictsWithSlot2) {
+                slot3 = slot3.copy(targetDeviceId = "", isOpen = true)
+            }
         }
     }
 
@@ -163,6 +186,19 @@ internal fun OnlineMachinationsTab(
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold
                 )
+                if (hasByeBonus) {
+                    Text(
+                        "Bye +1 slot",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                } else if (hasMpBonus) {
+                    Text(
+                        "1 bonus MP",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
+                }
                 Spacer(Modifier.weight(1f))
                 Text(
                     "$submittedCount / $totalCount submitted",
@@ -243,6 +279,30 @@ internal fun OnlineMachinationsTab(
                 )
             }
 
+            // Slot III — free for bye players, or spends 1 banked bonus MP
+            if (has3rdSlot) {
+                item {
+                    val slot3Targets = run {
+                        var targets = eligibleTargets
+                        if (slot3.selectedType != null && slot1.targetDeviceId.isNotEmpty() && slot3.selectedType == slot1.selectedType)
+                            targets = targets.filter { it.deviceId != slot1.targetDeviceId }
+                        if (slot3.selectedType != null && slot2.targetDeviceId.isNotEmpty() && slot3.selectedType == slot2.selectedType)
+                            targets = targets.filter { it.deviceId != slot2.targetDeviceId }
+                        targets
+                    }
+                    MachinationSlotCard(
+                        label = "Operation III",
+                        slot = slot3,
+                        targets = slot3Targets,
+                        rankOf = rankOf,
+                        totalPlayers = approvedMembers.size,
+                        locked = !slot2.isDecided,
+                        onUpdate = { slot3 = it },
+                        onClear = { slot3 = MachSlotState() }
+                    )
+                }
+            }
+
             // Attack section
             if (attacksEnabled && eligibleTargets.isNotEmpty()) {
                 item {
@@ -273,7 +333,7 @@ internal fun OnlineMachinationsTab(
                         onEvent(
                             CharacterEvent.SubmitMachination(
                                 campaign.id,
-                                listOfNotNull(slot1.toChoice(), slot2.toChoice()),
+                                listOfNotNull(slot1.toChoice(), slot2.toChoice(), if (has3rdSlot) slot3.toChoice() else null),
                                 atk.toAttack()
                             )
                         )
