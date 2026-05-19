@@ -522,6 +522,41 @@ class LunaChronApi(
         ApiResult.Error("NETWORK_ERROR", e.message ?: "Network error")
     }
 
+    /**
+     * Confirm this player's troupe snapshot for [roundNumber] before their match.
+     * Once both players in the scheduled game confirm, each can see the other's troupe
+     * via [OnlineCampaignDetail.roundTroupes] returned by [getCampaign].
+     * Pass [targetDeviceId] (host only) to confirm on behalf of a local player.
+     */
+    suspend fun confirmRoundTroupe(
+        campaignId: String,
+        roundNumber: Int,
+        troupeData: String,
+        targetDeviceId: String? = null
+    ): ApiResult<Unit> = try {
+        val body = buildString {
+            append("""{"roundNumber":$roundNumber,"troupeData":""")
+            append(json.encodeToString(troupeData))
+            if (targetDeviceId != null) { append(""","targetDeviceId":"""); append(json.encodeToString(targetDeviceId)) }
+            append("}")
+        }
+        val response = http.post("$BASE_URL/campaigns/$campaignId/confirm-round-troupe") {
+            authorize()
+            contentType(ContentType.Application.Json)
+            setBody(body)
+        }
+        val text = response.bodyAsText()
+        when (response.status.value) {
+            200 -> ApiResult.Success(Unit)
+            else -> {
+                val err = runCatching { json.decodeFromString<ApiErrorBody>(text) }.getOrDefault(ApiErrorBody())
+                ApiResult.Error(err.code, err.message)
+            }
+        }
+    } catch (e: Exception) {
+        ApiResult.Error("NETWORK_ERROR", e.message ?: "Network error")
+    }
+
     /** Submit SUPPORT/SABOTAGE machination choices (and optional attack) for the machinations phase. */
     suspend fun submitMachination(
         campaignId: String,

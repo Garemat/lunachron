@@ -153,6 +153,13 @@ data class OnlineCampaignMember(
     val powerPoints: Int = 0
 )
 
+/** Confirmed troupe snapshot for one player in a round. */
+@Serializable
+data class OnlineRoundTroupe(
+    val deviceId: String,
+    val troupeData: String   // base64 share string, same format as OnlineCampaignMember.troupeData
+)
+
 @Serializable
 data class OnlineCampaignDetail(
     val id: String,
@@ -168,7 +175,13 @@ data class OnlineCampaignDetail(
     val currentRound: Int = 1,
     val phase: String = "GAME",
     val machinations: List<OnlineMachinationEntry> = emptyList(),
-    val matchResults: List<OnlineMatchResult> = emptyList()
+    val matchResults: List<OnlineMatchResult> = emptyList(),
+    // Confirmed troupe snapshots for the current round — only populated for pairs
+    // where both players in a scheduled game have confirmed. Empty for round 1
+    // (use OnlineCampaignMember.troupeData instead).
+    val roundTroupes: List<OnlineRoundTroupe> = emptyList(),
+    // Previous round's confirmed troupes — no gate, used for new-character diff.
+    val previousRoundTroupes: List<OnlineRoundTroupe> = emptyList()
 )
 
 /** A single SUPPORT/SABOTAGE machination choice within a submitted entry. */
@@ -363,6 +376,9 @@ data class CharacterState(
     val isSubmittingMatchResult: Boolean = false,
     val matchResultSubmitted: Boolean = false,
     val isVerifyingMatchResult: Boolean = false,
+
+    // Online round troupe confirmation
+    val isConfirmingRoundTroupe: Boolean = false,
 
     // Online machinations phase
     val isSubmittingMachination: Boolean = false,

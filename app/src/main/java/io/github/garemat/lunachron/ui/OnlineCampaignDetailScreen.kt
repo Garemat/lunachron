@@ -155,7 +155,8 @@ fun OnlineCampaignDetailScreen(
                         state = state,
                         isHost = isHost,
                         onEvent = onEvent,
-                        onDecodeTroupe = onDecodeTroupe
+                        onDecodeTroupe = onDecodeTroupe,
+                        onEncodeTroupe = onEncodeTroupe
                     )
                 }
                 else -> {
@@ -498,7 +499,8 @@ private fun ActiveCampaignHome(
     state: CharacterState,
     isHost: Boolean,
     onEvent: (CharacterEvent) -> Unit,
-    onDecodeTroupe: (String) -> Troupe?
+    onDecodeTroupe: (String) -> Troupe?,
+    onEncodeTroupe: (Troupe) -> String
 ) {
     val theme = LocalAppThemeProperties.current
     var activeTab by remember { mutableStateOf(ActiveTab.RANKINGS) }
@@ -532,7 +534,8 @@ private fun ActiveCampaignHome(
 
         when (activeTab) {
             ActiveTab.RANKINGS    -> OnlineRankingsTab(
-                campaign = campaign, state = state, isHost = isHost, onEvent = onEvent, onDecodeTroupe = onDecodeTroupe)
+                campaign = campaign, state = state, isHost = isHost, onEvent = onEvent,
+                onDecodeTroupe = onDecodeTroupe)
             ActiveTab.SCHEDULE    -> OnlineScheduleTabContent(
                 campaign = campaign,
                 showCurrentRoundScores = inMachinationsPhase
@@ -540,7 +543,9 @@ private fun ActiveCampaignHome(
             ActiveTab.MACHINATIONS -> if (inMachinationsPhase) {
                 OnlineMachinationsTab(campaign = campaign, state = state, onEvent = onEvent, onDecodeTroupe = onDecodeTroupe)
             } else {
-                OnlineResultsTab(campaign = campaign, state = state, onEvent = onEvent, onDecodeTroupe = onDecodeTroupe)
+                OnlineResultsTab(
+                    campaign = campaign, state = state, onEvent = onEvent,
+                    onDecodeTroupe = onDecodeTroupe, onEncodeTroupe = onEncodeTroupe)
             }
         }
     }
@@ -548,6 +553,7 @@ private fun ActiveCampaignHome(
 
 // ── Rankings tab ──────────────────────────────────────────────────────────────
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun OnlineRankingsTab(
     campaign: OnlineCampaignDetail,
@@ -559,6 +565,20 @@ private fun OnlineRankingsTab(
     val theme = LocalAppThemeProperties.current
     val approved = campaign.members.filter { it.status == "APPROVED" }
         .sortedByDescending { it.powerPoints }
+
+    var sheetMember by remember { mutableStateOf<OnlineCampaignMember?>(null) }
+    val sheetMemberValue = sheetMember
+    if (sheetMemberValue != null) {
+        ModalBottomSheet(onDismissRequest = { sheetMember = null }) {
+            TroupeDetailSheet(
+                member = sheetMemberValue,
+                campaign = campaign,
+                state = state,
+                onDecodeTroupe = onDecodeTroupe,
+                theme = theme
+            )
+        }
+    }
 
     if (approved.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -627,8 +647,14 @@ private fun OnlineRankingsTab(
                     }
                 }
                 itemsIndexed(tierMembers) { idx, member ->
-                    OnlineRankingCard(member = member, position = positions[member.deviceId] ?: 0,
-                        rankColor = tierInfo.second, rowIndex = idx, theme = theme)
+                    OnlineRankingCard(
+                        member = member,
+                        position = positions[member.deviceId] ?: 0,
+                        rankColor = tierInfo.second,
+                        rowIndex = idx,
+                        theme = theme,
+                        onClick = { sheetMember = member }
+                    )
                 }
             }
         }
@@ -642,10 +668,12 @@ private fun OnlineRankingCard(
     position: Int,
     rankColor: Color,
     rowIndex: Int,
-    theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties
+    theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties,
+    onClick: () -> Unit = {}
 ) {
     val bgAlpha = if (rowIndex % 2 == 0) 0.07f else 0.13f
     Card(
+        onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         shape = theme.cardShape,
         colors = CardDefaults.cardColors(containerColor = rankColor.copy(alpha = bgAlpha))
@@ -673,6 +701,82 @@ private fun OnlineRankingCard(
             Spacer(Modifier.width(12.dp))
             Box(Modifier.width(48.dp), Alignment.CenterEnd) {
                 Text("${member.powerPoints}", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurface)
+            }
+        }
+    }
+}
+
+// ── Troupe detail bottom sheet ────────────────────────────────────────────────
+
+@Composable
+private fun TroupeDetailSheet(
+    member: OnlineCampaignMember,
+    campaign: OnlineCampaignDetail,
+    state: CharacterState,
+    onDecodeTroupe: (String) -> Troupe?,
+    theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties
+) {
+    // For round 1, use the member's initial troupe_data; for later rounds, prefer confirmed snapshot.
+    val currentRound = campaign.currentRound
+    val confirmedData = campaign.roundTroupes.find { it.deviceId == member.deviceId }?.troupeData
+    val troupeDataToShow = if (currentRound == 1) member.troupeData else (confirmedData ?: member.troupeData)
+
+    val currentTroupe = troupeDataToShow?.let { onDecodeTroupe(it) }
+    val previousTroupe = campaign.previousRoundTroupes.find { it.deviceId == member.deviceId }
+        ?.troupeData?.let { onDecodeTroupe(it) }
+    val previousCharIds = previousTroupe?.characterIds?.toSet() ?: emptySet()
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp)
+            .padding(bottom = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text(
+            member.username,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold
+        )
+        when {
+            troupeDataToShow == null -> Text(
+                "No troupe data available.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            confirmedData == null && currentRound > 1 -> Text(
+                "Troupe not yet confirmed for Round $currentRound.\nShowing last known troupe.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            currentTroupe == null -> Text(
+                "Could not decode troupe data.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error
+            )
+            else -> {
+                Text(currentTroupe.troupeName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                currentTroupe.characterIds.forEach { charId ->
+                    val isNew = charId !in previousCharIds && previousCharIds.isNotEmpty()
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text("·", style = MaterialTheme.typography.bodySmall)
+                        Text(
+                            state.characters.find { it.id == charId }?.name ?: "Character #$charId",
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (isNew) {
+                            SuggestionChip(
+                                onClick = {},
+                                label = { Text("New R$currentRound", style = MaterialTheme.typography.labelSmall) },
+                                modifier = Modifier.height(24.dp)
+                            )
+                        }
+                    }
+                }
             }
         }
     }
@@ -868,8 +972,10 @@ private fun OnlineResultsTab(
     campaign: OnlineCampaignDetail,
     state: CharacterState,
     onEvent: (CharacterEvent) -> Unit,
-    onDecodeTroupe: (String) -> Troupe?
+    onDecodeTroupe: (String) -> Troupe?,
+    onEncodeTroupe: (Troupe) -> String
 ) {
+    val theme = LocalAppThemeProperties.current
     val myDeviceId = state.backendDeviceId
     val currentRound = campaign.currentRound
     val roundKey = "round$currentRound"
@@ -884,12 +990,17 @@ private fun OnlineResultsTab(
     val opponentMember = campaign.members.find { it.deviceId == opponentId }
     val myMember = campaign.members.find { it.deviceId == myDeviceId }
 
+    // Troupe confirmation state for this round (rounds > 1 only)
+    val myConfirmed = campaign.roundTroupes.any { it.deviceId == myDeviceId }
+    val opponentConfirmed = opponentId != null && campaign.roundTroupes.any { it.deviceId == opponentId }
+
     // Find any existing match result for this game
     val existingResult = campaign.matchResults.firstOrNull {
         it.roundNumber == currentRound && it.gameNumber == myGameNumber
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        Box(modifier = Modifier.weight(1f)) {
         when {
             myGameEntry == null -> {
                 Column(
@@ -972,7 +1083,86 @@ private fun OnlineResultsTab(
                 )
             }
         }
-    }
+        } // closes Box
+
+        // Troupe confirmation (rounds 2+ with a scheduled game)
+        if (currentRound > 1 && myGameEntry != null) {
+            val troupeDataToConfirm = myMember?.troupeData
+            Spacer(Modifier.height(8.dp))
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                shape = theme.cardShape,
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        "Round $currentRound Troupe",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    when {
+                        myConfirmed && opponentConfirmed -> {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.CheckCircle, contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                    tint = MaterialTheme.colorScheme.primary)
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    "Both confirmed — view ${opponentMember?.username ?: "opponent"}'s troupe in Rankings",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        myConfirmed -> {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Schedule, contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                    tint = MaterialTheme.colorScheme.outline)
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    "Confirmed — waiting for ${opponentMember?.username ?: "opponent"}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        else -> {
+                            Text(
+                                "Confirm your troupe so your opponent can view it before the match.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            Button(
+                                onClick = {
+                                    if (troupeDataToConfirm != null) {
+                                        onEvent(CharacterEvent.ConfirmRoundTroupe(
+                                            campaignId = campaign.id,
+                                            roundNumber = currentRound,
+                                            troupeData = troupeDataToConfirm
+                                        ))
+                                    }
+                                },
+                                enabled = troupeDataToConfirm != null && !state.isConfirmingRoundTroupe,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                if (state.isConfirmingRoundTroupe) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(18.dp),
+                                        strokeWidth = 2.dp
+                                    )
+                                } else {
+                                    Text("Confirm Troupe")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    } // closes Column
 }
 
 // OnlineMachinationsTab is in MachinationsPhaseUI.kt
