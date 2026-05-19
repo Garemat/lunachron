@@ -348,6 +348,7 @@ data class CharacterState(
     val isPublishingSchedule: Boolean = false,
     val pendingOnlineSchedule: List<CampaignRound>? = null,
     val onlineScheduleRoundCount: Int = 0,
+    val pendingScheduleError: String? = null,
 
     // Online campaign troupe + ready
     val isUploadingTroupe: Boolean = false,
