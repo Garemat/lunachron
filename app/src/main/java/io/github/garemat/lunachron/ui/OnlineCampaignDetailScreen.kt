@@ -1655,9 +1655,32 @@ private fun ScheduleGenerationSection(
             if (pendingSchedule != null) {
                 HorizontalDivider()
                 Text("Preview", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                SchedulePreview(rounds = pendingSchedule, members = approvedMembers)
-                Button(onClick = { onEvent(CharacterEvent.PublishOnlineSchedule(campaignId)) },
-                    enabled = !state.isPublishingSchedule, modifier = Modifier.fillMaxWidth()) {
+                SchedulePreview(
+                    rounds = pendingSchedule,
+                    members = approvedMembers,
+                    onSwapBye = { roundNumber, newByePlayerId ->
+                        onEvent(CharacterEvent.SwapScheduleBye(roundNumber, newByePlayerId))
+                    }
+                )
+                if (state.pendingScheduleError != null) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.errorContainer, MaterialTheme.shapes.small)
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        Icon(Icons.Default.Warning, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onErrorContainer)
+                        Text(state.pendingScheduleError, style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer)
+                    }
+                }
+                Button(
+                    onClick = { onEvent(CharacterEvent.PublishOnlineSchedule(campaignId)) },
+                    enabled = !state.isPublishingSchedule && state.pendingScheduleError == null,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     if (state.isPublishingSchedule) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
                     else { Icon(Icons.Default.Publish, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Publish Schedule") }
                 }
@@ -1667,7 +1690,11 @@ private fun ScheduleGenerationSection(
 }
 
 @Composable
-private fun SchedulePreview(rounds: List<CampaignRound>, members: List<OnlineCampaignMember>) {
+private fun SchedulePreview(
+    rounds: List<CampaignRound>,
+    members: List<OnlineCampaignMember>,
+    onSwapBye: ((roundNumber: Int, newByePlayerId: String) -> Unit)? = null
+) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         rounds.forEach { round ->
             Text("Round ${round.roundNumber}", style = MaterialTheme.typography.labelMedium,
@@ -1686,7 +1713,33 @@ private fun SchedulePreview(rounds: List<CampaignRound>, members: List<OnlineCam
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Pause, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.width(4.dp))
-                    Text("Bye: ${byeNames.joinToString(", ")}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Bye: ${byeNames.joinToString(", ")}", style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+                    if (onSwapBye != null) {
+                        var dropdownOpen by remember { mutableStateOf(false) }
+                        val playingIds = round.games.flatMap { it.playerIds }
+                        Box {
+                            IconButton(onClick = { dropdownOpen = true }, modifier = Modifier.size(24.dp)) {
+                                Icon(Icons.Default.SwapHoriz, "Move bye", Modifier.size(16.dp),
+                                    tint = MaterialTheme.colorScheme.primary)
+                            }
+                            DropdownMenu(expanded = dropdownOpen, onDismissRequest = { dropdownOpen = false }) {
+                                Text("Give bye to…", style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
+                                playingIds.forEach { playerId ->
+                                    val name = members.find { it.deviceId == playerId }?.username ?: playerId
+                                    DropdownMenuItem(
+                                        text = { Text(name, style = MaterialTheme.typography.bodySmall) },
+                                        onClick = {
+                                            dropdownOpen = false
+                                            onSwapBye(round.roundNumber, playerId)
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

@@ -436,7 +436,16 @@ class CharacterViewModel(
                     ?.members?.filter { it.status == "APPROVED" } ?: return
                 val playerIds = members.map { it.deviceId }
                 val schedule = generateRoundRobinSchedule(playerIds, event.totalRounds)
-                _state.update { it.copy(pendingOnlineSchedule = schedule) }
+                _state.update { it.copy(pendingOnlineSchedule = schedule, pendingScheduleError = null) }
+            }
+            is CharacterEvent.SwapScheduleBye -> {
+                val schedule = _state.value.pendingOnlineSchedule ?: return
+                val playerCount = _state.value.selectedOnlineCampaign
+                    ?.members?.count { it.status == "APPROVED" } ?: return
+                when (val result = swapScheduleBye(schedule, playerCount, event.roundNumber, event.newByePlayerId)) {
+                    is ScheduleSwapResult.Success -> _state.update { it.copy(pendingOnlineSchedule = result.schedule, pendingScheduleError = null) }
+                    is ScheduleSwapResult.Error -> _state.update { it.copy(pendingScheduleError = result.message) }
+                }
             }
             is CharacterEvent.UploadOnlineTroupe -> viewModelScope.launch {
                 _state.update { it.copy(isUploadingTroupe = true, onlineCampaignError = null) }
@@ -556,6 +565,13 @@ class CharacterViewModel(
             }
             is CharacterEvent.PublishOnlineSchedule -> viewModelScope.launch {
                 val rounds = _state.value.pendingOnlineSchedule ?: return@launch
+                val playerCount = _state.value.selectedOnlineCampaign
+                    ?.members?.count { it.status == "APPROVED" } ?: return@launch
+                val validationError = validateSchedule(rounds, playerCount)
+                if (validationError != null) {
+                    _state.update { it.copy(pendingScheduleError = validationError) }
+                    return@launch
+                }
                 _state.update { it.copy(isPublishingSchedule = true, onlineCampaignError = null) }
                 // Convert List<CampaignRound> → Map<String, Map<String, List<String>>>
                 val backendSchedule = rounds.associate { round ->
@@ -1361,6 +1377,85 @@ class CharacterViewModel(
 
             CampaignRound(roundNumber = roundNumber, games = games, skipPlayerIds = skipIds)
         }
+    }
+
+    private sealed interface ScheduleSwapResult {
+        data class Success(val schedule: List<CampaignRound>) : ScheduleSwapResult
+        data class Error(val message: String) : ScheduleSwapResult
+    }
+
+    private fun swapScheduleBye(
+        schedule: List<CampaignRound>,
+        playerCount: Int,
+        targetRoundNumber: Int,
+        newByePlayerId: String
+    ): ScheduleSwapResult {
+        if (playerCount % 2 == 0) return ScheduleSwapResult.Error("No byes exist in an even-player schedule")
+        val targetRound = schedule.find { it.roundNumber == targetRoundNumber }
+            ?: return ScheduleSwapResult.Error("Round $targetRoundNumber not found")
+        val currentByeHolder = targetRound.skipPlayerIds.firstOrNull()
+            ?: return ScheduleSwapResult.Error("Round $targetRoundNumber has no bye")
+        if (currentByeHolder == newByePlayerId) return ScheduleSwapResult.Success(schedule)
+
+        // Find newByePlayerId's bye in the same schedule cycle as targetRound
+        val cycleLength = playerCount
+        val targetCycle = (targetRoundNumber - 1) / cycleLength
+        val sourceRound = schedule.find { r ->
+            r.skipPlayerIds.contains(newByePlayerId) && (r.roundNumber - 1) / cycleLength == targetCycle
+        } ?: return ScheduleSwapResult.Error("That player's bye is in a different cycle and can't be swapped here")
+
+        // targetRound: swap newByePlayerId out of their game, put currentByeHolder in
+        val newTargetGames = targetRound.games.map { game ->
+            if (newByePlayerId in game.playerIds)
+                game.copy(playerIds = game.playerIds.map { if (it == newByePlayerId) currentByeHolder else it })
+            else game
+        }
+        // sourceRound: swap currentByeHolder out of their game, put newByePlayerId in
+        val newSourceGames = sourceRound.games.map { game ->
+            if (currentByeHolder in game.playerIds)
+                game.copy(playerIds = game.playerIds.map { if (it == currentByeHolder) newByePlayerId else it })
+            else game
+        }
+        val newSchedule = schedule.map { r ->
+            when (r.roundNumber) {
+                targetRoundNumber -> targetRound.copy(games = newTargetGames, skipPlayerIds = listOf(newByePlayerId))
+                sourceRound.roundNumber -> sourceRound.copy(games = newSourceGames, skipPlayerIds = listOf(currentByeHolder))
+                else -> r
+            }
+        }
+        return ScheduleSwapResult.Success(newSchedule)
+    }
+
+    private fun validateSchedule(schedule: List<CampaignRound>, playerCount: Int): String? {
+        if (playerCount % 2 == 0) return null
+        val cycleLength = playerCount
+        val allPlayerIds = (schedule.flatMap { it.games.flatMap { g -> g.playerIds } } + schedule.flatMap { it.skipPlayerIds }).distinct()
+        val cycles = schedule.groupBy { (it.roundNumber - 1) / cycleLength }
+        for ((_, rounds) in cycles) {
+            val byeCounts = mutableMapOf<String, Int>()
+            for (round in rounds) {
+                for (id in round.skipPlayerIds) byeCounts[id] = (byeCounts[id] ?: 0) + 1
+            }
+            for ((_, count) in byeCounts) {
+                if (count > 1) return "A player has more than one bye in a cycle"
+            }
+            if (rounds.size == cycleLength) {
+                for (playerId in allPlayerIds) {
+                    if ((byeCounts[playerId] ?: 0) == 0) return "A player is missing their bye in a full cycle"
+                }
+            }
+        }
+        val gameCounts = mutableMapOf<String, Int>()
+        for (round in schedule) {
+            for (game in round.games) {
+                for (id in game.playerIds) gameCounts[id] = (gameCounts[id] ?: 0) + 1
+            }
+        }
+        val counts = gameCounts.values
+        if (counts.isNotEmpty() && counts.max() - counts.min() > 1) {
+            return "Players have unequal numbers of games"
+        }
+        return null
     }
 
     fun updateCampaign(campaign: Campaign) {
