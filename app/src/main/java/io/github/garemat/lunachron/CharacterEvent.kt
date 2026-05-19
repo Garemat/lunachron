@@ -125,6 +125,7 @@ sealed interface CharacterEvent {
     data class UnlockOnlineCampaign(val campaignId: String) : CharacterEvent
     data class SetOnlineScheduleRoundCount(val count: Int) : CharacterEvent
     data class GenerateOnlineSchedule(val campaignId: String, val totalRounds: Int) : CharacterEvent
+    data class SwapScheduleBye(val roundNumber: Int, val newByePlayerId: String) : CharacterEvent
     data class PublishOnlineSchedule(val campaignId: String) : CharacterEvent
 
     // LunaChron API — troupe sharing + ready
