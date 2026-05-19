@@ -5,6 +5,8 @@ package io.github.garemat.lunachron.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -729,6 +731,7 @@ private fun TroupeDetailSheet(
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp)
             .padding(bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -745,7 +748,7 @@ private fun TroupeDetailSheet(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             confirmedData == null && currentRound > 1 -> Text(
-                "Troupe not yet confirmed for Round $currentRound.\nShowing last known troupe.",
+                "Troupe not yet confirmed for Round $currentRound. Showing last known troupe.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -755,25 +758,73 @@ private fun TroupeDetailSheet(
                 color = MaterialTheme.colorScheme.error
             )
             else -> {
-                Text(currentTroupe.troupeName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                currentTroupe.characterIds.forEach { charId ->
+                Text(
+                    currentTroupe.troupeName,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                currentTroupe.characterIds.forEachIndexed { index, charId ->
+                    val character = state.characters.find { it.id == charId }
                     val isNew = charId !in previousCharIds && previousCharIds.isNotEmpty()
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text("·", style = MaterialTheme.typography.bodySmall)
-                        Text(
-                            state.characters.find { it.id == charId }?.name ?: "Character #$charId",
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.weight(1f)
+                    val upgradeIds = currentTroupe.equippedUpgrades[charId] ?: emptyList()
+                    val upgrades = upgradeIds.mapNotNull { uid -> state.upgradeCards.find { it.id == uid } }
+
+                    if (index > 0) {
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
                         )
-                        if (isNew) {
-                            SuggestionChip(
-                                onClick = {},
-                                label = { Text("New R$currentRound", style = MaterialTheme.typography.labelSmall) },
-                                modifier = Modifier.height(24.dp)
-                            )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        if (character != null) {
+                            CharacterPortrait(character = character, size = 48.dp)
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("?", style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    character?.name ?: "Character #$charId",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium,
+                                    modifier = Modifier.weight(1f, fill = false)
+                                )
+                                if (isNew) {
+                                    SuggestionChip(
+                                        onClick = {},
+                                        label = {
+                                            Text("New R$currentRound",
+                                                style = MaterialTheme.typography.labelSmall)
+                                        },
+                                        modifier = Modifier.height(22.dp)
+                                    )
+                                }
+                            }
+                            upgrades.forEach { upgrade ->
+                                Text(
+                                    upgrade.name,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
                 }
