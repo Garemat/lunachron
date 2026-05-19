@@ -2383,10 +2383,16 @@ private fun MachinationPhasePanel(
         .filter { it != playerId }
         .toSet()
 
+    val byePlayerIds = nextRound?.skipPlayerIds?.toSet() ?: emptySet()
+    val hasBonusPlayers = byePlayerIds.isNotEmpty()
+
     Column(modifier = Modifier.fillMaxSize().padding(theme.screenPadding)) {
         Text("Machinations & Attacks", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Text(
-            "Each player can use 2 machinations. Targets cannot be scheduled opponents.",
+            buildString {
+                append("Each player can use 2 machinations. Targets cannot be scheduled opponents.")
+                if (hasBonusPlayers) append(" Bye players get a bonus 3rd slot.")
+            },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -2397,29 +2403,45 @@ private fun MachinationPhasePanel(
                 if (index > 0) {
                     HorizontalDivider(modifier = Modifier.padding(vertical = theme.verticalSpacing))
                 }
+                val hasBonus = player.id in byePlayerIds
                 val type1 = viewModel.machinationType1[player.id]
                 val type2 = viewModel.machinationType2[player.id]
+                val type3 = viewModel.machinationType3[player.id]
                 val eligibleTargets = campaign.players.filter { it.id != player.id && it.id !in opponentsOf(player.id) }
                 PlayerMachinationCard(
                     player = player,
+                    hasBonus = hasBonus,
                     type1 = type1,
                     onType1Change = { newType ->
                         viewModel.machinationType1[player.id] = newType
                         if (newType == null) {
                             viewModel.machinationType2[player.id] = null
+                            viewModel.machinationType3[player.id] = null
                             viewModel.machinationTarget1.remove(player.id)
                             viewModel.machinationTarget2.remove(player.id)
+                            viewModel.machinationTarget3.remove(player.id)
                         }
                     },
                     type2 = type2,
                     onType2Change = { newType ->
                         viewModel.machinationType2[player.id] = newType
-                        if (newType == null) viewModel.machinationTarget2.remove(player.id)
+                        if (newType == null) {
+                            viewModel.machinationType3[player.id] = null
+                            viewModel.machinationTarget2.remove(player.id)
+                            viewModel.machinationTarget3.remove(player.id)
+                        }
+                    },
+                    type3 = type3,
+                    onType3Change = { newType ->
+                        viewModel.machinationType3[player.id] = newType
+                        if (newType == null) viewModel.machinationTarget3.remove(player.id)
                     },
                     target1 = viewModel.machinationTarget1[player.id] ?: "",
                     onTarget1Change = { viewModel.machinationTarget1[player.id] = it },
                     target2 = viewModel.machinationTarget2[player.id] ?: "",
                     onTarget2Change = { viewModel.machinationTarget2[player.id] = it },
+                    target3 = viewModel.machinationTarget3[player.id] ?: "",
+                    onTarget3Change = { viewModel.machinationTarget3[player.id] = it },
                     eligibleTargets = eligibleTargets,
                     attacksEnabled = campaign.attacksEnabled,
                     isAttacking = viewModel.machinationIsAttacking[player.id] == true,
@@ -2452,10 +2474,13 @@ private fun MachinationPhasePanel(
                     campaign.players.forEach { player ->
                         val t1 = viewModel.machinationType1[player.id]
                         val t2 = viewModel.machinationType2[player.id]
+                        val t3 = viewModel.machinationType3[player.id]
                         val target1 = viewModel.machinationTarget1[player.id] ?: ""
                         val target2 = viewModel.machinationTarget2[player.id] ?: ""
+                        val target3 = viewModel.machinationTarget3[player.id] ?: ""
                         if (t1 != null && target1.isNotEmpty()) machinations.add(CampaignMachination(player.id, target1, t1))
                         if (t2 != null && target2.isNotEmpty()) machinations.add(CampaignMachination(player.id, target2, t2))
+                        if (player.id in byePlayerIds && t3 != null && target3.isNotEmpty()) machinations.add(CampaignMachination(player.id, target3, t3))
                         if (campaign.attacksEnabled && viewModel.machinationIsAttacking[player.id] == true) {
                             val type = viewModel.machinationAttackType[player.id] ?: AttackType.ASSAULT
                             val tPlayer = viewModel.machinationAttackTargetPlayer[player.id] ?: ""
@@ -2479,14 +2504,19 @@ private fun MachinationPhasePanel(
 @Composable
 private fun PlayerMachinationCard(
     player: CampaignPlayer,
+    hasBonus: Boolean,
     type1: MachinationType?,
     onType1Change: (MachinationType?) -> Unit,
     type2: MachinationType?,
     onType2Change: (MachinationType?) -> Unit,
+    type3: MachinationType?,
+    onType3Change: (MachinationType?) -> Unit,
     target1: String,
     onTarget1Change: (String) -> Unit,
     target2: String,
     onTarget2Change: (String) -> Unit,
+    target3: String,
+    onTarget3Change: (String) -> Unit,
     eligibleTargets: List<CampaignPlayer>,
     attacksEnabled: Boolean,
     isAttacking: Boolean,
@@ -2507,10 +2537,16 @@ private fun PlayerMachinationCard(
     val eligibleTargets2 = if (type1 != null && type1 == type2 && target1.isNotEmpty())
         eligibleTargets.filter { it.id != target1 }
     else eligibleTargets
+    // For row 3: exclude players already targeted with the same type in rows 1 and 2
+    val usedByType3 = buildSet {
+        if (type1 != null && target1.isNotEmpty() && type1 == type3) add(target1)
+        if (type2 != null && target2.isNotEmpty() && type2 == type3) add(target2)
+    }
+    val eligibleTargets3 = eligibleTargets.filter { it.id !in usedByType3 }
 
     ThemedCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            // Header: name + AP + attack toggle
+            // Header: name + bye badge + AP + attack toggle
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     player.name,
@@ -2518,6 +2554,14 @@ private fun PlayerMachinationCard(
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f)
                 )
+                if (hasBonus) {
+                    Text(
+                        "Bye +1 slot",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
                 if (attacksEnabled) {
                     Text(
                         "${player.attackPoints} AP",
@@ -2552,6 +2596,18 @@ private fun PlayerMachinationCard(
                     target = target2,
                     onTargetChange = onTarget2Change,
                     eligibleTargets = eligibleTargets2,
+                    theme = theme
+                )
+            }
+
+            // Machination row 3 — bonus slot for bye players, shown after row 2 is filled
+            if (hasBonus && type2 != null) {
+                MachinationRowItem(
+                    selectedType = type3,
+                    onTypeChange = onType3Change,
+                    target = target3,
+                    onTargetChange = onTarget3Change,
+                    eligibleTargets = eligibleTargets3,
                     theme = theme
                 )
             }
