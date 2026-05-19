@@ -150,7 +150,8 @@ data class OnlineCampaignMember(
     val losses: Int = 0,
     val victoryPoints: Int = 0,
     val matchPoints: Int = 0,
-    val powerPoints: Int = 0
+    val powerPoints: Int = 0,
+    val bonusMp: Int = 0
 )
 
 /** Confirmed troupe snapshot for one player in a round. */

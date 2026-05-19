@@ -317,7 +317,7 @@ fun GamesTab(
     val nextRoundMachinationsDone = nextRound?.machinations?.isNotEmpty() == true
 
     // Machinations for this round are stored in currentRound and evaluated with currentRound results
-    fun saveMachinationsAndAttacks(machinations: List<CampaignMachination>, attacks: List<CampaignAttack>) {
+    fun saveMachinationsAndAttacks(machinations: List<CampaignMachination>, attacks: List<CampaignAttack>, spentMpPlayerIds: Set<String> = emptySet()) {
         val newRounds = campaign.rounds.toMutableList()
         val nextRoundNumber = campaign.currentRound + 1
         val nextIdx = newRounds.indexOfFirst { it.roundNumber == nextRoundNumber }
@@ -328,8 +328,14 @@ fun GamesTab(
         if (nextIdx != -1) newRounds[nextIdx] = updatedRound else newRounds.add(updatedRound)
         val apCosts = attacks.groupBy { it.sourcePlayerId }.mapValues { (_, atks) -> atks.sumOf { it.type.cost } }
         val newPlayers = campaign.players.map { p ->
-            val cost = apCosts[p.id] ?: 0
-            if (cost > 0) p.copy(attackPoints = (p.attackPoints - cost).coerceAtLeast(0)) else p
+            val apCost = apCosts[p.id] ?: 0
+            val mpSpend = if (p.id in spentMpPlayerIds) 1 else 0
+            if (apCost > 0 || mpSpend > 0)
+                p.copy(
+                    attackPoints = (p.attackPoints - apCost).coerceAtLeast(0),
+                    machinationPoints = (p.machinationPoints - mpSpend).coerceAtLeast(0)
+                )
+            else p
         }
         viewModel.updateCampaign(campaign.copy(
             rounds = newRounds,
@@ -364,8 +370,8 @@ fun GamesTab(
             nextRound = nextRound,
             viewModel = viewModel,
             theme = theme,
-            onConfirm = { machinations, attacks ->
-                saveMachinationsAndAttacks(machinations, attacks)
+            onConfirm = { machinations, attacks, spentMpPlayerIds ->
+                saveMachinationsAndAttacks(machinations, attacks, spentMpPlayerIds)
                 viewModel.clearMachinationDraft()
                 flowStep = 3
             },
@@ -2372,7 +2378,7 @@ private fun MachinationPhasePanel(
     nextRound: CampaignRound?,
     viewModel: CharacterViewModel,
     theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties,
-    onConfirm: (List<CampaignMachination>, List<CampaignAttack>) -> Unit,
+    onConfirm: (List<CampaignMachination>, List<CampaignAttack>, Set<String>) -> Unit,
     onSaveDraft: () -> Unit
 ) {
     // Opponents are determined by the UPCOMING round's schedule, not the round just played
@@ -2384,14 +2390,18 @@ private fun MachinationPhasePanel(
         .toSet()
 
     val byePlayerIds = nextRound?.skipPlayerIds?.toSet() ?: emptySet()
-    val hasBonusPlayers = byePlayerIds.isNotEmpty()
+    val mpBonusPlayerIds = campaign.players
+        .filter { it.machinationPoints > 0 && it.id !in byePlayerIds }
+        .map { it.id }.toSet()
+    val hasAnyBonusPlayers = byePlayerIds.isNotEmpty() || mpBonusPlayerIds.isNotEmpty()
 
     Column(modifier = Modifier.fillMaxSize().padding(theme.screenPadding)) {
         Text("Machinations & Attacks", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Text(
             buildString {
                 append("Each player can use 2 machinations. Targets cannot be scheduled opponents.")
-                if (hasBonusPlayers) append(" Bye players get a bonus 3rd slot.")
+                if (byePlayerIds.isNotEmpty()) append(" Bye players get a bonus 3rd slot.")
+                if (mpBonusPlayerIds.isNotEmpty()) append(" Players with banked MP can spend 1 for a 3rd slot.")
             },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -2404,6 +2414,7 @@ private fun MachinationPhasePanel(
                     HorizontalDivider(modifier = Modifier.padding(vertical = theme.verticalSpacing))
                 }
                 val hasBonus = player.id in byePlayerIds
+                val hasMpBonus = player.id in mpBonusPlayerIds
                 val type1 = viewModel.machinationType1[player.id]
                 val type2 = viewModel.machinationType2[player.id]
                 val type3 = viewModel.machinationType3[player.id]
@@ -2411,6 +2422,7 @@ private fun MachinationPhasePanel(
                 PlayerMachinationCard(
                     player = player,
                     hasBonus = hasBonus,
+                    hasMpBonus = hasMpBonus,
                     type1 = type1,
                     onType1Change = { newType ->
                         viewModel.machinationType1[player.id] = newType
@@ -2471,6 +2483,7 @@ private fun MachinationPhasePanel(
                 onClick = {
                     val machinations = mutableListOf<CampaignMachination>()
                     val attacks = mutableListOf<CampaignAttack>()
+                    val spentMpPlayerIds = mutableSetOf<String>()
                     campaign.players.forEach { player ->
                         val t1 = viewModel.machinationType1[player.id]
                         val t2 = viewModel.machinationType2[player.id]
@@ -2480,7 +2493,11 @@ private fun MachinationPhasePanel(
                         val target3 = viewModel.machinationTarget3[player.id] ?: ""
                         if (t1 != null && target1.isNotEmpty()) machinations.add(CampaignMachination(player.id, target1, t1))
                         if (t2 != null && target2.isNotEmpty()) machinations.add(CampaignMachination(player.id, target2, t2))
-                        if (player.id in byePlayerIds && t3 != null && target3.isNotEmpty()) machinations.add(CampaignMachination(player.id, target3, t3))
+                        val has3rd = player.id in byePlayerIds || player.id in mpBonusPlayerIds
+                        if (has3rd && t3 != null && target3.isNotEmpty()) {
+                            machinations.add(CampaignMachination(player.id, target3, t3))
+                            if (player.id in mpBonusPlayerIds) spentMpPlayerIds.add(player.id)
+                        }
                         if (campaign.attacksEnabled && viewModel.machinationIsAttacking[player.id] == true) {
                             val type = viewModel.machinationAttackType[player.id] ?: AttackType.ASSAULT
                             val tPlayer = viewModel.machinationAttackTargetPlayer[player.id] ?: ""
@@ -2490,7 +2507,7 @@ private fun MachinationPhasePanel(
                             }
                         }
                     }
-                    onConfirm(machinations, attacks)
+                    onConfirm(machinations, attacks, spentMpPlayerIds)
                 },
                 modifier = Modifier.weight(1f),
                 shape = theme.cardShape
@@ -2505,6 +2522,7 @@ private fun MachinationPhasePanel(
 private fun PlayerMachinationCard(
     player: CampaignPlayer,
     hasBonus: Boolean,
+    hasMpBonus: Boolean = false,
     type1: MachinationType?,
     onType1Change: (MachinationType?) -> Unit,
     type2: MachinationType?,
@@ -2561,6 +2579,13 @@ private fun PlayerMachinationCard(
                         color = MaterialTheme.colorScheme.primary
                     )
                     Spacer(modifier = Modifier.width(8.dp))
+                } else if (hasMpBonus) {
+                    Text(
+                        "Spend 1 MP",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
                 }
                 if (attacksEnabled) {
                     Text(
@@ -2600,8 +2625,8 @@ private fun PlayerMachinationCard(
                 )
             }
 
-            // Machination row 3 — bonus slot for bye players, shown after row 2 is filled
-            if (hasBonus && type2 != null) {
+            // Machination row 3 — free for bye players, or spends 1 banked MP
+            if ((hasBonus || hasMpBonus) && type2 != null) {
                 MachinationRowItem(
                     selectedType = type3,
                     onTypeChange = onType3Change,

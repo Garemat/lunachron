@@ -93,9 +93,12 @@ internal fun OnlineMachinationsTab(
         .firstOrNull { myDeviceId in it }
         ?.firstOrNull { it != myDeviceId }
 
-    // Bonus 3rd slot for players with a bye in the upcoming round
+    // Bonus 3rd slot: free for bye players, or spendable if player has banked bonus MP
     val hasNextRoundSchedule = campaign.schedule?.containsKey(nextRoundKey) == true
     val hasByeBonus = hasNextRoundSchedule && myNextOpponentId == null
+    val myMember = approvedMembers.find { it.deviceId == myDeviceId }
+    val hasMpBonus = !hasByeBonus && (myMember?.bonusMp ?: 0) > 0
+    val has3rdSlot = hasByeBonus || hasMpBonus
 
     val eligibleTargets = approvedMembers.filter {
         it.deviceId != myDeviceId && it.deviceId != myNextOpponentId
@@ -145,7 +148,7 @@ internal fun OnlineMachinationsTab(
         }
     }
     LaunchedEffect(slot1.selectedType, slot1.targetDeviceId, slot2.selectedType, slot2.targetDeviceId) {
-        if (hasByeBonus && !slot3.abstained && slot3.selectedType != null && slot3.targetDeviceId.isNotEmpty()) {
+        if (has3rdSlot && !slot3.abstained && slot3.selectedType != null && slot3.targetDeviceId.isNotEmpty()) {
             val conflictsWithSlot1 = slot3.selectedType == slot1.selectedType && slot3.targetDeviceId == slot1.targetDeviceId && slot1.targetDeviceId.isNotEmpty()
             val conflictsWithSlot2 = slot3.selectedType == slot2.selectedType && slot3.targetDeviceId == slot2.targetDeviceId && slot2.targetDeviceId.isNotEmpty()
             if (conflictsWithSlot1 || conflictsWithSlot2) {
@@ -188,6 +191,12 @@ internal fun OnlineMachinationsTab(
                         "Bye +1 slot",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary
+                    )
+                } else if (hasMpBonus) {
+                    Text(
+                        "1 bonus MP",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.tertiary
                     )
                 }
                 Spacer(Modifier.weight(1f))
@@ -270,8 +279,8 @@ internal fun OnlineMachinationsTab(
                 )
             }
 
-            // Slot III — bonus for bye players, unlocked after slot II is decided
-            if (hasByeBonus) {
+            // Slot III — free for bye players, or spends 1 banked bonus MP
+            if (has3rdSlot) {
                 item {
                     val slot3Targets = run {
                         var targets = eligibleTargets
@@ -324,7 +333,7 @@ internal fun OnlineMachinationsTab(
                         onEvent(
                             CharacterEvent.SubmitMachination(
                                 campaign.id,
-                                listOfNotNull(slot1.toChoice(), slot2.toChoice(), if (hasByeBonus) slot3.toChoice() else null),
+                                listOfNotNull(slot1.toChoice(), slot2.toChoice(), if (has3rdSlot) slot3.toChoice() else null),
                                 atk.toAttack()
                             )
                         )
