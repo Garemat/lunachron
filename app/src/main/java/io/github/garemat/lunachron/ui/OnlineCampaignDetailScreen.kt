@@ -2139,14 +2139,22 @@ private fun AdminPanelSheet(
                 }
                 items(localMembers) { localMember ->
                     val submitted = campaign.machinations.find { it.deviceId == localMember.deviceId }
+                    val nextRoundKey2 = "round${campaign.currentRound + 1}"
+                    val nextRoundGames2 = campaign.schedule?.get(nextRoundKey2) ?: emptyMap()
+                    val localNextOpp = nextRoundGames2.values
+                        .firstOrNull { localMember.deviceId in it }
+                        ?.firstOrNull { it != localMember.deviceId }
+                    val localHasByeBonus = campaign.schedule?.containsKey(nextRoundKey2) == true && localNextOpp == null
+                    val localHasMpBonus = !localHasByeBonus && localMember.bonusMp > 0
                     val otherApproved = campaign.members.filter {
-                        it.status == "APPROVED" && it.deviceId != localMember.deviceId
+                        it.status == "APPROVED" && it.deviceId != localMember.deviceId && it.deviceId != localNextOpp
                     }
                     AdminLocalMachinationCard(
                         member        = localMember,
                         campaignId    = campaign.id,
                         otherMembers  = otherApproved,
                         submitted     = submitted,
+                        has3rdSlot    = localHasByeBonus || localHasMpBonus,
                         isSubmitting  = state.isSubmittingMachination,
                         onEvent       = onEvent,
                         theme         = theme
@@ -2415,12 +2423,14 @@ private fun AdminLocalMachinationCard(
     campaignId: String,
     otherMembers: List<OnlineCampaignMember>,
     submitted: OnlineMachinationEntry?,
+    has3rdSlot: Boolean = false,
     isSubmitting: Boolean,
     onEvent: (CharacterEvent) -> Unit,
     theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties
 ) {
     var choice1 by remember(submitted) { mutableStateOf(submitted?.choices?.getOrNull(0)) }
     var choice2 by remember(submitted) { mutableStateOf(submitted?.choices?.getOrNull(1)) }
+    var choice3 by remember(submitted) { mutableStateOf(submitted?.choices?.getOrNull(2)) }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -2516,13 +2526,57 @@ private fun AdminLocalMachinationCard(
                             label = { Text("Sabotage", style = MaterialTheme.typography.labelSmall) }
                         )
                     }
+
+                    // Machination 3 — only for bye/bonus-MP players
+                    if (has3rdSlot) {
+                        HorizontalDivider()
+                        val row3Targets = otherMembers.filter {
+                            choice3 == null ||
+                            choice3?.type != choice1?.type || it.deviceId != choice1?.targetDeviceId ||
+                            choice3?.type != choice2?.type || it.deviceId != choice2?.targetDeviceId
+                        }
+                        Text("Machination 3", style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            FilterChip(selected = choice3 == null, onClick = { choice3 = null },
+                                label = { Text("None", style = MaterialTheme.typography.labelSmall) })
+                            row3Targets.forEach { m ->
+                                FilterChip(
+                                    selected = choice3?.targetDeviceId == m.deviceId,
+                                    onClick = { choice3 = OnlineMachinationChoice(m.deviceId, choice3?.type ?: "SUPPORT") },
+                                    label = { Text(m.username, style = MaterialTheme.typography.labelSmall) }
+                                )
+                            }
+                        }
+                        if (choice3 != null) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                FilterChip(
+                                    selected = choice3?.type == "SUPPORT",
+                                    onClick = { choice3 = choice3?.copy(type = "SUPPORT") },
+                                    leadingIcon = if (choice3?.type == "SUPPORT") {
+                                        { Icon(Icons.Default.Favorite, null, Modifier.size(14.dp)) }
+                                    } else null,
+                                    label = { Text("Support", style = MaterialTheme.typography.labelSmall) }
+                                )
+                                FilterChip(
+                                    selected = choice3?.type == "SABOTAGE",
+                                    onClick = { choice3 = choice3?.copy(type = "SABOTAGE") },
+                                    leadingIcon = if (choice3?.type == "SABOTAGE") {
+                                        { Icon(Icons.Default.Dangerous, null, Modifier.size(14.dp)) }
+                                    } else null,
+                                    label = { Text("Sabotage", style = MaterialTheme.typography.labelSmall) }
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
             Button(
                 onClick = {
                     onEvent(CharacterEvent.SubmitLocalMachination(
-                        campaignId, member.deviceId, listOfNotNull(choice1, choice2)))
+                        campaignId, member.deviceId, listOfNotNull(choice1, choice2, if (has3rdSlot) choice3 else null)))
                 },
                 enabled = !isSubmitting,
                 modifier = Modifier.fillMaxWidth()
