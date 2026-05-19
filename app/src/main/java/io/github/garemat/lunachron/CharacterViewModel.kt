@@ -1217,25 +1217,27 @@ class CharacterViewModel(
     var isViewingCardDraw: Boolean by mutableStateOf(false)
     val machinationType1: SnapshotStateMap<String, MachinationType?> = mutableStateMapOf()
     val machinationType2: SnapshotStateMap<String, MachinationType?> = mutableStateMapOf()
+    val machinationType3: SnapshotStateMap<String, MachinationType?> = mutableStateMapOf()
     val machinationTarget1: SnapshotStateMap<String, String> = mutableStateMapOf()
     val machinationTarget2: SnapshotStateMap<String, String> = mutableStateMapOf()
+    val machinationTarget3: SnapshotStateMap<String, String> = mutableStateMapOf()
     val machinationIsAttacking: SnapshotStateMap<String, Boolean> = mutableStateMapOf()
     val machinationAttackType: SnapshotStateMap<String, AttackType> = mutableStateMapOf()
     val machinationAttackTargetPlayer: SnapshotStateMap<String, String> = mutableStateMapOf()
     val machinationAttackTargetChar: SnapshotStateMap<String, Int> = mutableStateMapOf()
 
     fun initMachinationDraft(campaign: Campaign) {
-        machinationType1.clear(); machinationType2.clear()
-        machinationTarget1.clear(); machinationTarget2.clear()
+        machinationType1.clear(); machinationType2.clear(); machinationType3.clear()
+        machinationTarget1.clear(); machinationTarget2.clear(); machinationTarget3.clear()
         machinationIsAttacking.clear(); machinationAttackType.clear()
         machinationAttackTargetPlayer.clear(); machinationAttackTargetChar.clear()
-        campaign.players.forEach { machinationType1[it.id] = null; machinationType2[it.id] = null }
+        campaign.players.forEach { machinationType1[it.id] = null; machinationType2[it.id] = null; machinationType3[it.id] = null }
         isCampaignMachinating = true
     }
 
     fun clearMachinationDraft() {
-        machinationType1.clear(); machinationType2.clear()
-        machinationTarget1.clear(); machinationTarget2.clear()
+        machinationType1.clear(); machinationType2.clear(); machinationType3.clear()
+        machinationTarget1.clear(); machinationTarget2.clear(); machinationTarget3.clear()
         machinationIsAttacking.clear(); machinationAttackType.clear()
         machinationAttackTargetPlayer.clear(); machinationAttackTargetChar.clear()
         isCampaignMachinating = false
@@ -1246,8 +1248,10 @@ class CharacterViewModel(
             player.id to PlayerMachinationDraft(
                 machType1 = machinationType1[player.id],
                 machType2 = machinationType2[player.id],
+                machType3 = machinationType3[player.id],
                 target1 = machinationTarget1[player.id] ?: "",
                 target2 = machinationTarget2[player.id] ?: "",
+                target3 = machinationTarget3[player.id] ?: "",
                 isAttacking = machinationIsAttacking[player.id] == true,
                 attackType = machinationAttackType[player.id] ?: AttackType.ASSAULT,
                 attackTargetPlayerId = machinationAttackTargetPlayer[player.id] ?: "",
@@ -1259,15 +1263,17 @@ class CharacterViewModel(
 
     fun loadMachinationDraft(campaign: Campaign) {
         val draft = campaign.machinationDraft ?: return
-        machinationType1.clear(); machinationType2.clear()
-        machinationTarget1.clear(); machinationTarget2.clear()
+        machinationType1.clear(); machinationType2.clear(); machinationType3.clear()
+        machinationTarget1.clear(); machinationTarget2.clear(); machinationTarget3.clear()
         machinationIsAttacking.clear(); machinationAttackType.clear()
         machinationAttackTargetPlayer.clear(); machinationAttackTargetChar.clear()
         draft.forEach { (playerId, pd) ->
             machinationType1[playerId] = pd.machType1
             machinationType2[playerId] = pd.machType2
+            machinationType3[playerId] = pd.machType3
             if (pd.target1.isNotEmpty()) machinationTarget1[playerId] = pd.target1
             if (pd.target2.isNotEmpty()) machinationTarget2[playerId] = pd.target2
+            if (pd.target3.isNotEmpty()) machinationTarget3[playerId] = pd.target3
             machinationIsAttacking[playerId] = pd.isAttacking
             machinationAttackType[playerId] = pd.attackType
             if (pd.attackTargetPlayerId.isNotEmpty()) machinationAttackTargetPlayer[playerId] = pd.attackTargetPlayerId
@@ -1330,19 +1336,28 @@ class CharacterViewModel(
                 startingCharacters = startingCharacters,
                 characterGrowthEvery = characterGrowthEvery,
                 upgradeGrowthEvery = upgradeGrowthEvery
-            ) ?: Campaign(
-                id = 0,
-                name = name,
-                description = description,
-                players = players,
-                attacksEnabled = attacksEnabled,
-                totalRounds = totalRounds,
-                gameSize = gameSize,
-                startingCharacters = startingCharacters,
-                characterGrowthEvery = characterGrowthEvery,
-                upgradeGrowthEvery = upgradeGrowthEvery,
-                rounds = generateRoundRobinSchedule(players.map { it.id }, totalRounds)
-            )
+            ) ?: run {
+                val rounds = generateRoundRobinSchedule(players.map { it.id }, totalRounds)
+                // Players with a bye in round 1 miss the pre-round-1 machination phase (it doesn't
+                // exist), so they can't get the normal 3-slot bye bonus there. Give them +1 MP now
+                // as a one-time compensating credit they can spend at any point in the campaign.
+                val round1ByeIds = rounds.firstOrNull()?.skipPlayerIds?.toSet() ?: emptySet()
+                val seededPlayers = if (round1ByeIds.isEmpty()) players else
+                    players.map { if (it.id in round1ByeIds) it.copy(machinationPoints = it.machinationPoints + 1) else it }
+                Campaign(
+                    id = 0,
+                    name = name,
+                    description = description,
+                    players = seededPlayers,
+                    attacksEnabled = attacksEnabled,
+                    totalRounds = totalRounds,
+                    gameSize = gameSize,
+                    startingCharacters = startingCharacters,
+                    characterGrowthEvery = characterGrowthEvery,
+                    upgradeGrowthEvery = upgradeGrowthEvery,
+                    rounds = rounds
+                )
+            }
 
             repository.upsertCampaign(campaign)
             resetNewCampaignFields()

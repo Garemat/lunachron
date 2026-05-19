@@ -292,8 +292,10 @@ data class CampaignAttack(
 data class PlayerMachinationDraft(
     val machType1: MachinationType? = null,
     val machType2: MachinationType? = null,
+    val machType3: MachinationType? = null,
     val target1: String = "",
     val target2: String = "",
+    val target3: String = "",
     val isAttacking: Boolean = false,
     val attackType: AttackType = AttackType.ASSAULT,
     val attackTargetPlayerId: String = "",
