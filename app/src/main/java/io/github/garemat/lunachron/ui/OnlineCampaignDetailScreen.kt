@@ -721,7 +721,7 @@ private fun TroupeDetailSheet(
     // For round 1, use the member's initial troupe_data; for later rounds, prefer confirmed snapshot.
     val currentRound = campaign.currentRound
     val confirmedData = campaign.roundTroupes.find { it.deviceId == member.deviceId }?.troupeData
-    val troupeDataToShow = if (currentRound == 1) member.troupeData else (confirmedData ?: member.troupeData)
+    val troupeDataToShow = if (currentRound == 1 || member.isLocal) member.troupeData else (confirmedData ?: member.troupeData)
 
     val currentTroupe = troupeDataToShow?.let { onDecodeTroupe(it) }
     val previousTroupe = campaign.previousRoundTroupes.find { it.deviceId == member.deviceId }
@@ -747,7 +747,7 @@ private fun TroupeDetailSheet(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            confirmedData == null && currentRound > 1 -> Text(
+            !member.isLocal && confirmedData == null && currentRound > 1 -> Text(
                 "Troupe not yet confirmed for Round $currentRound. Showing last known troupe.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1044,6 +1044,19 @@ private fun OnlineResultsTab(
     // Troupe confirmation state for this round (rounds > 1 only)
     val myConfirmed = campaign.roundTroupes.any { it.deviceId == myDeviceId }
     val opponentConfirmed = opponentId != null && campaign.roundTroupes.any { it.deviceId == opponentId }
+    val opponentIsLocal = opponentMember?.isLocal == true
+    val myTroupeData = myMember?.troupeData
+
+    // Local players don't use the app — auto-confirm on their behalf when they're the opponent
+    LaunchedEffect(campaign.id, currentRound, myConfirmed, opponentIsLocal) {
+        if (currentRound > 1 && myGameEntry != null && opponentIsLocal && !myConfirmed && myTroupeData != null) {
+            onEvent(CharacterEvent.ConfirmRoundTroupe(
+                campaignId = campaign.id,
+                roundNumber = currentRound,
+                troupeData = myTroupeData
+            ))
+        }
+    }
 
     // Find any existing match result for this game
     val existingResult = campaign.matchResults.firstOrNull {
@@ -1136,8 +1149,8 @@ private fun OnlineResultsTab(
         }
         } // closes Box
 
-        // Troupe confirmation (rounds 2+ with a scheduled game)
-        if (currentRound > 1 && myGameEntry != null) {
+        // Troupe confirmation (rounds 2+ with a scheduled game, not when opponent is local)
+        if (currentRound > 1 && myGameEntry != null && !opponentIsLocal) {
             val troupeDataToConfirm = myMember?.troupeData
             Spacer(Modifier.height(8.dp))
             Card(
