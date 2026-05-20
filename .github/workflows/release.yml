@@ -105,7 +105,7 @@ jobs:
         echo "$((major * 10000 + minor * 100 + patch))" > versionCode.txt
 
     - name: Create GitHub Release
-      uses: softprops/action-gh-release@v2
+      uses: softprops/action-gh-release@v3
       with:
         tag_name: ${{ steps.version.outputs.new_tag }}
         files: |
