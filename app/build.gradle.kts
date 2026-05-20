@@ -233,6 +233,10 @@ configurations.all {
         val group = requested.group
         val name  = requested.name
         when {
+            // coroutines-test 1.11.0 calls APIs added in coroutines-core 1.11.0; force the
+            // core to match so instrumented tests don't see a stale version from transitive deps.
+            group == "org.jetbrains.kotlinx" && name.startsWith("kotlinx-coroutines-") ->
+                useVersion(libs.versions.coroutinesTest.get())
             group == "io.netty" -> useVersion("4.1.129.Final")
             group == "com.google.protobuf" && name == "protobuf-kotlin" -> useVersion("3.25.5")
             group == "com.google.protobuf" && name == "protobuf-java"   -> useVersion("3.25.5")
