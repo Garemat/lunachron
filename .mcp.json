@@ -3,6 +3,14 @@
     "android": {
       "command": "android-mcp",
       "args": []
+    },
+    "lunachron-kotlin": {
+      "command": "tools/run_treesitter.sh",
+      "args": []
+    },
+    "lunachron-kls": {
+      "command": "tools/run_kls.sh",
+      "args": []
     }
   }
 }
