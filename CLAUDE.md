@@ -155,6 +155,12 @@ Game data (characters, upgrades, campaign cards) is sourced from the `lunachron-
 
 `CharacterData.kt` reads from `filesDir/data/` first (downloaded updates), falling back to bundled assets. This means the app always works offline with bundled data, and updates are applied transparently when downloaded.
 
+**Two data pins — different purposes:**
+- `data.version` — release tag (e.g. `v0.4.1`); Gradle downloads the `compendium.json` + `character_images.zip` bundle from the GitHub Release at build time. Also used by the app at runtime to fetch updates.
+- `data/` submodule — pinned commit SHA into `lunachron-data`; used by F-Droid builds, which build entirely from source and cannot download release artifacts. Bump with `cd data && git pull && cd .. && git add data`.
+
+When a meaningful data release lands, both pins move together in the same PR. A docs-only commit to `lunachron-data` doesn't require bumping either.
+
 **Database migration rules:**
 - `GameDatabase` uses `fallbackToDestructiveMigration()` — incrementing `version` in `GameDatabase.kt` will wipe and recreate game data, which is fine because it is always reseedable from the compendium.
 - `UserDatabase` must **never** use `fallbackToDestructiveMigration()` — incrementing `version` in `UserDatabase.kt` **requires** an explicit `Migration(from, to)` object with the SQL changes. Room will crash on launch rather than silently wipe user data if a migration is missing.
