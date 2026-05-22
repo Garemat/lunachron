@@ -2,6 +2,32 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## MCP Tools (Token-Efficient Navigation)
+
+Two MCP servers live in `tools/` and are pre-configured in `.mcp.json`. They activate automatically when Claude Code is opened from this directory.
+
+| Server | Tool | Purpose |
+|--------|------|---------|
+| `lunachron-kotlin` (tree-sitter) | `outline_file` | All declarations in a file without bodies — use instead of reading large files |
+| | `list_composables` | Every `@Composable` signature in a UI file |
+| | `find_definition` | Locate any symbol by name across the codebase |
+| | `get_declaration` | One specific function/class body, targeted |
+| `lunachron-kls` (Kotlin Language Server) | `kls_symbols` | Compiler-aware symbol search with type and kind |
+| | `kls_find_references` | All usages of a symbol, scope-aware |
+| | `kls_type_at` | Type of an expression at a file position |
+
+**KLS limitations:** no local Android SDK, so `ViewModel`, `Compose`, and Android SDK types won't resolve. The pure Kotlin domain layer (`CharacterEvent`, `CharacterState`, `Character`, etc.) works fully.
+
+**KLS startup:** first run in a session takes ~6s (warm cache). Cold first-ever run takes ~20-30s while it rebuilds its index at `~/.cache/lunachron-kls/`.
+
+### Setup (first time on a new machine)
+
+```bash
+bash tools/setup.sh
+```
+
+Downloads JDK 17, kotlin-language-server, and installs Python packages into `tools/venv/`. Safe to re-run. The `tools/jdk17/`, `tools/kls/`, and `tools/venv/` directories are gitignored.
+
 ## Build Commands
 
 This is an Android project. Use Gradle wrapper from the project root:
@@ -129,6 +155,12 @@ Game data (characters, upgrades, campaign cards) is sourced from the `lunachron-
 
 `CharacterData.kt` reads from `filesDir/data/` first (downloaded updates), falling back to bundled assets. This means the app always works offline with bundled data, and updates are applied transparently when downloaded.
 
+**Two data pins — different purposes:**
+- `data.version` — release tag (e.g. `v0.4.1`); Gradle downloads the `compendium.json` + `character_images.zip` bundle from the GitHub Release at build time. Also used by the app at runtime to fetch updates.
+- `data/` submodule — pinned commit SHA into `lunachron-data`; used by F-Droid builds, which build entirely from source and cannot download release artifacts. Bump with `cd data && git pull && cd .. && git add data`.
+
+When a meaningful data release lands, both pins move together in the same PR. A docs-only commit to `lunachron-data` doesn't require bumping either.
+
 **Database migration rules:**
 - `GameDatabase` uses `fallbackToDestructiveMigration()` — incrementing `version` in `GameDatabase.kt` will wipe and recreate game data, which is fine because it is always reseedable from the compendium.
 - `UserDatabase` must **never** use `fallbackToDestructiveMigration()` — incrementing `version` in `UserDatabase.kt` **requires** an explicit `Migration(from, to)` object with the SQL changes. Room will crash on launch rather than silently wipe user data if a migration is missing.
@@ -164,7 +196,7 @@ Four factions: COMMONWEALTH, DOMINION, LESHAVULT, SHADES
 Characters can belong to multiple factions.
 
 **Share codes** — every compendium item has a `shareCode` field (5 chars): `[type][faction][id0][id1][id2]`
-- Type: `A` = character, `B` = upgrade card, `C` = campaign card
+- Type: `A` = character, `B` = campaign card, `C` = upgrade card
 - Faction: `A`=Commonwealth, `B`=Dominion, `C`=Leshavult, `D`=Shades, `E`=Commonwealth+Dominion, `F`=Commonwealth+Leshavult, `G`=Commonwealth+Shades, `H`=Dominion+Leshavult, `I`=Dominion+Shades, `J`=Leshavult+Shades, `K`=All four factions (also used for items with no faction — upgrades/campaign cards)
 - ID digits: each digit encoded `A`=0 … `J`=9 (e.g. ID 42 → `EC`)
 - Share codes are stored directly in source JSON files in the data repo and validated by `scripts/lint_data.py`

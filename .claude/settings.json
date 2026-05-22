@@ -1,3 +1,3 @@
 {
-  "enabledMcpjsonServers": ["android"]
+  "enabledMcpjsonServers": ["android", "lunachron-kotlin", "lunachron-kls"]
 }

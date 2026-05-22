@@ -1,0 +1,5 @@
+venv/
+jdk17/
+kls/
+__pycache__/
+*.pyc
