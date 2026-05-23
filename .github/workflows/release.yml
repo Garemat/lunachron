@@ -7,7 +7,16 @@ on:
 
 jobs:
   release:
-    if: "github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[skip ci]')"
+    if: |
+      github.event_name == 'workflow_dispatch' || (
+        !contains(github.event.head_commit.message, '[skip ci]') &&
+        !startsWith(github.event.head_commit.message, 'chore:') &&
+        !startsWith(github.event.head_commit.message, 'docs:') &&
+        !startsWith(github.event.head_commit.message, 'ci:') &&
+        !startsWith(github.event.head_commit.message, 'build:') &&
+        !startsWith(github.event.head_commit.message, 'style:') &&
+        !startsWith(github.event.head_commit.message, 'test:')
+      )
     runs-on: ubuntu-latest
     concurrency:
       group: release
