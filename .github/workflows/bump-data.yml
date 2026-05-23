@@ -22,7 +22,17 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
 
+      - name: Check for existing PR
+        id: existing
+        env:
+          TAG: ${{ github.event.client_payload.tag }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR=$(gh pr list --head chore/data-$TAG --json number --jq '.[0].number' 2>/dev/null)
+          echo "pr=$PR" >> $GITHUB_OUTPUT
+
       - name: Create branch and update pins
+        if: steps.existing.outputs.pr == ''
         env:
           TAG: ${{ github.event.client_payload.tag }}
         run: |
@@ -32,9 +42,10 @@ jobs:
           git -C data checkout --quiet $TAG
           git add data.version data
           git commit -m "chore: bump lunachron-data to $TAG"
-          git push origin chore/data-$TAG
+          git push --force-with-lease origin chore/data-$TAG
 
       - name: Open PR and enable auto-merge
+        if: steps.existing.outputs.pr == ''
         env:
           TAG: ${{ github.event.client_payload.tag }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
