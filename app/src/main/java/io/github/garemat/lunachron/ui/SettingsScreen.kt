@@ -31,7 +31,8 @@ import io.github.garemat.lunachron.ui.theme.LocalAppThemeProperties
 fun SettingsScreen(
     state: CharacterState,
     onEvent: (CharacterEvent) -> Unit,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onNavigateToMigration: () -> Unit = {}
 ) {
     var name by remember { mutableStateOf(state.name) }
     var showRegisterDialog by remember { mutableStateOf(false) }
@@ -120,6 +121,15 @@ fun SettingsScreen(
                         Text("Register device", style = theme.buttonTextStyle)
                     }
                 }
+            }
+
+            Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
+            OutlinedButton(
+                onClick = onNavigateToMigration,
+                modifier = Modifier.fillMaxWidth(),
+                shape = theme.cardShape
+            ) {
+                Text("Transfer data to another device", style = theme.buttonTextStyle)
             }
 
             Spacer(modifier = Modifier.height(theme.verticalSpacing))
