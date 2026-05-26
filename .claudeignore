@@ -1,0 +1,10 @@
+build/
+app/build/
+.gradle/
+*.class
+*.jar
+*.aar
+local.properties
+tools/venv/
+tools/jdk17/
+tools/kls/
