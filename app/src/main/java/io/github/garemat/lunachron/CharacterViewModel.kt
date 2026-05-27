@@ -896,8 +896,8 @@ class CharacterViewModel(
                         troupes = _state.value.troupes,
                         campaigns = _state.value.campaigns,
                         gameResults = gameResults.value,
-                        sessionToken = prefs.getString("api_session_token", null),
-                        backendDeviceId = prefs.getString("api_backend_device_id", null)
+                        backendDeviceId = prefs.getString("api_backend_device_id", null),
+                        expiresAt = System.currentTimeMillis() + 15 * 60 * 1000L
                     )
                     DataMigration.encode(payload)
                 }.onSuccess { code ->
@@ -929,12 +929,9 @@ class CharacterViewModel(
                         prefs.edit { putString("player_name", payload.username) }
                         _state.update { it.copy(name = payload.username) }
                     }
-                    if (!payload.sessionToken.isNullOrBlank() && !payload.backendDeviceId.isNullOrBlank()) {
-                        prefs.edit {
-                            putString("api_session_token", payload.sessionToken)
-                            putString("api_backend_device_id", payload.backendDeviceId)
-                        }
-                        _state.update { it.copy(isRegistered = true, backendDeviceId = payload.backendDeviceId) }
+                    if (event.transferRegistration && !payload.backendDeviceId.isNullOrBlank()) {
+                        prefs.edit { putString("api_backend_device_id", payload.backendDeviceId) }
+                        _state.update { it.copy(backendDeviceId = payload.backendDeviceId) }
                     }
                 }.onSuccess {
                     _state.update { it.copy(migrationImportStatus = MigrationImportStatus.Success) }

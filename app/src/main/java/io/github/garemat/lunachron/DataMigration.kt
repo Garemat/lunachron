@@ -24,6 +24,10 @@ object DataMigration {
     fun decode(code: String): MigrationPayload {
         val compressed = Base64.decode(code.trim(), Base64.URL_SAFE)
         val jsonBytes = GZIPInputStream(ByteArrayInputStream(compressed)).use { it.readBytes() }
-        return json.decodeFromString(jsonBytes.toString(Charsets.UTF_8))
+        val payload = json.decodeFromString<MigrationPayload>(jsonBytes.toString(Charsets.UTF_8))
+        if (payload.expiresAt > 0 && System.currentTimeMillis() > payload.expiresAt) {
+            throw IllegalStateException("This code has expired. Generate a new one on the source device.")
+        }
+        return payload
     }
 }

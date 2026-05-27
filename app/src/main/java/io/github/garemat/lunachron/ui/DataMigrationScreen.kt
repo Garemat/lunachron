@@ -158,7 +158,7 @@ private fun ExportTab(
 
             Spacer(modifier = Modifier.height(theme.verticalSpacing))
             Text(
-                "Use the QR code to transfer to a new device. Use the text code when switching installation methods (e.g. GitHub → Play Store). Each code is a one-time snapshot — importing does not affect existing data on the target device.",
+                "Use the QR code to transfer to a new device. Use the text code when switching installation methods (e.g. GitHub → Play Store). Codes expire after 15 minutes — if yours expires, come back here to generate a fresh one. Importing adds to existing data on the target device rather than replacing it.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
@@ -176,6 +176,7 @@ private fun ImportTab(
 ) {
     var code by remember { mutableStateOf("") }
     var showScanner by remember { mutableStateOf(false) }
+    var transferRegistration by remember(state.isRegistered) { mutableStateOf(!state.isRegistered) }
 
     if (showScanner) {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -237,8 +238,34 @@ private fun ImportTab(
 
         Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
 
+        ThemedCard(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(theme.cardContentPadding)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Transfer campaign registration", style = theme.headerStyle.copy(fontSize = 16.sp), modifier = Modifier.weight(1f))
+                    Switch(checked = transferRegistration, onCheckedChange = { transferRegistration = it })
+                }
+                Text(
+                    if (state.isRegistered)
+                        "This device is already registered. Enabling this will replace your current campaign identity with the one from the source device."
+                    else
+                        "Transfers your campaign memberships to this device. You will need to re-register after importing.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (state.isRegistered && transferRegistration)
+                        MaterialTheme.colorScheme.error
+                    else
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
+
         Button(
-            onClick = { onEvent(CharacterEvent.ImportMigrationData(code.trim())) },
+            onClick = { onEvent(CharacterEvent.ImportMigrationData(code.trim(), transferRegistration)) },
             enabled = code.isNotBlank() && state.migrationImportStatus !is MigrationImportStatus.Loading && state.migrationImportStatus !is MigrationImportStatus.Success,
             modifier = Modifier.fillMaxWidth(),
             shape = theme.cardShape

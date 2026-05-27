@@ -174,7 +174,7 @@ sealed interface CharacterEvent {
 
     // Data migration
     data object GenerateMigrationExport : CharacterEvent
-    data class ImportMigrationData(val code: String) : CharacterEvent
+    data class ImportMigrationData(val code: String, val transferRegistration: Boolean) : CharacterEvent
     data object ClearMigrationState : CharacterEvent
 
     // LunaChron API — machinations phase
