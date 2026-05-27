@@ -158,9 +158,16 @@ private fun ExportTab(
 
             Spacer(modifier = Modifier.height(theme.verticalSpacing))
             Text(
-                "Use the QR code to transfer to a new device. Use the text code when switching installation methods (e.g. GitHub → Play Store). Codes expire after 15 minutes. Keep this code private — anyone who has it can access your campaigns.",
+                "Use the QR code to transfer to a new device. Use the text code when switching installation methods (e.g. GitHub → Play Store). Codes expire after 15 minutes.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
+            Text(
+                "Keep this code private — anyone who has it can access your campaigns.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
                 textAlign = TextAlign.Center
             )
             Spacer(modifier = Modifier.height(theme.verticalSpacing))
