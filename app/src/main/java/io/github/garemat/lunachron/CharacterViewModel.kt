@@ -893,9 +893,10 @@ class CharacterViewModel(
                 runCatching {
                     val payload = MigrationPayload(
                         username = _state.value.name,
-                        troupes = _state.value.troupes,
-                        campaigns = _state.value.campaigns,
+                        troupes = state.value.troupes,
+                        campaigns = state.value.campaigns,
                         gameResults = gameResults.value,
+                        sessionToken = prefs.getString("api_session_token", null),
                         backendDeviceId = prefs.getString("api_backend_device_id", null),
                         expiresAt = System.currentTimeMillis() + 15 * 60 * 1000L
                     )
@@ -929,9 +930,12 @@ class CharacterViewModel(
                         prefs.edit { putString("player_name", payload.username) }
                         _state.update { it.copy(name = payload.username) }
                     }
-                    if (event.transferRegistration && !payload.backendDeviceId.isNullOrBlank()) {
-                        prefs.edit { putString("api_backend_device_id", payload.backendDeviceId) }
-                        _state.update { it.copy(backendDeviceId = payload.backendDeviceId) }
+                    if (event.transferRegistration && !payload.sessionToken.isNullOrBlank()) {
+                        prefs.edit {
+                            putString("api_session_token", payload.sessionToken)
+                            putString("api_backend_device_id", payload.backendDeviceId)
+                        }
+                        _state.update { it.copy(isRegistered = true, backendDeviceId = payload.backendDeviceId ?: "") }
                     }
                 }.onSuccess {
                     _state.update { it.copy(migrationImportStatus = MigrationImportStatus.Success) }

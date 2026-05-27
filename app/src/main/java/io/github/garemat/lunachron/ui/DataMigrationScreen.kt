@@ -158,7 +158,7 @@ private fun ExportTab(
 
             Spacer(modifier = Modifier.height(theme.verticalSpacing))
             Text(
-                "Use the QR code to transfer to a new device. Use the text code when switching installation methods (e.g. GitHub → Play Store). Codes expire after 15 minutes — if yours expires, come back here to generate a fresh one. Importing adds to existing data on the target device rather than replacing it.",
+                "Use the QR code to transfer to a new device. Use the text code when switching installation methods (e.g. GitHub → Play Store). Codes expire after 15 minutes. Keep this code private — anyone who has it can access your campaigns.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
@@ -252,7 +252,7 @@ private fun ImportTab(
                     if (state.isRegistered)
                         "This device is already registered. Enabling this will replace your current campaign identity with the one from the source device."
                     else
-                        "Transfers your campaign memberships to this device. You will need to re-register after importing.",
+                        "Transfers your campaign memberships and session to this device. The source device will remain logged in until its session expires.",
                     style = MaterialTheme.typography.bodySmall,
                     color = if (state.isRegistered && transferRegistration)
                         MaterialTheme.colorScheme.error
