@@ -502,15 +502,23 @@ fun CommonStatBox(label: String, value: String, modifier: Modifier = Modifier, h
 fun CommonAbilityItem(name: String, description: String, searchQuery: String = "", oncePerTurn: Boolean = false, oncePerGame: Boolean = false, reloadable: Boolean = false, isUsed: Boolean = false, onUsedChange: ((Boolean) -> Unit)? = null, isEditable: Boolean = true, passive: Boolean = false, showColon: Boolean = true) {
     val theme = LocalAppThemeProperties.current
     if (passive) {
-        Text(
-            text = buildAnnotatedString {
-                withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) { appendWithHighlight(name, searchQuery); append(": ") }
-                append(parseAbilityDescription(description, searchQuery))
-            },
-            style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.padding(vertical = theme.verticalSpacing / 4),
-            inlineContent = getMoonstoneInlineContent()
-        )
+        Row(modifier = Modifier.padding(vertical = theme.verticalSpacing / 4), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = buildAnnotatedString {
+                    withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) { appendWithHighlight(name, searchQuery); append(": ") }
+                    append(parseAbilityDescription(description, searchQuery))
+                    if (oncePerGame) withStyle(style = SpanStyle(fontStyle = FontStyle.Italic)) { append(if (reloadable) " Once per game, unless reloaded." else " Once per game.") }
+                },
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.weight(1f),
+                inlineContent = getMoonstoneInlineContent()
+            )
+            if (oncePerGame && onUsedChange != null) {
+                Box(modifier = Modifier.padding(start = 8.dp).size(16.dp).clip(CircleShape).background(if (isUsed) MaterialTheme.colorScheme.onSurfaceVariant else Color.Transparent).border(1.2.dp, if (isEditable) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, CircleShape).then(if (isEditable) Modifier.clickable { onUsedChange(!isUsed) } else Modifier), contentAlignment = Alignment.Center) {
+                    if (isUsed) Icon(imageVector = Icons.Default.Close, contentDescription = null, modifier = Modifier.size(10.dp), tint = Color.White)
+                }
+            }
+        }
     } else {
         Column(modifier = Modifier.padding(vertical = theme.verticalSpacing / 4)) {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
