@@ -391,7 +391,17 @@ data class CharacterState(
     // UI overlay triggers for campaign detail top bar actions (hoisted so MainActivity can set them)
     val showCampaignAdminPanel: Boolean = false,
     val showCampaignDeleteDialog: Boolean = false,
+
+    // Data migration
+    val migrationExportCode: String? = null,
+    val migrationImportStatus: MigrationImportStatus? = null,
 )
+
+sealed class MigrationImportStatus {
+    data object Loading : MigrationImportStatus()
+    data object Success : MigrationImportStatus()
+    data class Error(val message: String) : MigrationImportStatus()
+}
 
 @Serializable
 data class CharacterPlayState(

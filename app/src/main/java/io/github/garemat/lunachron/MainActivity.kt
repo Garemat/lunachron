@@ -490,7 +490,18 @@ class MainActivity : ComponentActivity() {
                                     SettingsScreen(
                                         state = state,
                                         onEvent = viewModel::onEvent,
-                                        onNavigateBack = { navController.safePopBackStack() }
+                                        onNavigateBack = { navController.safePopBackStack() },
+                                        onNavigateToMigration = { navController.navigate(Screen.DataMigration.route) }
+                                    )
+                                }
+                                composable(Screen.DataMigration.route) {
+                                    DataMigrationScreen(
+                                        state = state,
+                                        onEvent = viewModel::onEvent,
+                                        onNavigateBack = {
+                                            viewModel.onEvent(CharacterEvent.ClearMigrationState)
+                                            navController.safePopBackStack()
+                                        }
                                     )
                                 }
                                 composable(Screen.Rules.route) {

@@ -33,4 +33,5 @@ sealed class Screen(val route: String) {
     data object CampaignDetails : Screen("campaign_details/{campaignId}") {
         fun createRoute(campaignId: Int) = "campaign_details/$campaignId"
     }
+    data object DataMigration : Screen("data_migration")
 }

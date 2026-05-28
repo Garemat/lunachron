@@ -889,6 +889,65 @@ class CharacterViewModel(
             }
             CharacterEvent.DismissImageUpdate -> _state.update { it.copy(pendingImageUpdate = null) }
 
+            CharacterEvent.GenerateMigrationExport -> viewModelScope.launch(Dispatchers.IO) {
+                runCatching {
+                    val payload = MigrationPayload(
+                        username = _state.value.name,
+                        troupes = state.value.troupes,
+                        campaigns = state.value.campaigns,
+                        gameResults = gameResults.value,
+                        sessionToken = prefs.getString("api_session_token", null),
+                        backendDeviceId = prefs.getString("api_backend_device_id", null),
+                        expiresAt = System.currentTimeMillis() + 15 * 60 * 1000L
+                    )
+                    DataMigration.encode(payload)
+                }.onSuccess { code ->
+                    _state.update { it.copy(migrationExportCode = code) }
+                }.onFailure { e ->
+                    _state.update { it.copy(errorMessage = "Export failed: ${e.message}") }
+                }
+            }
+
+            is CharacterEvent.ImportMigrationData -> viewModelScope.launch(Dispatchers.IO) {
+                _state.update { it.copy(migrationImportStatus = MigrationImportStatus.Loading) }
+                runCatching {
+                    val payload = DataMigration.decode(event.code)
+                    val idMap = mutableMapOf<Int, Int>()
+                    payload.troupes.forEach { troupe ->
+                        val newId = repository.upsertTroupe(troupe.copy(id = 0)).toInt()
+                        idMap[troupe.id] = newId
+                    }
+                    payload.campaigns.forEach { campaign ->
+                        val remappedPlayers = campaign.players.map { player ->
+                            player.copy(troupeId = idMap[player.troupeId] ?: player.troupeId)
+                        }
+                        repository.upsertCampaign(campaign.copy(id = 0, players = remappedPlayers))
+                    }
+                    payload.gameResults.forEach { result ->
+                        repository.upsertGameResult(result.copy(id = 0))
+                    }
+                    if (payload.username.isNotBlank()) {
+                        prefs.edit { putString("player_name", payload.username) }
+                        _state.update { it.copy(name = payload.username) }
+                    }
+                    if (event.transferRegistration && !payload.sessionToken.isNullOrBlank()) {
+                        prefs.edit {
+                            putString("api_session_token", payload.sessionToken)
+                            putString("api_backend_device_id", payload.backendDeviceId)
+                        }
+                        _state.update { it.copy(isRegistered = true, backendDeviceId = payload.backendDeviceId ?: "") }
+                    }
+                }.onSuccess {
+                    _state.update { it.copy(migrationImportStatus = MigrationImportStatus.Success) }
+                }.onFailure { e ->
+                    _state.update { it.copy(migrationImportStatus = MigrationImportStatus.Error(e.message ?: "Invalid code")) }
+                }
+            }
+
+            CharacterEvent.ClearMigrationState -> _state.update {
+                it.copy(migrationExportCode = null, migrationImportStatus = null)
+            }
+
             else -> {}
         }
     }

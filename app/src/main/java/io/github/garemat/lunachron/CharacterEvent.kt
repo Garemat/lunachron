@@ -172,6 +172,11 @@ sealed interface CharacterEvent {
         val targetDeviceId: String? = null   // host only: confirm for a local player
     ) : CharacterEvent
 
+    // Data migration
+    data object GenerateMigrationExport : CharacterEvent
+    data class ImportMigrationData(val code: String, val transferRegistration: Boolean) : CharacterEvent
+    data object ClearMigrationState : CharacterEvent
+
     // LunaChron API — machinations phase
     data class SubmitMachination(
         val campaignId: String,

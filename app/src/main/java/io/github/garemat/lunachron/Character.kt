@@ -328,3 +328,15 @@ data class CharacterGameStat(
     val stones: Int,
     val died: Boolean
 )
+
+@Serializable
+data class MigrationPayload(
+    val version: Int = 1,
+    val username: String,
+    val troupes: List<Troupe>,
+    val campaigns: List<Campaign>,
+    val gameResults: List<GameResult>,
+    val sessionToken: String? = null,
+    val backendDeviceId: String? = null,
+    val expiresAt: Long = 0,
+)

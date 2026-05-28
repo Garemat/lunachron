@@ -60,9 +60,10 @@ class NearbyManager(private val context: Context) {
     private var scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     private val nsdManager = context.getSystemService(Context.NSD_SERVICE) as NsdManager
-    private val wifiP2pManager = context.getSystemService(Context.WIFI_P2P_SERVICE) as WifiP2pManager
+    private val wifiP2pManager: WifiP2pManager? =
+        context.getSystemService(Context.WIFI_P2P_SERVICE) as? WifiP2pManager
     private val wifiP2pChannel: WifiP2pManager.Channel? =
-        wifiP2pManager.initialize(context, context.mainLooper, null)
+        wifiP2pManager?.initialize(context, context.mainLooper, null)
 
     private val _connectedEndpoints = MutableStateFlow<Set<String>>(emptySet())
     val connectedEndpoints = _connectedEndpoints.asStateFlow()
@@ -143,8 +144,8 @@ class NearbyManager(private val context: Context) {
         val serviceInfo = WifiP2pDnsSdServiceInfo.newInstance(
             localName, "_moonstone._tcp.", mapOf("port" to WIFI_DIRECT_PORT.toString())
         )
-        wifiP2pManager.addLocalService(ch, serviceInfo, noopListener("addLocalService"))
-        wifiP2pManager.createGroup(ch, object : WifiP2pManager.ActionListener {
+        wifiP2pManager?.addLocalService(ch, serviceInfo, noopListener("addLocalService"))
+        wifiP2pManager?.createGroup(ch, object : WifiP2pManager.ActionListener {
             override fun onSuccess() {
                 Log.i(TAG, "Wi-Fi Direct group created, listening on port $WIFI_DIRECT_PORT")
                 startAccepting(ss)
@@ -233,7 +234,7 @@ class NearbyManager(private val context: Context) {
             override fun onReceive(ctx: Context, intent: Intent) {
                 if (intent.action != WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION) return
                 val targetId = pendingWifiDirectEndpointId ?: return
-                wifiP2pManager.requestConnectionInfo(ch) { info ->
+                wifiP2pManager?.requestConnectionInfo(ch) { info ->
                     Log.d(TAG, "Wi-Fi Direct conn info: groupFormed=${info?.groupFormed}, isGroupOwner=${info?.isGroupOwner}")
                     if (info?.groupFormed == true && !info.isGroupOwner) {
                         val goAddress = info.groupOwnerAddress?.hostAddress ?: return@requestConnectionInfo
@@ -254,7 +255,7 @@ class NearbyManager(private val context: Context) {
         context.registerReceiver(receiver, filter)
         wifiDirectReceiver = receiver
 
-        wifiP2pManager.setDnsSdResponseListeners(ch,
+        wifiP2pManager?.setDnsSdResponseListeners(ch,
             { instanceName, _, device ->
                 val endpointId = "p2p_${device.deviceAddress}"
                 wifiDirectDevices[endpointId] = device
@@ -263,8 +264,8 @@ class NearbyManager(private val context: Context) {
             { _, _, _ -> }
         )
         val serviceRequest = WifiP2pDnsSdServiceRequest.newInstance()
-        wifiP2pManager.addServiceRequest(ch, serviceRequest, noopListener("addServiceRequest"))
-        wifiP2pManager.discoverServices(ch, noopListener("p2p discoverServices"))
+        wifiP2pManager?.addServiceRequest(ch, serviceRequest, noopListener("addServiceRequest"))
+        wifiP2pManager?.discoverServices(ch, noopListener("p2p discoverServices"))
     }
 
     // ── Client connection ─────────────────────────────────────────────────────
@@ -295,7 +296,7 @@ class NearbyManager(private val context: Context) {
                 }
                 pendingWifiDirectEndpointId = endpointId
                 val config = WifiP2pConfig().apply { deviceAddress = device.deviceAddress }
-                wifiP2pManager.connect(ch, config, object : WifiP2pManager.ActionListener {
+                wifiP2pManager?.connect(ch, config, object : WifiP2pManager.ActionListener {
                     override fun onSuccess() {}
                     override fun onFailure(reason: Int) {
                         Log.e(TAG, "Wi-Fi Direct connect failed: $reason")
@@ -350,16 +351,16 @@ class NearbyManager(private val context: Context) {
     @SuppressLint("MissingPermission")
     private fun stopWifiDirectAdvertising() {
         val ch = wifiP2pChannel ?: return
-        wifiP2pManager.clearLocalServices(ch, noopListener("clearLocalServices"))
-        wifiP2pManager.removeGroup(ch, noopListener("removeGroup"))
+        wifiP2pManager?.clearLocalServices(ch, noopListener("clearLocalServices"))
+        wifiP2pManager?.removeGroup(ch, noopListener("removeGroup"))
     }
 
     private fun stopWifiDirectDiscovery() {
         wifiDirectReceiver?.let { try { context.unregisterReceiver(it) } catch (_: Exception) {} }
         wifiDirectReceiver = null
         val ch = wifiP2pChannel ?: return
-        wifiP2pManager.clearServiceRequests(ch, noopListener("clearServiceRequests"))
-        wifiP2pManager.stopPeerDiscovery(ch, noopListener("stopPeerDiscovery"))
+        wifiP2pManager?.clearServiceRequests(ch, noopListener("clearServiceRequests"))
+        wifiP2pManager?.stopPeerDiscovery(ch, noopListener("stopPeerDiscovery"))
     }
 
     private fun openConnection(endpointId: String, socket: Socket) {
