@@ -3,8 +3,6 @@ package io.github.garemat.lunachron.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -59,20 +57,20 @@ private val MELEE_CARDS = listOf(
         "Rising Attack" to MeleeMatchup(1, 1),
         "Low Guard"     to MeleeMatchup(null, null),
     )),
-    MeleeCard("Sweeping Cut", "Slicing", mapOf(
-        "High Guard"    to MeleeMatchup(null, null),
-        "Falling Swing" to MeleeMatchup(2, 3),
-        "Thrust"        to MeleeMatchup(0, null, dealFollowup = true),
-        "Sweeping Cut"  to MeleeMatchup(0, 0),
-        "Rising Attack" to MeleeMatchup(2, 2),
-        "Low Guard"     to MeleeMatchup(null, null),
-    )),
     MeleeCard("Low Guard", "—", mapOf(
         "High Guard"    to MeleeMatchup(null, null),
         "Falling Swing" to MeleeMatchup(null, 2),
         "Thrust"        to MeleeMatchup(null, 1),
         "Sweeping Cut"  to MeleeMatchup(null, null),
         "Rising Attack" to MeleeMatchup(null, null, dealFollowup = true),
+        "Low Guard"     to MeleeMatchup(null, null),
+    )),
+    MeleeCard("Sweeping Cut", "Slicing", mapOf(
+        "High Guard"    to MeleeMatchup(null, null),
+        "Falling Swing" to MeleeMatchup(2, 3),
+        "Thrust"        to MeleeMatchup(0, null, dealFollowup = true),
+        "Sweeping Cut"  to MeleeMatchup(0, 0),
+        "Rising Attack" to MeleeMatchup(2, 2),
         "Low Guard"     to MeleeMatchup(null, null),
     )),
     MeleeCard("High Guard", "—", mapOf(
@@ -130,32 +128,37 @@ fun MeleeCombatSheet(onDismiss: () -> Unit) {
                 modifier = Modifier.padding(horizontal = 16.dp),
             )
             Spacer(Modifier.height(6.dp))
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                contentPadding = PaddingValues(horizontal = 16.dp),
+            Column(
+                modifier = Modifier.padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                itemsIndexed(MELEE_CARDS) { i, card ->
-                    val isSelected = i == selectedIndex
-                    Surface(
-                        onClick = { selectedIndex = i },
-                        shape = theme.cardShape,
-                        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer
-                                else MaterialTheme.colorScheme.surfaceVariant,
-                        tonalElevation = if (isSelected) 0.dp else 0.dp,
-                    ) {
-                        Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
-                            Text(
-                                text = card.name,
-                                style = MaterialTheme.typography.labelMedium,
-                                color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
-                                        else MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Text(
-                                text = card.damageType,
-                                style = MaterialTheme.typography.labelSmall,
-                                fontStyle = FontStyle.Italic,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                            )
+                MELEE_CARDS.chunked(3).forEachIndexed { rowIdx, rowCards ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        rowCards.forEachIndexed { colIdx, card ->
+                            val i = rowIdx * 3 + colIdx
+                            val isSelected = i == selectedIndex
+                            Surface(
+                                onClick = { selectedIndex = i },
+                                shape = theme.cardShape,
+                                color = if (isSelected) MaterialTheme.colorScheme.primaryContainer
+                                        else MaterialTheme.colorScheme.surfaceVariant,
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
+                                    Text(
+                                        text = card.name,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
+                                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    Text(
+                                        text = card.damageType,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontStyle = FontStyle.Italic,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                    )
+                                }
+                            }
                         }
                     }
                 }

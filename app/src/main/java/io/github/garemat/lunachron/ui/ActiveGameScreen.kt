@@ -438,14 +438,15 @@ fun ActiveGameScreen(
                     onClick = { showMeleeSheet = true },
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
+                        .navigationBarsPadding()
                         .padding(end = 16.dp, bottom = 16.dp),
                     shape = theme.cardShape,
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
                 ) {
                     Text(
                         text = "⚔",
                         style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
                     )
                 }
             }
