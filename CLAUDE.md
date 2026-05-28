@@ -34,7 +34,10 @@ This is an Android project. Use Gradle wrapper from the project root:
 
 ```bash
 # Build debug APK
-./gradlew assembleDebug
+./gradlew assembleGithubDebug
+
+# Install debug APK on connected device/emulator
+./gradlew installGithubDebug
 
 # Build release APK (requires env vars: KEYSTORE_PATH, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD)
 ./gradlew assembleRelease
@@ -51,6 +54,8 @@ This is an Android project. Use Gradle wrapper from the project root:
 # Clean build
 ./gradlew clean
 ```
+
+The app has `github` and `fdroid` build flavours — always use the `Github` variant locally (`installDebug` is ambiguous and will fail).
 
 The app targets SDK 36, min SDK 24, Java 17.
 
