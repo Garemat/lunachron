@@ -188,6 +188,9 @@ fun ActiveGameScreen(
     var isSummonPanelOpen by rememberSaveable { mutableStateOf(false) }
     var summonerPickerState by remember { mutableStateOf<SummonerPickerState?>(null) }
 
+    // Melee combat reference sheet
+    var showMeleeSheet by rememberSaveable { mutableStateOf(false) }
+
     // Card modal state
     var selectedCharInfo by remember { mutableStateOf<Triple<Int, Int, Character>?>(null) }
     var showEndGameConfirm by remember { mutableStateOf(false) }
@@ -429,6 +432,25 @@ fun ActiveGameScreen(
                 }
             }
 
+            // Melee combat reference FAB (LOW_DETAIL only — FULL_TRACKING has the pool bar)
+            if (!isFullTracking) {
+                FloatingActionButton(
+                    onClick = { showMeleeSheet = true },
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .navigationBarsPadding()
+                        .padding(end = 16.dp, bottom = 16.dp),
+                    shape = theme.cardShape,
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                ) {
+                    Text(
+                        text = "⚔",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                }
+            }
+
             // Card modal
             selectedCharInfo?.let { (pi, ci, char) ->
                 val ps = if (isTutorialActive) {
@@ -465,6 +487,10 @@ fun ActiveGameScreen(
                 )
             }
         }
+    }
+
+    if (showMeleeSheet) {
+        MeleeCombatSheet(onDismiss = { showMeleeSheet = false })
     }
 
     // End game confirm dialog
