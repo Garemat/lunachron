@@ -1,3 +1,15 @@
 {
-  "enabledMcpjsonServers": ["android", "lunachron-kotlin", "lunachron-kls"]
+  "enabledMcpjsonServers": ["android", "lunachron-kotlin", "lunachron-kls"],
+  "hooks": {
+    "WorktreeCreate": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ln -sf /var/home/garemat/lunaChron/lunachron/local.properties ./local.properties"
+          }
+        ]
+      }
+    ]
+  }
 }
