@@ -1065,6 +1065,7 @@ private fun CharacterTrackingDock(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
                 .clickable { isExpanded = !isExpanded }
                 .padding(horizontal = theme.screenPadding, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
