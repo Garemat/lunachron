@@ -1022,66 +1022,11 @@ private fun GameCharacterCardModal(
                     scrollable = true
                 )
 
-                // Summons section — compact strip pinned below card content
-                if (character.summonsCharacterIds.isNotEmpty()) {
-                    HorizontalDivider()
-                    character.summonsCharacterIds.forEach { summonId ->
-                        val summonChar = allCharacters.find { it.id == summonId } ?: return@forEach
-                        val isActive = activeSummons.any { it.characterId == summonId }
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = theme.screenPadding, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                            ) {
-                                CharacterPortrait(summonChar, 36.dp)
-                            }
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    summonChar.name,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Text(
-                                    "♥${summonChar.health}  ⚔${summonChar.melee}  ✦${summonChar.arcane}",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            if (isActive) {
-                                OutlinedButton(
-                                    onClick = { if (isEditable) onRemoveSummon(summonId) },
-                                    modifier = Modifier.height(30.dp),
-                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                                    enabled = isEditable
-                                ) { Text("✓ Active", fontSize = 11.sp) }
-                            } else {
-                                Button(
-                                    onClick = { if (isEditable) onAddSummon(summonId, character.id) },
-                                    modifier = Modifier.height(30.dp),
-                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                                    enabled = isEditable
-                                ) { Text("Call to Battle", fontSize = 11.sp) }
-                            }
-                        }
-                    }
-                    Spacer(Modifier.height(4.dp))
-                }
-
             } // Column
         } // ThemedCard
 
-        // Tracking dock — floats over the card as a separate bottom sheet (FULL_TRACKING only)
-        if (isFullTracking) {
+        // Tracking dock — shown when full-tracking active OR character has summons
+        if (isFullTracking || character.summonsCharacterIds.isNotEmpty()) {
             ThemedCard(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -1094,12 +1039,17 @@ private fun GameCharacterCardModal(
                 CharacterTrackingDock(
                     character = character,
                     playState = playState,
+                    isFullTracking = isFullTracking,
                     isEditable = isEditable,
+                    allCharacters = allCharacters,
+                    activeSummons = activeSummons,
                     onHealthChange = onHealthChange,
                     onEnergyChange = onEnergyChange,
                     onMoonstoneChange = onMoonstoneChange,
                     onToggleActivated = onToggleActivated,
-                    onSetStatusToken = onSetStatusToken
+                    onSetStatusToken = onSetStatusToken,
+                    onAddSummon = onAddSummon,
+                    onRemoveSummon = onRemoveSummon
                 )
             }
         }
@@ -1110,23 +1060,34 @@ private fun GameCharacterCardModal(
 private fun CharacterTrackingDock(
     character: Character,
     playState: CharacterPlayState,
+    isFullTracking: Boolean,
     isEditable: Boolean,
+    allCharacters: List<Character>,
+    activeSummons: List<SummonEntry>,
     onHealthChange: (Int) -> Unit,
     onEnergyChange: (Int) -> Unit,
     onMoonstoneChange: (Int) -> Unit,
     onToggleActivated: () -> Unit,
-    onSetStatusToken: (String, Boolean) -> Unit
+    onSetStatusToken: (String, Boolean) -> Unit,
+    onAddSummon: (Int, Int?) -> Unit,
+    onRemoveSummon: (Int) -> Unit
 ) {
     val theme = LocalAppThemeProperties.current
     val moonstoneColor = theme.moonstoneColor
     var isExpanded by rememberSaveable { mutableStateOf(false) }
 
+    val activeSummonCount = activeSummons.count { e -> character.summonsCharacterIds.contains(e.characterId) }
     val summaryText = buildString {
-        append("♥ ${playState.currentHealth}/${character.health}")
-        if (playState.currentEnergy > 0) append("  ◆${playState.currentEnergy}")
-        if (playState.moonstones > 0) append("  ${"●".repeat(playState.moonstones)}")
-        if (playState.statusTokens["cursed"] == true) append("  cursed")
-        if (playState.isActivatedThisTurn) append("  used")
+        if (isFullTracking) {
+            append("♥ ${playState.currentHealth}/${character.health}")
+            if (playState.currentEnergy > 0) append("  ◆${playState.currentEnergy}")
+            if (playState.moonstones > 0) append("  ${"●".repeat(playState.moonstones)}")
+            if (playState.statusTokens["cursed"] == true) append("  cursed")
+            if (playState.isActivatedThisTurn) append("  used")
+            if (activeSummonCount > 0) append("  ↳$activeSummonCount active")
+        } else if (character.summonsCharacterIds.isNotEmpty()) {
+            append("↳ $activeSummonCount/${character.summonsCharacterIds.size} summoned")
+        }
     }
 
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -1153,7 +1114,7 @@ private fun CharacterTrackingDock(
             )
         }
 
-        AnimatedVisibility(visible = isExpanded) {
+        if (isFullTracking) AnimatedVisibility(visible = isExpanded) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1225,6 +1186,65 @@ private fun CharacterTrackingDock(
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text("✓ Mark Used", style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
                     Switch(checked = playState.isActivatedThisTurn, onCheckedChange = { if (isEditable) onToggleActivated() }, enabled = isEditable)
+                }
+            }
+        }
+
+        // Summons section — shown when expanded, gated by character having summons
+        if (character.summonsCharacterIds.isNotEmpty()) {
+            AnimatedVisibility(visible = isExpanded) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    if (isFullTracking) HorizontalDivider(modifier = Modifier.padding(horizontal = theme.screenPadding))
+                    character.summonsCharacterIds.forEach { summonId ->
+                        val summonChar = allCharacters.find { it.id == summonId } ?: return@forEach
+                        val isActive = activeSummons.any { it.characterId == summonId }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = theme.screenPadding, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                            ) {
+                                CharacterPortrait(summonChar, 36.dp)
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    summonChar.name,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    "♥${summonChar.health}  ⚔${summonChar.melee}  ✦${summonChar.arcane}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            if (isActive) {
+                                OutlinedButton(
+                                    onClick = { if (isEditable) onRemoveSummon(summonId) },
+                                    modifier = Modifier.height(30.dp),
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                                    enabled = isEditable
+                                ) { Text("✓ Active", fontSize = 11.sp) }
+                            } else {
+                                Button(
+                                    onClick = { if (isEditable) onAddSummon(summonId, character.id) },
+                                    modifier = Modifier.height(30.dp),
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                                    enabled = isEditable
+                                ) { Text("Call to Battle", fontSize = 11.sp) }
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
                 }
             }
         }
