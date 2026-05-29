@@ -502,7 +502,7 @@ fun CommonStatBox(label: String, value: String, modifier: Modifier = Modifier, h
 fun CommonAbilityItem(name: String, description: String, searchQuery: String = "", oncePerTurn: Boolean = false, oncePerGame: Boolean = false, reloadable: Boolean = false, isUsed: Boolean = false, onUsedChange: ((Boolean) -> Unit)? = null, isEditable: Boolean = true, passive: Boolean = false, showColon: Boolean = true) {
     val theme = LocalAppThemeProperties.current
     if (passive) {
-        Row(modifier = Modifier.padding(vertical = theme.verticalSpacing / 4), verticalAlignment = Alignment.CenterVertically) {
+        Row(modifier = Modifier.padding(vertical = theme.verticalSpacing / 2), verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = buildAnnotatedString {
                     withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) { appendWithHighlight(name, searchQuery); append(": ") }
@@ -520,7 +520,7 @@ fun CommonAbilityItem(name: String, description: String, searchQuery: String = "
             }
         }
     } else {
-        Column(modifier = Modifier.padding(vertical = theme.verticalSpacing / 4)) {
+        Column(modifier = Modifier.padding(vertical = theme.verticalSpacing / 2)) {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                 val title = buildAnnotatedString {
                     withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
@@ -562,7 +562,7 @@ fun CharacterFront(
             CommonStatBox("Arcane", character.arcane.toString(), showDivider = true)
             CommonStatBox("Evade", character.evade.toString(), showDivider = true)
         }
-        Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
+        Spacer(modifier = Modifier.height(theme.verticalSpacing))
         val passiveAbilities = character.abilities.filter { it.abilityType == "Passive" }
         val activeAbilities = character.abilities.filter { it.abilityType == "Active" }
         val arcaneAbilities = character.abilities.filter { it.abilityType == "Arcane" }
@@ -610,7 +610,7 @@ fun CharacterFront(
         }
         if (showSignatureLink) {
             character.signatureMove?.let { sigMove ->
-                Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
+                Spacer(modifier = Modifier.height(theme.verticalSpacing))
                 Row(
                     modifier = Modifier.fillMaxWidth().clickable { onFlip() }.onGloballyPositioned { onFlipPositioned(it) },
                     verticalAlignment = Alignment.CenterVertically
@@ -618,7 +618,7 @@ fun CharacterFront(
                     Text(text = buildAnnotatedString { append(if (theme.showExpandedStatsHeader) "Signature Move on a " else "Signature Move: "); withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { appendWithHighlight(if (theme.showExpandedStatsHeader) sigMove.upgradeFor else sigMove.name, searchQuery) }; append(".") }, style = MaterialTheme.typography.bodyMedium, fontStyle = FontStyle.Italic, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.secondary)
                     Icon(imageVector = Icons.Default.KeyboardArrowRight, contentDescription = "View signature move", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.secondary)
                 }
-                Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
+                Spacer(modifier = Modifier.height(theme.verticalSpacing))
             }
         }
         if (showHealthTracker) {
@@ -1202,7 +1202,7 @@ fun CampaignCardUI(card: CampaignCard, searchQuery: String, isExpanded: Boolean,
 @Composable
 fun AbilityTypeSeparator() {
     val theme = LocalAppThemeProperties.current
-    Box(modifier = Modifier.fillMaxWidth().padding(vertical = theme.verticalSpacing / 4), contentAlignment = Alignment.Center) {
+    Box(modifier = Modifier.fillMaxWidth().padding(vertical = theme.verticalSpacing / 2), contentAlignment = Alignment.Center) {
         HorizontalDivider(modifier = Modifier.fillMaxWidth(0.6f), thickness = 1.dp, color = MaterialTheme.colorScheme.primary.copy(alpha = if (theme.showExpandedStatsHeader) 0.3f else 0.1f))
     }
 }
