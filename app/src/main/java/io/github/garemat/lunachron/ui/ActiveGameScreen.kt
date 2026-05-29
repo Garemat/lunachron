@@ -951,18 +951,14 @@ private fun GameCharacterCardModal(
                 .clickable { onDismiss() }
         )
 
-        BoxWithConstraints(
+        ThemedCard(
             modifier = Modifier
                 .align(Alignment.Center)
                 .fillMaxWidth()
+                .fillMaxHeight(0.88f)
+                .clickable {}
         ) {
-            ThemedCard(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = maxHeight * 0.88f)
-                    .clickable {}
-            ) {
-            Column(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.fillMaxSize()) {
                 // Character name + keywords header
                 Row(
                     modifier = Modifier
@@ -998,121 +994,91 @@ private fun GameCharacterCardModal(
                             )
                         }
                     }
+                    if (onTransform != null && character.transformsInto != null) {
+                        IconButton(
+                            onClick = { if (isEditable) onTransform(character.transformsInto) },
+                            modifier = Modifier.size(32.dp),
+                            enabled = isEditable
+                        ) {
+                            Icon(Icons.Default.AutoAwesome, contentDescription = "Transform", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                        }
+                    }
                 }
                 HorizontalDivider()
 
-                // Scrollable card content
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState())
-                ) {
-                    CharacterCardContent(
-                        character = character,
-                        searchQuery = "",
-                        isFlipped = playState.isFlipped,
-                        onFlip = onFlip,
-                        modifier = Modifier.fillMaxWidth(),
-                        animateFlip = true,
-                        showBackgroundImage = theme.showBackgroundImageOverlay,
-                        showHealthTracker = true,
-                        abilityUsedStates = if (isFullTracking && isEditable) playState.usedAbilities else null,
-                        onAbilityUsedChange = if (isFullTracking && isEditable) onAbilityToggle else null,
-                        pinnedFooter = false,
-                        scrollable = false
-                    )
+                // Card content fills remaining space; background art expands naturally
+                CharacterCardContent(
+                    character = character,
+                    searchQuery = "",
+                    isFlipped = playState.isFlipped,
+                    onFlip = onFlip,
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    animateFlip = true,
+                    showBackgroundImage = theme.showBackgroundImageOverlay,
+                    showHealthTracker = true,
+                    abilityUsedStates = if (isFullTracking && isEditable) playState.usedAbilities else null,
+                    onAbilityUsedChange = if (isFullTracking && isEditable) onAbilityToggle else null,
+                    pinnedFooter = true,
+                    scrollable = true
+                )
 
-                    // Summons section
-                    if (isFullTracking && character.summonsCharacterIds.isNotEmpty()) {
-                        HorizontalDivider(modifier = Modifier.padding(top = 8.dp))
+                // Summons section — compact strip pinned below card content
+                if (character.summonsCharacterIds.isNotEmpty()) {
+                    HorizontalDivider()
+                    character.summonsCharacterIds.forEach { summonId ->
+                        val summonChar = allCharacters.find { it.id == summonId } ?: return@forEach
+                        val isActive = activeSummons.any { it.characterId == summonId }
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = theme.screenPadding, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                                .padding(horizontal = theme.screenPadding, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Box(modifier = Modifier.weight(1f).height(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
-                            Text(
-                                "  SUMMONS  ",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Box(modifier = Modifier.weight(1f).height(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
-                        }
-                        character.summonsCharacterIds.forEach { summonId ->
-                            val summonChar = allCharacters.find { it.id == summonId } ?: return@forEach
-                            val isActive = activeSummons.any { it.characterId == summonId }
-                            Row(
+                            Box(
                                 modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = theme.screenPadding, vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .clip(CircleShape)
-                                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                                ) {
-                                    CharacterPortrait(summonChar, 36.dp)
-                                }
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        summonChar.name,
-                                        style = MaterialTheme.typography.labelMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                    Text(
-                                        "♥${summonChar.health}  ⚔${summonChar.melee}  ✦${summonChar.arcane}",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                                if (isActive) {
-                                    OutlinedButton(
-                                        onClick = { if (isEditable) onRemoveSummon(summonId) },
-                                        modifier = Modifier.height(30.dp),
-                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                                        enabled = isEditable
-                                    ) { Text("✓ Active", fontSize = 11.sp) }
-                                } else {
-                                    Button(
-                                        onClick = { if (isEditable) onAddSummon(summonId, character.id) },
-                                        modifier = Modifier.height(30.dp),
-                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                                        enabled = isEditable
-                                    ) { Text("Call to Battle", fontSize = 11.sp) }
-                                }
+                                CharacterPortrait(summonChar, 36.dp)
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    summonChar.name,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    "♥${summonChar.health}  ⚔${summonChar.melee}  ✦${summonChar.arcane}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            if (isActive) {
+                                OutlinedButton(
+                                    onClick = { if (isEditable) onRemoveSummon(summonId) },
+                                    modifier = Modifier.height(30.dp),
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                                    enabled = isEditable
+                                ) { Text("✓ Active", fontSize = 11.sp) }
+                            } else {
+                                Button(
+                                    onClick = { if (isEditable) onAddSummon(summonId, character.id) },
+                                    modifier = Modifier.height(30.dp),
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                                    enabled = isEditable
+                                ) { Text("Call to Battle", fontSize = 11.sp) }
                             }
                         }
-                        Spacer(Modifier.height(8.dp))
                     }
-
-                    // Transform button
-                    if (onTransform != null && character.transformsInto != null) {
-                        HorizontalDivider()
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(MaterialTheme.shapes.small)
-                                .clickable(enabled = isEditable) { onTransform(character.transformsInto) }
-                                .padding(vertical = 8.dp, horizontal = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Transform", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                        }
-                    }
+                    Spacer(Modifier.height(4.dp))
                 }
 
             } // Column
-            } // ThemedCard
-        } // BoxWithConstraints
+        } // ThemedCard
 
         // Tracking dock — floats over the card as a separate bottom sheet (FULL_TRACKING only)
         if (isFullTracking) {
