@@ -509,7 +509,7 @@ fun CommonAbilityItem(name: String, description: String, searchQuery: String = "
                     append(parseAbilityDescription(description, searchQuery))
                     if (oncePerGame) withStyle(style = SpanStyle(fontStyle = FontStyle.Italic)) { append(if (reloadable) " Once per game, unless reloaded." else " Once per game.") }
                 },
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.weight(1f),
                 inlineContent = getMoonstoneInlineContent()
             )
@@ -537,7 +537,7 @@ fun CommonAbilityItem(name: String, description: String, searchQuery: String = "
                     }
                 }
             }
-            Text(text = parseAbilityDescription(description, searchQuery), style = MaterialTheme.typography.bodySmall, inlineContent = getMoonstoneInlineContent())
+            Text(text = parseAbilityDescription(description, searchQuery), style = MaterialTheme.typography.bodyMedium, inlineContent = getMoonstoneInlineContent())
         }
     }
 }
@@ -562,7 +562,7 @@ fun CharacterFront(
             CommonStatBox("Arcane", character.arcane.toString(), showDivider = true)
             CommonStatBox("Evade", character.evade.toString(), showDivider = true)
         }
-        Spacer(modifier = Modifier.height(theme.verticalSpacing))
+        Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
         val passiveAbilities = character.abilities.filter { it.abilityType == "Passive" }
         val activeAbilities = character.abilities.filter { it.abilityType == "Active" }
         val arcaneAbilities = character.abilities.filter { it.abilityType == "Arcane" }
