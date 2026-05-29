@@ -954,7 +954,7 @@ private fun GameCharacterCardModal(
         BoxWithConstraints(
             modifier = Modifier
                 .align(Alignment.Center)
-                .fillMaxWidth(0.94f)
+                .fillMaxWidth()
         ) {
             ThemedCard(
                 modifier = Modifier
