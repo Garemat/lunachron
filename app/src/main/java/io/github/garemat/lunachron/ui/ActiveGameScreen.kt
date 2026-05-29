@@ -953,27 +953,12 @@ private fun GameCharacterCardModal(
 
         ThemedCard(
             modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .fillMaxHeight(0.93f)
-                .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+                .align(Alignment.Center)
+                .fillMaxWidth(0.94f)
+                .fillMaxHeight(0.88f)
                 .clickable {}
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // Drag handle
-                Box(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .width(32.dp)
-                            .height(4.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f))
-                    )
-                }
-
                 // Character name + keywords header
                 Row(
                     modifier = Modifier
@@ -1121,20 +1106,29 @@ private fun GameCharacterCardModal(
                     }
                 }
 
-                // Sticky tracking dock (FULL_TRACKING only)
-                if (isFullTracking) {
-                    HorizontalDivider()
-                    CharacterTrackingDock(
-                        character = character,
-                        playState = playState,
-                        isEditable = isEditable,
-                        onHealthChange = onHealthChange,
-                        onEnergyChange = onEnergyChange,
-                        onMoonstoneChange = onMoonstoneChange,
-                        onToggleActivated = onToggleActivated,
-                        onSetStatusToken = onSetStatusToken
-                    )
-                }
+            }
+        }
+
+        // Tracking dock — floats over the card as a separate bottom sheet (FULL_TRACKING only)
+        if (isFullTracking) {
+            ThemedCard(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .zIndex(200f)
+                    .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+                    .clickable {}
+            ) {
+                CharacterTrackingDock(
+                    character = character,
+                    playState = playState,
+                    isEditable = isEditable,
+                    onHealthChange = onHealthChange,
+                    onEnergyChange = onEnergyChange,
+                    onMoonstoneChange = onMoonstoneChange,
+                    onToggleActivated = onToggleActivated,
+                    onSetStatusToken = onSetStatusToken
+                )
             }
         }
     }
