@@ -1052,7 +1052,6 @@ private fun CharacterTrackingDock(
         if (playState.currentEnergy > 0) append("  ◆${playState.currentEnergy}")
         if (playState.moonstones > 0) append("  ${"●".repeat(playState.moonstones)}")
         if (playState.statusTokens["cursed"] == true) append("  cursed")
-        if (playState.isActivatedThisTurn) append("  used")
         if (activeSummonCount > 0) append("  ↳$activeSummonCount active")
     }
 
@@ -1061,8 +1060,9 @@ private fun CharacterTrackingDock(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable { isExpanded = !isExpanded }
-                .padding(horizontal = theme.screenPadding, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(horizontal = theme.screenPadding, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text("Tracking", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, modifier = Modifier.widthIn(min = 70.dp))
             Text(
@@ -1072,6 +1072,13 @@ private fun CharacterTrackingDock(
                 modifier = Modifier.weight(1f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
+            )
+            FilterChip(
+                selected = playState.isActivatedThisTurn,
+                onClick = { if (isEditable) onToggleActivated() },
+                label = { Text(if (playState.isActivatedThisTurn) "✓ Used" else "Used", fontSize = 11.sp) },
+                modifier = Modifier.height(28.dp),
+                enabled = isEditable
             )
             Icon(
                 imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
@@ -1146,12 +1153,6 @@ private fun CharacterTrackingDock(
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text("✦ Cursed", style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
                     Switch(checked = playState.statusTokens["cursed"] == true, onCheckedChange = { if (isEditable) onSetStatusToken("cursed", it) }, enabled = isEditable)
-                }
-
-                // Mark Used toggle
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("✓ Mark Used", style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
-                    Switch(checked = playState.isActivatedThisTurn, onCheckedChange = { if (isEditable) onToggleActivated() }, enabled = isEditable)
                 }
             }
         }
