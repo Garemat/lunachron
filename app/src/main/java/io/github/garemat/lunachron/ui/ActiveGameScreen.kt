@@ -188,9 +188,6 @@ fun ActiveGameScreen(
     val cols = adaptiveCols(totalChars)
     val portraitSize = adaptivePortraitSize(totalChars)
 
-    val trackingMode = state.gameTrackingMode
-    val isFullTracking = trackingMode == GameTrackingMode.FULL_TRACKING
-
     // Moonstone drag state
     var draggingStoneSource by remember { mutableStateOf<StoneSource?>(null) }
     var draggingStoneIndex by remember { mutableIntStateOf(-1) }
@@ -297,7 +294,6 @@ fun ActiveGameScreen(
                                     CharacterPortraitCell(
                                         character = char,
                                         playState = ps,
-                                        trackingMode = trackingMode,
                                         summoner = gridItem.summoner,
                                         isEditable = !isTutorialActive,
                                         isDormant = gridItem.isDormant,
@@ -347,8 +343,8 @@ fun ActiveGameScreen(
                 }
             }
 
-            // Melee combat reference FAB (LOW_DETAIL only — FULL_TRACKING has the pool bar)
-            if (!isFullTracking) {
+            // Melee combat reference FAB
+            run {
                 FloatingActionButton(
                     onClick = { showMeleeSheet = true },
                     modifier = Modifier
@@ -367,6 +363,7 @@ fun ActiveGameScreen(
             }
 
             // Card modal
+
             selectedCharInfo?.let { (pi, ci, char) ->
                 val ps = if (isTutorialActive) {
                     CharacterPlayState(currentHealth = char.health)
@@ -376,7 +373,6 @@ fun ActiveGameScreen(
                 GameCharacterCardModal(
                     character = char,
                     playState = ps,
-                    trackingMode = trackingMode,
                     isEditable = !isTutorialActive,
                     allCharacters = state.characters,
                     activeSummons = state.activeSummons[pi] ?: emptyList(),
@@ -439,26 +435,6 @@ fun ActiveGameScreen(
 }
 
 // ─── Summon helper ────────────────────────────────────────────────────────────
-
-private fun handleSummonAdd(
-    pageIndex: Int,
-    char: Character,
-    baseChars: List<Character>,
-    trackingMode: GameTrackingMode,
-    viewModel: CharacterViewModel,
-    onShowPicker: (SummonerPickerState) -> Unit
-) {
-    if (trackingMode == GameTrackingMode.LOW_DETAIL) {
-        viewModel.onEvent(CharacterEvent.AddSummonedCharacter(pageIndex, char.id, null))
-        return
-    }
-    val possibleSummoners = baseChars.filter { char.id in it.summonsCharacterIds }
-    when (possibleSummoners.size) {
-        0 -> viewModel.onEvent(CharacterEvent.AddSummonedCharacter(pageIndex, char.id, null))
-        1 -> viewModel.onEvent(CharacterEvent.AddSummonedCharacter(pageIndex, char.id, possibleSummoners[0].id))
-        else -> onShowPicker(SummonerPickerState(pageIndex, char, possibleSummoners))
-    }
-}
 
 // ─── Top bar ─────────────────────────────────────────────────────────────────
 
@@ -560,7 +536,6 @@ private fun ActiveGameTopBar(
 private fun CharacterPortraitCell(
     character: Character,
     playState: CharacterPlayState,
-    trackingMode: GameTrackingMode,
     summoner: Character?,
     isEditable: Boolean,
     isDormant: Boolean = false,
@@ -919,7 +894,6 @@ private fun GamePlayerSectionHeader(troupe: Troupe) {
 private fun GameCharacterCardModal(
     character: Character,
     playState: CharacterPlayState,
-    trackingMode: GameTrackingMode,
     isEditable: Boolean,
     allCharacters: List<Character>,
     activeSummons: List<SummonEntry>,
@@ -936,7 +910,6 @@ private fun GameCharacterCardModal(
     onDismiss: () -> Unit
 ) {
     val theme = LocalAppThemeProperties.current
-    val isFullTracking = trackingMode == GameTrackingMode.FULL_TRACKING
 
     Box(
         modifier = Modifier
@@ -1016,8 +989,8 @@ private fun GameCharacterCardModal(
                     animateFlip = true,
                     showBackgroundImage = theme.showBackgroundImageOverlay,
                     showHealthTracker = true,
-                    abilityUsedStates = if (isFullTracking && isEditable) playState.usedAbilities else null,
-                    onAbilityUsedChange = if (isFullTracking && isEditable) onAbilityToggle else null,
+                    abilityUsedStates = if (isEditable) playState.usedAbilities else null,
+                    onAbilityUsedChange = if (isEditable) onAbilityToggle else null,
                     pinnedFooter = true,
                     scrollable = true
                 )
@@ -1025,9 +998,8 @@ private fun GameCharacterCardModal(
             } // Column
         } // ThemedCard
 
-        // Tracking dock — shown when full-tracking active OR character has summons
-        if (isFullTracking || character.summonsCharacterIds.isNotEmpty()) {
-            ThemedCard(
+        // Tracking dock — always shown
+        ThemedCard(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
@@ -1039,7 +1011,6 @@ private fun GameCharacterCardModal(
                 CharacterTrackingDock(
                     character = character,
                     playState = playState,
-                    isFullTracking = isFullTracking,
                     isEditable = isEditable,
                     allCharacters = allCharacters,
                     activeSummons = activeSummons,
@@ -1052,7 +1023,6 @@ private fun GameCharacterCardModal(
                     onRemoveSummon = onRemoveSummon
                 )
             }
-        }
     }
 }
 
@@ -1060,7 +1030,6 @@ private fun GameCharacterCardModal(
 private fun CharacterTrackingDock(
     character: Character,
     playState: CharacterPlayState,
-    isFullTracking: Boolean,
     isEditable: Boolean,
     allCharacters: List<Character>,
     activeSummons: List<SummonEntry>,
@@ -1078,16 +1047,12 @@ private fun CharacterTrackingDock(
 
     val activeSummonCount = activeSummons.count { e -> character.summonsCharacterIds.contains(e.characterId) }
     val summaryText = buildString {
-        if (isFullTracking) {
-            append("♥ ${playState.currentHealth}/${character.health}")
-            if (playState.currentEnergy > 0) append("  ◆${playState.currentEnergy}")
-            if (playState.moonstones > 0) append("  ${"●".repeat(playState.moonstones)}")
-            if (playState.statusTokens["cursed"] == true) append("  cursed")
-            if (playState.isActivatedThisTurn) append("  used")
-            if (activeSummonCount > 0) append("  ↳$activeSummonCount active")
-        } else if (character.summonsCharacterIds.isNotEmpty()) {
-            append("↳ $activeSummonCount/${character.summonsCharacterIds.size} summoned")
-        }
+        append("♥ ${playState.currentHealth}/${character.health}")
+        if (playState.currentEnergy > 0) append("  ◆${playState.currentEnergy}")
+        if (playState.moonstones > 0) append("  ${"●".repeat(playState.moonstones)}")
+        if (playState.statusTokens["cursed"] == true) append("  cursed")
+        if (playState.isActivatedThisTurn) append("  used")
+        if (activeSummonCount > 0) append("  ↳$activeSummonCount active")
     }
 
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -1114,7 +1079,7 @@ private fun CharacterTrackingDock(
             )
         }
 
-        if (isFullTracking) AnimatedVisibility(visible = isExpanded) {
+        AnimatedVisibility(visible = isExpanded) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1194,7 +1159,7 @@ private fun CharacterTrackingDock(
         if (character.summonsCharacterIds.isNotEmpty()) {
             AnimatedVisibility(visible = isExpanded) {
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    if (isFullTracking) HorizontalDivider(modifier = Modifier.padding(horizontal = theme.screenPadding))
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = theme.screenPadding))
                     character.summonsCharacterIds.forEach { summonId ->
                         val summonChar = allCharacters.find { it.id == summonId } ?: return@forEach
                         val isActive = activeSummons.any { it.characterId == summonId }
