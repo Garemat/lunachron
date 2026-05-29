@@ -951,14 +951,18 @@ private fun GameCharacterCardModal(
                 .clickable { onDismiss() }
         )
 
-        ThemedCard(
+        BoxWithConstraints(
             modifier = Modifier
                 .align(Alignment.Center)
                 .fillMaxWidth(0.94f)
-                .fillMaxHeight(0.88f)
-                .clickable {}
         ) {
-            Column(modifier = Modifier.fillMaxSize()) {
+            ThemedCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = maxHeight * 0.88f)
+                    .clickable {}
+            ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
                 // Character name + keywords header
                 Row(
                     modifier = Modifier
@@ -1000,7 +1004,7 @@ private fun GameCharacterCardModal(
                 // Scrollable card content
                 Column(
                     modifier = Modifier
-                        .weight(1f)
+                        .fillMaxWidth()
                         .verticalScroll(rememberScrollState())
                 ) {
                     CharacterCardContent(
@@ -1106,8 +1110,9 @@ private fun GameCharacterCardModal(
                     }
                 }
 
-            }
-        }
+            } // Column
+            } // ThemedCard
+        } // BoxWithConstraints
 
         // Tracking dock — floats over the card as a separate bottom sheet (FULL_TRACKING only)
         if (isFullTracking) {
@@ -1117,6 +1122,7 @@ private fun GameCharacterCardModal(
                     .fillMaxWidth()
                     .zIndex(200f)
                     .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+                    .navigationBarsPadding()
                     .clickable {}
             ) {
                 CharacterTrackingDock(
