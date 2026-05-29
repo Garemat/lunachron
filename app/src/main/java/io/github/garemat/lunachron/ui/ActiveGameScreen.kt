@@ -264,11 +264,17 @@ fun ActiveGameScreen(
         },
         bottomBar = {}
     ) { padding ->
-        Box(modifier = Modifier.fillMaxSize().padding(padding).onGloballyPositioned { rootLayoutCoordinates = it }) {
+        // Only apply top padding (status/action bar); leave bottom open so the modal and
+        // tracking dock can extend behind the navigation bar (edge-to-edge is enabled).
+        Box(modifier = Modifier.fillMaxSize().padding(top = padding.calculateTopPadding()).onGloballyPositioned { rootLayoutCoordinates = it }) {
             LazyVerticalGrid(
                 columns = GridCells.Fixed(cols),
                 state = gridState,
-                contentPadding = PaddingValues(theme.screenPadding),
+                contentPadding = PaddingValues(
+                    start = theme.screenPadding, end = theme.screenPadding,
+                    top = theme.screenPadding,
+                    bottom = theme.screenPadding + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+                ),
                 verticalArrangement = Arrangement.spacedBy(theme.verticalSpacing),
                 horizontalArrangement = Arrangement.spacedBy(theme.verticalSpacing),
                 modifier = Modifier.fillMaxSize()
