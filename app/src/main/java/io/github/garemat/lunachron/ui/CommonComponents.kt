@@ -499,7 +499,7 @@ fun CommonStatBox(label: String, value: String, modifier: Modifier = Modifier, h
 }
 
 @Composable
-fun CommonAbilityItem(name: String, description: String, searchQuery: String = "", oncePerTurn: Boolean = false, oncePerGame: Boolean = false, reloadable: Boolean = false, isUsed: Boolean = false, onUsedChange: ((Boolean) -> Unit)? = null, isEditable: Boolean = true, passive: Boolean = false, showColon: Boolean = true) {
+fun CommonAbilityItem(name: String, description: String, searchQuery: String = "", oncePerTurn: Boolean = false, oncePerGame: Boolean = false, reloadable: Boolean = false, isUsed: Boolean = false, onUsedChange: ((Boolean) -> Unit)? = null, isEditable: Boolean = true, passive: Boolean = false, showColon: Boolean = true, descriptionStyle: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.bodySmall) {
     val theme = LocalAppThemeProperties.current
     if (passive) {
         Row(modifier = Modifier.padding(vertical = theme.verticalSpacing / 2), verticalAlignment = Alignment.CenterVertically) {
@@ -509,7 +509,7 @@ fun CommonAbilityItem(name: String, description: String, searchQuery: String = "
                     append(parseAbilityDescription(description, searchQuery))
                     if (oncePerGame) withStyle(style = SpanStyle(fontStyle = FontStyle.Italic)) { append(if (reloadable) " Once per game, unless reloaded." else " Once per game.") }
                 },
-                style = MaterialTheme.typography.bodyMedium,
+                style = descriptionStyle,
                 modifier = Modifier.weight(1f),
                 inlineContent = getMoonstoneInlineContent()
             )
@@ -537,7 +537,7 @@ fun CommonAbilityItem(name: String, description: String, searchQuery: String = "
                     }
                 }
             }
-            Text(text = parseAbilityDescription(description, searchQuery), style = MaterialTheme.typography.bodySmall, inlineContent = getMoonstoneInlineContent())
+            Text(text = parseAbilityDescription(description, searchQuery), style = descriptionStyle, inlineContent = getMoonstoneInlineContent())
         }
     }
 }
@@ -554,6 +554,8 @@ fun CharacterFront(
     onAbilityUsedChange: ((String, Boolean) -> Unit)? = null
 ) {
     val theme = LocalAppThemeProperties.current
+    val abilityDescStyle = if (character.abilities.sumOf { it.description.length } < 500)
+        MaterialTheme.typography.bodyMedium else MaterialTheme.typography.bodySmall
     Column {
         if (theme.showExpandedStatsHeader) MoonstoneStats(character)
         else Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
@@ -576,7 +578,8 @@ fun CharacterFront(
                 passive = true,
                 isUsed = abilityUsedStates?.get(ability.name) ?: false,
                 onUsedChange = if (abilityUsedStates != null) { used -> onAbilityUsedChange?.invoke(ability.name, used) } else null,
-                isEditable = abilityUsedStates != null
+                isEditable = abilityUsedStates != null,
+                descriptionStyle = abilityDescStyle
             )
         }
         if (activeAbilities.isNotEmpty()) {
@@ -589,7 +592,8 @@ fun CharacterFront(
                     showColon = false,
                     isUsed = abilityUsedStates?.get(ability.name) ?: false,
                     onUsedChange = if (abilityUsedStates != null) { used -> onAbilityUsedChange?.invoke(ability.name, used) } else null,
-                    isEditable = abilityUsedStates != null
+                    isEditable = abilityUsedStates != null,
+                    descriptionStyle = abilityDescStyle
                 )
             }
         }
@@ -603,7 +607,8 @@ fun CharacterFront(
                     showColon = false,
                     isUsed = abilityUsedStates?.get(ability.name) ?: false,
                     onUsedChange = if (abilityUsedStates != null) { used -> onAbilityUsedChange?.invoke(ability.name, used) } else null,
-                    isEditable = abilityUsedStates != null
+                    isEditable = abilityUsedStates != null,
+                    descriptionStyle = abilityDescStyle
                 )
             }
         }
