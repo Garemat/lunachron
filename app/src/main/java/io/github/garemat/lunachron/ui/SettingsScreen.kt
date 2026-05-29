@@ -20,7 +20,6 @@ import io.github.garemat.lunachron.ui.theme.ThemeRepository
 import io.github.garemat.lunachron.BuildConfig
 import io.github.garemat.lunachron.CharacterState
 import io.github.garemat.lunachron.CardDisplayMode
-import io.github.garemat.lunachron.GameTrackingMode
 import io.github.garemat.lunachron.ImageDownloadPreference
 import io.github.garemat.lunachron.InstallerSource
 import io.github.garemat.lunachron.LayoutDensity
@@ -165,37 +164,6 @@ fun SettingsScreen(
                         theme = theme
                     )
                 }
-            }
-
-            Spacer(modifier = Modifier.height(theme.verticalSpacing))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            Spacer(modifier = Modifier.height(theme.verticalSpacing))
-
-            Text("Game View", style = theme.titleStyle.copy(fontSize = 20.sp), color = MaterialTheme.colorScheme.primary)
-            Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        val newMode = if (state.gameTrackingMode == GameTrackingMode.FULL_TRACKING)
-                            GameTrackingMode.LOW_DETAIL else GameTrackingMode.FULL_TRACKING
-                        onEvent(CharacterEvent.ChangeGameTrackingMode(newMode))
-                    }
-                    .padding(vertical = theme.verticalSpacing / 4),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Enable resource tracking", style = theme.headerStyle.copy(fontSize = 18.sp))
-                    Text("Track energy, moonstones, and ability used markers in the app.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Switch(
-                    checked = state.gameTrackingMode == GameTrackingMode.FULL_TRACKING,
-                    onCheckedChange = { enabled ->
-                        onEvent(CharacterEvent.ChangeGameTrackingMode(if (enabled) GameTrackingMode.FULL_TRACKING else GameTrackingMode.LOW_DETAIL))
-                    }
-                )
             }
 
             Spacer(modifier = Modifier.height(theme.verticalSpacing))

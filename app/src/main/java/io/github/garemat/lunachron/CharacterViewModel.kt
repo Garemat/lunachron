@@ -1076,7 +1076,7 @@ class CharacterViewModel(
     }
 
     fun startNewGame(troupes: List<Troupe>) {
-        _state.update { it.copy(characterPlayStates = emptyMap(), activeSummons = emptyMap(), currentTurn = 1, activeTroupes = troupes, turnHistory = emptyList(), readyForNextTurn = emptySet(), readyForRewind = emptySet(), winnerName = null, isTie = false) }
+        _state.update { it.copy(characterPlayStates = emptyMap(), activeSummons = emptyMap(), poolResourceCounts = emptyMap(), currentTurn = 1, activeTroupes = troupes, turnHistory = emptyList(), readyForNextTurn = emptySet(), readyForRewind = emptySet(), winnerName = null, isTie = false, gameSession = null) }
     }
 
     fun saveTroupe(troupe: Troupe) {

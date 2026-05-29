@@ -283,7 +283,8 @@ fun ActiveGameScreen(
                             val ci = gridItem.charIndex
                             val char = gridItem.character
                             val stateKey = "${pi}_${ci}"
-                            item(key = stateKey) {
+                            val itemKey = if (gridItem.isDormant) "${pi}_dormant_${char.id}" else stateKey
+                            item(key = itemKey) {
                                 val ps = if (isTutorialActive) {
                                     CharacterPlayState(currentHealth = char.health, moonstones = if (ci == 0) 2 else 0)
                                 } else {
