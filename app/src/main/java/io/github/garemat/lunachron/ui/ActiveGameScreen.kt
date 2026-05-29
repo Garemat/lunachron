@@ -1055,7 +1055,7 @@ private fun CharacterTrackingDock(
         if (activeSummonCount > 0) append("  ↳$activeSummonCount active")
     }
 
-    Column(modifier = Modifier.fillMaxWidth().navigationBarsPadding()) {
+    Column(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1215,6 +1215,9 @@ private fun CharacterTrackingDock(
                 }
             }
         }
+        // Fills the nav-bar inset so the card background extends behind the gesture bar
+        // without adding any visible gap above it.
+        Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
     }
 }
 
