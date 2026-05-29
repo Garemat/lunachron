@@ -1043,7 +1043,7 @@ fun CharacterCardContent(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable { onFlip() }
-                                .padding(top = 4.dp, bottom = 14.dp, start = 16.dp, end = 16.dp),
+                                .padding(top = 4.dp, bottom = 6.dp, start = 16.dp, end = 16.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
