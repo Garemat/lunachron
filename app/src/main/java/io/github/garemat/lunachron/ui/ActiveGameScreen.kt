@@ -999,14 +999,14 @@ private fun GameCharacterCardModal(
             } // Column
         } // ThemedCard
 
-        // Tracking dock — always shown
+        // Tracking dock — always shown; card extends under the nav bar so
+        // the background fills the gesture region. Padding is applied inside.
         ThemedCard(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
                     .zIndex(200f)
                     .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
-                    .navigationBarsPadding()
                     .clickable {}
             ) {
                 CharacterTrackingDock(
@@ -1056,7 +1056,7 @@ private fun CharacterTrackingDock(
         if (activeSummonCount > 0) append("  ↳$activeSummonCount active")
     }
 
-    Column(modifier = Modifier.fillMaxWidth()) {
+    Column(modifier = Modifier.fillMaxWidth().navigationBarsPadding()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
