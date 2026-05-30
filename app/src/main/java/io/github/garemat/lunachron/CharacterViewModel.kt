@@ -650,6 +650,15 @@ class CharacterViewModel(
             is CharacterEvent.UpdateCharacterHealth -> {
                 updateCharacterState(event.playerIndex, event.charIndex) { it.copy(currentHealth = event.health) }
                 broadcastGameplayUpdate(SessionMessage.GameplayUpdate(event.playerIndex, event.charIndex, health = event.health))
+                if (event.health == 0) {
+                    val cur = _state.value
+                    val baseSize = cur.activeTroupes.getOrNull(event.playerIndex)?.characterIds?.size ?: 0
+                    val summons = cur.activeSummons[event.playerIndex] ?: emptyList()
+                    val summonIndex = event.charIndex - baseSize
+                    if (summonIndex >= 0 && summonIndex < summons.size) {
+                        onEvent(CharacterEvent.RemoveSummonedCharacter(event.playerIndex, summons[summonIndex].characterId))
+                    }
+                }
             }
             is CharacterEvent.UpdateCharacterEnergy -> {
                 updateCharacterState(event.playerIndex, event.charIndex) { it.copy(currentEnergy = event.energy) }
@@ -768,6 +777,12 @@ class CharacterViewModel(
             is CharacterEvent.UpdateCharacterMoonstones -> {
                 updateCharacterState(event.playerIndex, event.charIndex) { it.copy(moonstones = event.stones) }
                 broadcastGameplayUpdate(SessionMessage.GameplayUpdate(event.playerIndex, event.charIndex, moonstones = event.stones))
+            }
+            is CharacterEvent.ToggleActivated -> {
+                updateCharacterState(event.playerIndex, event.charIndex) { it.copy(isActivatedThisTurn = !it.isActivatedThisTurn) }
+            }
+            is CharacterEvent.SetStatusToken -> {
+                updateCharacterState(event.playerIndex, event.charIndex) { it.copy(statusTokens = it.statusTokens + (event.token to event.value)) }
             }
             CharacterEvent.AbandonGame -> {
                 _state.update { it.copy(activeTroupes = emptyList(), characterPlayStates = emptyMap(), currentTurn = 1, gameSession = null, turnHistory = emptyList(), winnerName = null, isTie = false) }
@@ -1045,7 +1060,7 @@ class CharacterViewModel(
         pData.forEachIndexed { pIdx, (_, characters) ->
             characters.forEachIndexed { cIdx, character ->
                 val key = "${pIdx}_$cIdx"; val ps = newStates[key]
-                if (ps != null && ps.currentHealth > 0) newStates[key] = ps.copy(currentEnergy = calculateReplenishedEnergy(character, ps.currentHealth), usedAbilities = emptyMap())
+                if (ps != null && ps.currentHealth > 0) newStates[key] = ps.copy(currentEnergy = calculateReplenishedEnergy(character, ps.currentHealth), usedAbilities = emptyMap(), isActivatedThisTurn = false)
             }
         }
         _state.update { it.copy(characterPlayStates = newStates, currentTurn = it.currentTurn + 1, turnHistory = it.turnHistory + listOf(cur.characterPlayStates), readyForNextTurn = emptySet(), readyForRewind = emptySet()) }
@@ -1061,7 +1076,7 @@ class CharacterViewModel(
     }
 
     fun startNewGame(troupes: List<Troupe>) {
-        _state.update { it.copy(characterPlayStates = emptyMap(), activeSummons = emptyMap(), currentTurn = 1, activeTroupes = troupes, turnHistory = emptyList(), readyForNextTurn = emptySet(), readyForRewind = emptySet(), winnerName = null, isTie = false) }
+        _state.update { it.copy(characterPlayStates = emptyMap(), activeSummons = emptyMap(), poolResourceCounts = emptyMap(), currentTurn = 1, activeTroupes = troupes, turnHistory = emptyList(), readyForNextTurn = emptySet(), readyForRewind = emptySet(), winnerName = null, isTie = false, gameSession = null) }
     }
 
     fun saveTroupe(troupe: Troupe) {

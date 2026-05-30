@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -40,8 +41,10 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -80,7 +83,8 @@ private sealed class GameGridItem {
         val charIndex: Int,
         val character: Character,
         val isSummoned: Boolean,
-        val summoner: Character?
+        val summoner: Character?,
+        val isDormant: Boolean = false
     ) : GameGridItem()
 }
 
@@ -157,12 +161,26 @@ fun ActiveGameScreen(
                 val troupeCharIds = troupe.characterIds.toSet()
                 val baseChars = chars.filter { it.id in troupeCharIds }
                 val summonEntries = state.activeSummons[pi] ?: emptyList()
+                val activeSummonIds = summonEntries.map { it.characterId }.toSet()
                 val summonedChars = summonEntries.mapNotNull { e -> state.characters.find { it.id == e.characterId } }
                 (baseChars + summonedChars).forEachIndexed { ci, char ->
                     val isSummoned = ci >= baseChars.size
                     val summonEntry = if (isSummoned) summonEntries.getOrNull(ci - baseChars.size) else null
                     val summoner = summonEntry?.summonedByCharacterId?.let { id -> baseChars.find { it.id == id } }
                     add(GameGridItem.CharItem(pi, ci, char, isSummoned, summoner))
+                }
+                // Dormant summons — potential summons not yet activated
+                val addedDormantIds = mutableSetOf<Int>()
+                baseChars.forEach { summoner ->
+                    summoner.summonsCharacterIds.forEach { summonId ->
+                        if (summonId !in activeSummonIds && summonId !in addedDormantIds) {
+                            val summonChar = state.characters.find { it.id == summonId }
+                            if (summonChar != null) {
+                                addedDormantIds.add(summonId)
+                                add(GameGridItem.CharItem(pi, -1, summonChar, isSummoned = true, summoner = summoner, isDormant = true))
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -171,9 +189,6 @@ fun ActiveGameScreen(
     val totalChars = allGridItems.filterIsInstance<GameGridItem.CharItem>().size
     val cols = adaptiveCols(totalChars)
     val portraitSize = adaptivePortraitSize(totalChars)
-
-    val trackingMode = state.gameTrackingMode
-    val isFullTracking = trackingMode == GameTrackingMode.FULL_TRACKING
 
     // Moonstone drag state
     var draggingStoneSource by remember { mutableStateOf<StoneSource?>(null) }
@@ -249,40 +264,19 @@ fun ActiveGameScreen(
                 )
             }
         },
-        bottomBar = {
-            if (isFullTracking) {
-                CollapsiblePoolBar(
-                    state = state,
-                    pageIndex = localPlayerIndex,
-                    allDisplayChars = localDisplayChars,
-                    isTutorialActive = isTutorialActive,
-                    potBounds = potBounds,
-                    onTargetPositioned = onTargetPositioned,
-                    onDragStart = { offset ->
-                        draggingStoneSource = StoneSource.Pot
-                        dragPosition = (potBounds.value?.topLeft ?: Offset.Zero) + offset
-                    },
-                    onDrag = { dragPosition += it },
-                    onDragEnd = {
-                        if (!isTutorialActive) {
-                            characterBounds.entries.find { it.value.contains(dragPosition) }?.let { target ->
-                                val (tP, tC) = target.key.split("_").map { it.toInt() }
-                                val currentStones = stateRef.value.characterPlayStates[target.key]?.moonstones ?: 0
-                                if (currentStones < 7) viewModel.onEvent(CharacterEvent.UpdateCharacterMoonstones(tP, tC, currentStones + 1))
-                            }
-                        }
-                        draggingStoneSource = null
-                    },
-                    viewModel = viewModel
-                )
-            }
-        }
+        bottomBar = {}
     ) { padding ->
-        Box(modifier = Modifier.fillMaxSize().padding(padding).onGloballyPositioned { rootLayoutCoordinates = it }) {
+        // Only apply top padding (status/action bar); leave bottom open so the modal and
+        // tracking dock can extend behind the navigation bar (edge-to-edge is enabled).
+        Box(modifier = Modifier.fillMaxSize().padding(top = padding.calculateTopPadding()).onGloballyPositioned { rootLayoutCoordinates = it }) {
             LazyVerticalGrid(
                 columns = GridCells.Fixed(cols),
                 state = gridState,
-                contentPadding = PaddingValues(theme.screenPadding),
+                contentPadding = PaddingValues(
+                    start = theme.screenPadding, end = theme.screenPadding,
+                    top = theme.screenPadding,
+                    bottom = theme.screenPadding + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+                ),
                 verticalArrangement = Arrangement.spacedBy(theme.verticalSpacing),
                 horizontalArrangement = Arrangement.spacedBy(theme.verticalSpacing),
                 modifier = Modifier.fillMaxSize()
@@ -297,7 +291,8 @@ fun ActiveGameScreen(
                             val ci = gridItem.charIndex
                             val char = gridItem.character
                             val stateKey = "${pi}_${ci}"
-                            item(key = stateKey) {
+                            val itemKey = if (gridItem.isDormant) "${pi}_dormant_${char.id}" else stateKey
+                            item(key = itemKey) {
                                 val ps = if (isTutorialActive) {
                                     CharacterPlayState(currentHealth = char.health, moonstones = if (ci == 0) 2 else 0)
                                 } else {
@@ -308,60 +303,19 @@ fun ActiveGameScreen(
                                     CharacterPortraitCell(
                                         character = char,
                                         playState = ps,
-                                        trackingMode = trackingMode,
                                         summoner = gridItem.summoner,
                                         isEditable = !isTutorialActive,
-                                        onTap = { selectedCharInfo = Triple(pi, ci, char) },
-                                        onHpBadgeTap = {
-                                            if (!isTutorialActive) {
-                                                val newHp = max(0, ps.currentHealth - 1)
-                                                viewModel.onEvent(CharacterEvent.UpdateCharacterHealth(pi, ci, newHp))
-                                                if (newHp == 0 && ps.moonstones > 0) {
-                                                    viewModel.onEvent(CharacterEvent.UpdateCharacterMoonstones(pi, ci, 0))
-                                                }
-                                                recordDelta("${pi}_${ci}_hp", -1, "HP")
+                                        isDormant = gridItem.isDormant,
+                                        onTap = {
+                                            if (gridItem.isDormant && !isTutorialActive) {
+                                                val baseSize = state.activeTroupes.getOrNull(pi)?.characterIds?.size ?: 0
+                                                val currentSummons = state.activeSummons[pi] ?: emptyList()
+                                                val newCharIndex = baseSize + currentSummons.size
+                                                viewModel.onEvent(CharacterEvent.AddSummonedCharacter(pi, char.id, gridItem.summoner?.id))
+                                                selectedCharInfo = Triple(pi, newCharIndex, char)
+                                            } else {
+                                                selectedCharInfo = Triple(pi, ci, char)
                                             }
-                                        },
-                                        onEnergyBadgeTap = {
-                                            if (!isTutorialActive) {
-                                                viewModel.onEvent(CharacterEvent.UpdateCharacterEnergy(pi, ci, max(0, ps.currentEnergy - 1)))
-                                                recordDelta("${pi}_${ci}_en", -1, "Energy")
-                                            }
-                                        },
-                                        onMoonstoneBadgeTap = {
-                                            if (!isTutorialActive && ps.currentHealth > 0) {
-                                                viewModel.onEvent(CharacterEvent.UpdateCharacterMoonstones(pi, ci, ps.moonstones + 1))
-                                                recordDelta("${pi}_${ci}_ms", +1, "Stones")
-                                            }
-                                        },
-                                        onStoneDragStart = { index, pos ->
-                                            draggingStoneIndex = index
-                                            draggingStoneSource = StoneSource.Character(pi, ci)
-                                            dragPosition = pos
-                                        },
-                                        onStoneDrag = { dragPosition += it },
-                                        onStoneDragEnd = {
-                                            val source = draggingStoneSource as? StoneSource.Character
-                                            if (source != null && !isTutorialActive) {
-                                                if (potBounds.value?.contains(dragPosition) == true) {
-                                                    val s = stateRef.value.characterPlayStates["${source.playerIndex}_${source.charIndex}"]?.moonstones ?: 0
-                                                    if (s > 0) viewModel.onEvent(CharacterEvent.UpdateCharacterMoonstones(source.playerIndex, source.charIndex, s - 1))
-                                                } else {
-                                                    characterBounds.entries.find { it.value.contains(dragPosition) }?.let { target ->
-                                                        val (tP, tC) = target.key.split("_").map { it.toInt() }
-                                                        if (tP != source.playerIndex || tC != source.charIndex) {
-                                                            val sStones = stateRef.value.characterPlayStates["${source.playerIndex}_${source.charIndex}"]?.moonstones ?: 0
-                                                            val tStones = stateRef.value.characterPlayStates[target.key]?.moonstones ?: 0
-                                                            if (tStones < 7) {
-                                                                viewModel.onEvent(CharacterEvent.UpdateCharacterMoonstones(source.playerIndex, source.charIndex, sStones - 1))
-                                                                viewModel.onEvent(CharacterEvent.UpdateCharacterMoonstones(tP, tC, tStones + 1))
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                            draggingStoneSource = null
-                                            draggingStoneIndex = -1
                                         }
                                     )
                                 }
@@ -371,40 +325,6 @@ fun ActiveGameScreen(
                 }
             }
 
-            // Summon panel slides in from the start edge
-            AnimatedVisibility(
-                visible = isSummonPanelOpen,
-                enter = expandHorizontally(),
-                exit = shrinkHorizontally(),
-                modifier = Modifier.fillMaxHeight()
-            ) {
-                SummonPanel(
-                    allChars = state.characters,
-                    baseChars = localBaseChars,
-                    summonEntries = localSummonEntries,
-                    trackingMode = trackingMode,
-                    onAdd = { char ->
-                        handleSummonAdd(localPlayerIndex, char, localBaseChars, trackingMode, viewModel) {
-                            summonerPickerState = it
-                        }
-                    },
-                    onRemove = { char ->
-                        viewModel.onEvent(CharacterEvent.RemoveSummonedCharacter(localPlayerIndex, char.id))
-                    }
-                )
-            }
-
-            // Dragging stone overlay
-            if (draggingStoneSource != null) {
-                val localPos = rootLayoutCoordinates?.windowToLocal(dragPosition) ?: dragPosition
-                Box(
-                    modifier = Modifier
-                        .offset { IntOffset(localPos.x.roundToInt() - 20.dp.toPx().toInt(), localPos.y.roundToInt() - 20.dp.toPx().toInt()) }
-                        .zIndex(1000f)
-                ) {
-                    MoonstoneIcon(size = 40.dp)
-                }
-            }
 
             // Accumulating toast chip
             val toastData = visibleToastKey?.let { accMap[it] }
@@ -432,8 +352,8 @@ fun ActiveGameScreen(
                 }
             }
 
-            // Melee combat reference FAB (LOW_DETAIL only — FULL_TRACKING has the pool bar)
-            if (!isFullTracking) {
+            // Melee combat reference FAB
+            run {
                 FloatingActionButton(
                     onClick = { showMeleeSheet = true },
                     modifier = Modifier
@@ -452,6 +372,7 @@ fun ActiveGameScreen(
             }
 
             // Card modal
+
             selectedCharInfo?.let { (pi, ci, char) ->
                 val ps = if (isTutorialActive) {
                     CharacterPlayState(currentHealth = char.health)
@@ -461,11 +382,18 @@ fun ActiveGameScreen(
                 GameCharacterCardModal(
                     character = char,
                     playState = ps,
-                    trackingMode = trackingMode,
                     isEditable = !isTutorialActive,
+                    allCharacters = state.characters,
+                    activeSummons = state.activeSummons[pi] ?: emptyList(),
+                    onHealthChange = { viewModel.onEvent(CharacterEvent.UpdateCharacterHealth(pi, ci, it)) },
                     onEnergyChange = { viewModel.onEvent(CharacterEvent.UpdateCharacterEnergy(pi, ci, it)) },
+                    onMoonstoneChange = { viewModel.onEvent(CharacterEvent.UpdateCharacterMoonstones(pi, ci, it)) },
+                    onToggleActivated = { viewModel.onEvent(CharacterEvent.ToggleActivated(pi, ci)) },
+                    onSetStatusToken = { token, value -> viewModel.onEvent(CharacterEvent.SetStatusToken(pi, ci, token, value)) },
                     onAbilityToggle = { name, used -> viewModel.onEvent(CharacterEvent.ToggleAbilityUsed(pi, ci, name, used)) },
                     onFlip = { viewModel.onEvent(CharacterEvent.ToggleCharacterFlipped(pi, ci, !ps.isFlipped)) },
+                    onAddSummon = { charId, summonerId -> viewModel.onEvent(CharacterEvent.AddSummonedCharacter(pi, charId, summonerId)) },
+                    onRemoveSummon = { charId -> viewModel.onEvent(CharacterEvent.RemoveSummonedCharacter(pi, charId)) },
                     onTransform = if (char.transformsInto != null) { targetId ->
                         viewModel.onEvent(CharacterEvent.TransformCharacter(pi, ci, targetId))
                         selectedCharInfo = null
@@ -516,26 +444,6 @@ fun ActiveGameScreen(
 }
 
 // ─── Summon helper ────────────────────────────────────────────────────────────
-
-private fun handleSummonAdd(
-    pageIndex: Int,
-    char: Character,
-    baseChars: List<Character>,
-    trackingMode: GameTrackingMode,
-    viewModel: CharacterViewModel,
-    onShowPicker: (SummonerPickerState) -> Unit
-) {
-    if (trackingMode == GameTrackingMode.LOW_DETAIL) {
-        viewModel.onEvent(CharacterEvent.AddSummonedCharacter(pageIndex, char.id, null))
-        return
-    }
-    val possibleSummoners = baseChars.filter { char.id in it.summonsCharacterIds }
-    when (possibleSummoners.size) {
-        0 -> viewModel.onEvent(CharacterEvent.AddSummonedCharacter(pageIndex, char.id, null))
-        1 -> viewModel.onEvent(CharacterEvent.AddSummonedCharacter(pageIndex, char.id, possibleSummoners[0].id))
-        else -> onShowPicker(SummonerPickerState(pageIndex, char, possibleSummoners))
-    }
-}
 
 // ─── Top bar ─────────────────────────────────────────────────────────────────
 
@@ -637,22 +545,15 @@ private fun ActiveGameTopBar(
 private fun CharacterPortraitCell(
     character: Character,
     playState: CharacterPlayState,
-    trackingMode: GameTrackingMode,
     summoner: Character?,
     isEditable: Boolean,
-    onTap: () -> Unit,
-    onHpBadgeTap: () -> Unit,
-    onEnergyBadgeTap: () -> Unit,
-    onMoonstoneBadgeTap: () -> Unit,
-    onStoneDragStart: (Int, Offset) -> Unit,
-    onStoneDrag: (Offset) -> Unit,
-    onStoneDragEnd: () -> Unit
+    isDormant: Boolean = false,
+    onTap: () -> Unit
 ) {
     val theme = LocalAppThemeProperties.current
-    val isFullTracking = trackingMode == GameTrackingMode.FULL_TRACKING
-    val isDead = playState.currentHealth <= 0
+    val isDead = !isDormant && playState.currentHealth <= 0
     val moonstoneColor = theme.moonstoneColor
-    val stoneCoords = remember { mutableStateMapOf<Int, LayoutCoordinates>() }
+    val isCursed = !isDormant && playState.statusTokens["cursed"] == true
 
     val hasCombatModifiers = remember(character) {
         (character.slicingDamageBuff ?: 0) > 0 ||
@@ -666,13 +567,15 @@ private fun CharacterPortraitCell(
         character.magicalDamageMitigation > 0
     }
 
+    val statTextMeasurer = rememberTextMeasurer()
+    val statTextStyle = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp)
+
     var showCombatProfile by remember { mutableStateOf(false) }
     val overlayAlpha by animateFloatAsState(
         targetValue = if (showCombatProfile) 1f else 0f,
         animationSpec = tween(200),
         label = "combatOverlay"
     )
-    // Auto-dismiss after 3 s
     LaunchedEffect(showCombatProfile) {
         if (showCombatProfile) {
             delay(3000)
@@ -685,8 +588,12 @@ private fun CharacterPortraitCell(
         modifier = Modifier
             .fillMaxWidth()
             .clip(theme.cardShape)
+            .then(
+                if (isDormant) Modifier.border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), theme.cardShape)
+                else Modifier
+            )
     ) {
-        // ── Portrait area fills full cell width ──────────────────────────────
+        // ── Portrait area ────────────────────────────────────────────────────
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
@@ -700,76 +607,80 @@ private fun CharacterPortraitCell(
                     .width(size)
                     .height(portraitHeight)
                     .portraitCrimpedEdge()
-                    .then(if (isDead) Modifier.alpha(0.4f) else Modifier)
+                    .then(if (isDead || isDormant) Modifier.alpha(0.4f) else Modifier)
             ) {
                 CharacterPortrait(character, size, shape = RectangleShape)
             }
 
-            if (isDead) {
+            if (isDormant) {
+                Box(
+                    modifier = Modifier
+                        .width(size)
+                        .height(portraitHeight)
+                        .background(Color(0xAA000000)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "Dormant",
+                            color = Color.White.copy(alpha = 0.9f),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            letterSpacing = 1.sp
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clip(CircleShape)
+                                .background(Color.White.copy(alpha = 0.15f))
+                                .border(1.dp, Color.White.copy(alpha = 0.6f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("+", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            } else if (isDead) {
                 Text(
                     "☠",
                     fontSize = (size.value * 0.38f).sp,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.align(Alignment.Center)
                 )
-            } else if (isFullTracking) {
-                // HP badge — bottom start, tap to decrement
-                StatBadge(
-                    value = playState.currentHealth,
-                    color = Color(0xFF2E7D32),
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .offset(4.dp, (-4).dp)
-                        .then(if (isEditable) Modifier.clickable(onClick = onHpBadgeTap) else Modifier)
-                )
-                // Energy badge — bottom end, tap to decrement
-                StatBadge(
-                    value = playState.currentEnergy,
-                    color = Color(0xFF1565C0),
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .offset((-4).dp, (-4).dp)
-                        .then(if (isEditable) Modifier.clickable(onClick = onEnergyBadgeTap) else Modifier)
-                )
-                // Moonstone badge — top center, tap to increment
-                if (playState.moonstones > 0 || isEditable) {
+            } else {
+                // ✓ activated badge — top-start
+                if (playState.isActivatedThisTurn) {
                     Box(
                         modifier = Modifier
-                            .align(Alignment.TopCenter)
-                            .offset(0.dp, 4.dp)
+                            .align(Alignment.TopStart)
+                            .offset(4.dp, 4.dp)
+                            .size(20.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xCC2E7D32)),
+                        contentAlignment = Alignment.Center
                     ) {
-                        StatBadge(
-                            value = playState.moonstones,
-                            color = moonstoneColor,
-                            textColor = Color.Black,
-                            modifier = if (isEditable) Modifier.clickable(onClick = onMoonstoneBadgeTap) else Modifier
-                        )
-                        // Support drag-off for moonstone transfer to pool
-                        if (isEditable && playState.moonstones > 0) {
-                            repeat(playState.moonstones) { i ->
-                                Box(
-                                    modifier = Modifier
-                                        .size(1.dp)
-                                        .onGloballyPositioned { stoneCoords[i] = it }
-                                        .pointerInput(i) {
-                                            detectDragGestures(
-                                                onDragStart = { offset ->
-                                                    onStoneDragStart(i, (stoneCoords[i]?.boundsInWindow()?.topLeft ?: Offset.Zero) + offset)
-                                                },
-                                                onDrag = { change, amount -> change.consume(); onStoneDrag(amount) },
-                                                onDragEnd = { onStoneDragEnd() },
-                                                onDragCancel = { onStoneDragEnd() }
-                                            )
-                                        }
-                                )
-                            }
-                        }
+                        Text("✓", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+                // ✦ curse badge — top-end
+                if (isCursed) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .offset((-4).dp, 4.dp)
+                            .size(20.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xCC7B1FA2)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("✦", color = Color.White, fontSize = 10.sp)
                     }
                 }
             }
 
             // Combat profile overlay — fades in over portrait on stat bundle tap
-            if (overlayAlpha > 0f) {
+            if (overlayAlpha > 0f && !isDormant) {
                 Box(
                     modifier = Modifier
                         .width(size)
@@ -794,29 +705,50 @@ private fun CharacterPortraitCell(
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
             // Stat bundle pill — tappable if character has combat modifiers
-            Box(
+            val healthDisplay = if (isDormant) character.health else playState.currentHealth
+            BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(MaterialTheme.shapes.small)
                     .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.7f))
                     .then(
-                        if (!isDead && hasCombatModifiers)
+                        if (!isDead && !isDormant && hasCombatModifiers)
                             Modifier.clickable { showCombatProfile = !showCombatProfile }
                         else Modifier
                     )
                     .padding(horizontal = 5.dp, vertical = 3.dp),
                 contentAlignment = Alignment.Center
             ) {
+                val wideText = "♥ $healthDisplay  ⚔ ${character.melee}  ${character.meleeRange}\"  ✦ ${character.arcane}  ~ ${statSign(character.evade)}"
+                val compactText = "♥$healthDisplay ⚔${character.melee} ${character.meleeRange}\" ✦${character.arcane} ~${statSign(character.evade)}"
+                val availableWidthPx = with(LocalDensity.current) { maxWidth.roundToPx() }
+                val statText = if (statTextMeasurer.measure(wideText, style = statTextStyle, maxLines = 1).size.width <= availableWidthPx) wideText else compactText
                 Text(
-                    text = "⚔ ${character.melee}  ${character.meleeRange}\"  ✦ ${character.arcane}  💨 ${statSign(character.evade)}",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontSize = 10.sp,
+                    text = statText,
+                    style = statTextStyle,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     textAlign = TextAlign.Center,
-                    color = if (isDead) MaterialTheme.colorScheme.outline
+                    color = if (isDead || isDormant) MaterialTheme.colorScheme.outline
                             else MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+
+            // Filled moonstone dots — only when active and tracking moonstones
+            if (!isDormant && playState.moonstones > 0) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(3.dp),
+                    modifier = Modifier.padding(top = 1.dp)
+                ) {
+                    repeat(playState.moonstones) {
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp)
+                                .clip(CircleShape)
+                                .background(moonstoneColor)
+                        )
+                    }
+                }
             }
 
             // Character name
@@ -827,7 +759,7 @@ private fun CharacterPortraitCell(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.Center,
-                color = if (isDead) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.onSurface
+                color = if (isDead || isDormant) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.onSurface
             )
 
             SummonerIndicator(summoner)
@@ -977,16 +909,22 @@ private fun GamePlayerSectionHeader(troupe: Troupe) {
 private fun GameCharacterCardModal(
     character: Character,
     playState: CharacterPlayState,
-    trackingMode: GameTrackingMode,
     isEditable: Boolean,
+    allCharacters: List<Character>,
+    activeSummons: List<SummonEntry>,
+    onHealthChange: (Int) -> Unit,
     onEnergyChange: (Int) -> Unit,
+    onMoonstoneChange: (Int) -> Unit,
+    onToggleActivated: () -> Unit,
+    onSetStatusToken: (String, Boolean) -> Unit,
     onAbilityToggle: (String, Boolean) -> Unit,
     onFlip: () -> Unit,
+    onAddSummon: (Int, Int?) -> Unit,
+    onRemoveSummon: (Int) -> Unit,
     onTransform: ((Int) -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
     val theme = LocalAppThemeProperties.current
-    val isFullTracking = trackingMode == GameTrackingMode.FULL_TRACKING
 
     Box(
         modifier = Modifier
@@ -1004,132 +942,297 @@ private fun GameCharacterCardModal(
         ThemedCard(
             modifier = Modifier
                 .align(Alignment.Center)
-                .fillMaxWidth(0.94f)
+                .fillMaxWidth()
                 .fillMaxHeight(0.88f)
-                .clickable {} // Absorb touches so scrim doesn't dismiss
+                .clickable {}
         ) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                Column(modifier = Modifier.fillMaxSize()) {
-                    // Energy controls row (FULL_TRACKING only)
-                    if (isFullTracking) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Character name + keywords header
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = theme.screenPadding, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        CharacterPortrait(character = character, size = 32.dp)
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = character.name,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        if (character.keywords.isNotEmpty()) {
+                            Text(
+                                text = character.keywords.joinToString(", "),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontStyle = FontStyle.Italic,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1
+                            )
+                        }
+                    }
+                    if (onTransform != null && character.transformsInto != null) {
+                        IconButton(
+                            onClick = { if (isEditable) onTransform(character.transformsInto) },
+                            modifier = Modifier.size(32.dp),
+                            enabled = isEditable
+                        ) {
+                            Icon(Icons.Default.AutoAwesome, contentDescription = "Transform", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                }
+                HorizontalDivider()
+
+                // Card content fills remaining space; background art expands naturally
+                CharacterCardContent(
+                    character = character,
+                    searchQuery = "",
+                    isFlipped = playState.isFlipped,
+                    onFlip = onFlip,
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    animateFlip = true,
+                    showBackgroundImage = theme.showBackgroundImageOverlay,
+                    showHealthTracker = true,
+                    abilityUsedStates = if (isEditable) playState.usedAbilities else null,
+                    onAbilityUsedChange = if (isEditable) onAbilityToggle else null,
+                    pinnedFooter = true,
+                    scrollable = true
+                )
+
+            } // Column
+        } // ThemedCard
+
+        // Tracking dock — always shown; card extends under the nav bar so
+        // the background fills the gesture region. Padding is applied inside.
+        ThemedCard(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .zIndex(200f)
+                    .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+                    .clickable {}
+            ) {
+                CharacterTrackingDock(
+                    character = character,
+                    playState = playState,
+                    isEditable = isEditable,
+                    allCharacters = allCharacters,
+                    activeSummons = activeSummons,
+                    onHealthChange = onHealthChange,
+                    onEnergyChange = onEnergyChange,
+                    onMoonstoneChange = onMoonstoneChange,
+                    onToggleActivated = onToggleActivated,
+                    onSetStatusToken = onSetStatusToken,
+                    onAddSummon = onAddSummon,
+                    onRemoveSummon = onRemoveSummon
+                )
+            }
+    }
+}
+
+@Composable
+private fun CharacterTrackingDock(
+    character: Character,
+    playState: CharacterPlayState,
+    isEditable: Boolean,
+    allCharacters: List<Character>,
+    activeSummons: List<SummonEntry>,
+    onHealthChange: (Int) -> Unit,
+    onEnergyChange: (Int) -> Unit,
+    onMoonstoneChange: (Int) -> Unit,
+    onToggleActivated: () -> Unit,
+    onSetStatusToken: (String, Boolean) -> Unit,
+    onAddSummon: (Int, Int?) -> Unit,
+    onRemoveSummon: (Int) -> Unit
+) {
+    val theme = LocalAppThemeProperties.current
+    val moonstoneColor = theme.moonstoneColor
+    var isExpanded by rememberSaveable { mutableStateOf(false) }
+
+    val activeSummonCount = activeSummons.count { e -> character.summonsCharacterIds.contains(e.characterId) }
+    val summaryText = buildString {
+        append("♥ ${playState.currentHealth}/${character.health}")
+        if (playState.currentEnergy > 0) append("  ◆${playState.currentEnergy}")
+        if (playState.moonstones > 0) append("  ${"●".repeat(playState.moonstones)}")
+        if (playState.statusTokens["cursed"] == true) append("  cursed")
+        if (activeSummonCount > 0) append("  ↳$activeSummonCount active")
+    }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
+                .clickable { isExpanded = !isExpanded }
+                .padding(horizontal = theme.screenPadding, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text("Tracking", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, modifier = Modifier.widthIn(min = 70.dp))
+            Text(
+                summaryText,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            FilterChip(
+                selected = playState.isActivatedThisTurn,
+                onClick = { if (isEditable) onToggleActivated() },
+                label = { Text(if (playState.isActivatedThisTurn) "✓ Used" else "Used", fontSize = 11.sp) },
+                modifier = Modifier.height(28.dp),
+                enabled = isEditable
+            )
+            Icon(
+                imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+
+        AnimatedVisibility(visible = isExpanded) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = theme.screenPadding)
+                    .padding(bottom = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // Health stepper + progress bar
+                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text("♥ Health", style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
+                        IconButton(onClick = { if (playState.currentHealth > 0) onHealthChange(playState.currentHealth - 1) }, modifier = Modifier.size(32.dp), enabled = isEditable) {
+                            Icon(Icons.Default.Remove, null, Modifier.size(16.dp))
+                        }
+                        Text(
+                            "${playState.currentHealth} / ${character.health}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.widthIn(min = 52.dp),
+                            textAlign = TextAlign.Center
+                        )
+                        IconButton(onClick = { if (playState.currentHealth < character.health) onHealthChange(playState.currentHealth + 1) }, modifier = Modifier.size(32.dp), enabled = isEditable) {
+                            Icon(Icons.Default.Add, null, Modifier.size(16.dp))
+                        }
+                    }
+                    LinearProgressIndicator(
+                        progress = { playState.currentHealth.toFloat() / character.health.coerceAtLeast(1) },
+                        modifier = Modifier.fillMaxWidth().height(3.dp).clip(CircleShape)
+                    )
+                }
+
+                // Energy stepper
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("◆ Energy", style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
+                    IconButton(onClick = { if (playState.currentEnergy > 0) onEnergyChange(playState.currentEnergy - 1) }, modifier = Modifier.size(32.dp), enabled = isEditable) {
+                        Icon(Icons.Default.Remove, null, Modifier.size(16.dp))
+                    }
+                    Text(playState.currentEnergy.toString(), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, modifier = Modifier.widthIn(min = 52.dp), textAlign = TextAlign.Center)
+                    IconButton(onClick = { onEnergyChange(playState.currentEnergy + 1) }, modifier = Modifier.size(32.dp), enabled = isEditable) {
+                        Icon(Icons.Default.Add, null, Modifier.size(16.dp))
+                    }
+                }
+
+                // Moonstones — 7 tappable circles
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("◉ Moonstones", style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
+                    Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                        (1..7).forEach { i ->
+                            val filled = i <= playState.moonstones
+                            Box(
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .clip(CircleShape)
+                                    .background(if (filled) moonstoneColor else MaterialTheme.colorScheme.surfaceVariant)
+                                    .border(1.dp, moonstoneColor.copy(alpha = 0.6f), CircleShape)
+                                    .then(if (isEditable) Modifier.clickable { onMoonstoneChange(if (filled) i - 1 else i) } else Modifier)
+                            )
+                        }
+                    }
+                }
+
+                // Cursed toggle
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("✦ Cursed", style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
+                    Switch(checked = playState.statusTokens["cursed"] == true, onCheckedChange = { if (isEditable) onSetStatusToken("cursed", it) }, enabled = isEditable)
+                }
+            }
+        }
+
+        // Summons section — shown when expanded, gated by character having summons
+        if (character.summonsCharacterIds.isNotEmpty()) {
+            AnimatedVisibility(visible = isExpanded) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = theme.screenPadding))
+                    character.summonsCharacterIds.forEach { summonId ->
+                        val summonChar = allCharacters.find { it.id == summonId } ?: return@forEach
+                        val isActive = activeSummons.any { it.characterId == summonId }
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = theme.screenPadding, vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Text(
-                                "ENERGY",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.weight(1f)
-                            )
-                            IconButton(
-                                onClick = { if (playState.currentEnergy > 0) onEnergyChange(playState.currentEnergy - 1) },
-                                modifier = Modifier.size(32.dp),
-                                enabled = isEditable
-                            ) { Icon(Icons.Default.Remove, contentDescription = null, modifier = Modifier.size(18.dp)) }
-                            Text(
-                                text = playState.currentEnergy.toString(),
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.widthIn(min = 28.dp),
-                                textAlign = TextAlign.Center
-                            )
-                            IconButton(
-                                onClick = { onEnergyChange(playState.currentEnergy + 1) },
-                                modifier = Modifier.size(32.dp),
-                                enabled = isEditable
-                            ) { Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp)) }
-                        }
-                        HorizontalDivider()
-                    }
-
-                    // Character name + keywords header
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = theme.screenPadding, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(32.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.surfaceVariant)
-                        ) {
-                            CharacterPortrait(character = character, size = 32.dp)
-                        }
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = character.name,
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            if (character.keywords.isNotEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                            ) {
+                                CharacterPortrait(summonChar, 36.dp)
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = character.keywords.joinToString(", "),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontStyle = FontStyle.Italic,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1
+                                    summonChar.name,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
+                                Text(
+                                    "♥${summonChar.health}  ⚔${summonChar.melee}  ✦${summonChar.arcane}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            if (isActive) {
+                                OutlinedButton(
+                                    onClick = { if (isEditable) onRemoveSummon(summonId) },
+                                    modifier = Modifier.height(30.dp),
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                                    enabled = isEditable
+                                ) { Text("✓ Active", fontSize = 11.sp) }
+                            } else {
+                                Button(
+                                    onClick = { if (isEditable) onAddSummon(summonId, character.id) },
+                                    modifier = Modifier.height(30.dp),
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                                    enabled = isEditable
+                                ) { Text("Call to Battle", fontSize = 11.sp) }
                             }
                         }
                     }
-                    HorizontalDivider()
-
-                    // Flip-animated card content (fills remaining space, pinned footer)
-                    CharacterCardContent(
-                        character = character,
-                        searchQuery = "",
-                        isFlipped = playState.isFlipped,
-                        onFlip = onFlip,
-                        modifier = Modifier.weight(1f).fillMaxWidth(),
-                        animateFlip = true,
-                        showBackgroundImage = theme.showBackgroundImageOverlay,
-                        showHealthTracker = true,
-                        abilityUsedStates = if (isFullTracking && isEditable) playState.usedAbilities else null,
-                        onAbilityUsedChange = if (isFullTracking && isEditable) onAbilityToggle else null,
-                        pinnedFooter = true,
-                        scrollable = true
-                    )
-
-                    // Transform button
-                    if (onTransform != null && character.transformsInto != null) {
-                        HorizontalDivider()
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(MaterialTheme.shapes.small)
-                                .clickable(enabled = isEditable) { onTransform(character.transformsInto) }
-                                .padding(vertical = 8.dp, horizontal = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Transform", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                        }
-                    }
+                    Spacer(Modifier.height(8.dp))
                 }
-
             }
         }
-
-        Text(
-            text = "Tap outside to close",
-            style = MaterialTheme.typography.labelSmall,
-            color = Color.White.copy(alpha = 0.5f),
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 12.dp)
-        )
+        // Fills the nav-bar inset so the card background extends behind the gesture bar
+        // without adding any visible gap above it.
+        Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
     }
 }
 

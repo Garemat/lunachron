@@ -67,6 +67,8 @@ sealed interface CharacterEvent {
     data class SetHideCampaignTab(val hide: Boolean) : CharacterEvent
     data class AddSummonedCharacter(val playerIndex: Int, val characterId: Int, val summonedByCharacterId: Int?) : CharacterEvent
     data class RemoveSummonedCharacter(val playerIndex: Int, val characterId: Int) : CharacterEvent
+    data class ToggleActivated(val playerIndex: Int, val charIndex: Int) : CharacterEvent
+    data class SetStatusToken(val playerIndex: Int, val charIndex: Int, val token: String, val value: Boolean) : CharacterEvent
     data class UpdatePoolResource(val playerIndex: Int, val resourceName: String, val count: Int) : CharacterEvent
     data class UpdateCharacterPoolResource(val playerIndex: Int, val charIndex: Int, val resourceName: String, val count: Int) : CharacterEvent
     data class TransformCharacter(val playerIndex: Int, val charIndex: Int, val targetCharacterId: Int) : CharacterEvent

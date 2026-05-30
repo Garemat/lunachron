@@ -411,7 +411,9 @@ data class CharacterPlayState(
     val usedAbilities: Map<String, Boolean> = emptyMap(),
     val isFlipped: Boolean = false,
     val isExpanded: Boolean = false,
-    val heldPoolResources: Map<String, Int> = emptyMap()
+    val heldPoolResources: Map<String, Int> = emptyMap(),
+    val isActivatedThisTurn: Boolean = false,
+    val statusTokens: Map<String, Boolean> = emptyMap()
 )
 
 @Serializable

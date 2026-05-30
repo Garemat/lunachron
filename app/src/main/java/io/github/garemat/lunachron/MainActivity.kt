@@ -481,7 +481,9 @@ class MainActivity : ComponentActivity() {
                                         onEvent = viewModel::onEvent,
                                         onQuickStartTroupe = { troupe ->
                                             viewModel.startNewGame(listOf(troupe))
-                                            navController.navigate(Screen.ActiveGame.route)
+                                            navController.navigate(Screen.ActiveGame.route) {
+                                                popUpTo(Screen.Home.route) { inclusive = false }
+                                            }
                                         },
                                         onTargetPositioned = { name, coords -> tutorialCoords[name] = coords }
                                     )

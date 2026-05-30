@@ -499,17 +499,17 @@ fun CommonStatBox(label: String, value: String, modifier: Modifier = Modifier, h
 }
 
 @Composable
-fun CommonAbilityItem(name: String, description: String, searchQuery: String = "", oncePerTurn: Boolean = false, oncePerGame: Boolean = false, reloadable: Boolean = false, isUsed: Boolean = false, onUsedChange: ((Boolean) -> Unit)? = null, isEditable: Boolean = true, passive: Boolean = false, showColon: Boolean = true) {
+fun CommonAbilityItem(name: String, description: String, searchQuery: String = "", oncePerTurn: Boolean = false, oncePerGame: Boolean = false, reloadable: Boolean = false, isUsed: Boolean = false, onUsedChange: ((Boolean) -> Unit)? = null, isEditable: Boolean = true, passive: Boolean = false, showColon: Boolean = true, descriptionStyle: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.bodySmall) {
     val theme = LocalAppThemeProperties.current
     if (passive) {
-        Row(modifier = Modifier.padding(vertical = theme.verticalSpacing / 4), verticalAlignment = Alignment.CenterVertically) {
+        Row(modifier = Modifier.padding(vertical = theme.verticalSpacing / 2), verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = buildAnnotatedString {
                     withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) { appendWithHighlight(name, searchQuery); append(": ") }
                     append(parseAbilityDescription(description, searchQuery))
                     if (oncePerGame) withStyle(style = SpanStyle(fontStyle = FontStyle.Italic)) { append(if (reloadable) " Once per game, unless reloaded." else " Once per game.") }
                 },
-                style = MaterialTheme.typography.bodySmall,
+                style = descriptionStyle,
                 modifier = Modifier.weight(1f),
                 inlineContent = getMoonstoneInlineContent()
             )
@@ -520,7 +520,7 @@ fun CommonAbilityItem(name: String, description: String, searchQuery: String = "
             }
         }
     } else {
-        Column(modifier = Modifier.padding(vertical = theme.verticalSpacing / 4)) {
+        Column(modifier = Modifier.padding(vertical = theme.verticalSpacing / 2)) {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                 val title = buildAnnotatedString {
                     withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
@@ -537,7 +537,7 @@ fun CommonAbilityItem(name: String, description: String, searchQuery: String = "
                     }
                 }
             }
-            Text(text = parseAbilityDescription(description, searchQuery), style = MaterialTheme.typography.bodySmall, inlineContent = getMoonstoneInlineContent())
+            Text(text = parseAbilityDescription(description, searchQuery), style = descriptionStyle, inlineContent = getMoonstoneInlineContent())
         }
     }
 }
@@ -554,6 +554,8 @@ fun CharacterFront(
     onAbilityUsedChange: ((String, Boolean) -> Unit)? = null
 ) {
     val theme = LocalAppThemeProperties.current
+    val abilityDescStyle = if (character.abilities.sumOf { it.description.length } < 500)
+        MaterialTheme.typography.bodyMedium else MaterialTheme.typography.bodySmall
     Column {
         if (theme.showExpandedStatsHeader) MoonstoneStats(character)
         else Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
@@ -562,7 +564,6 @@ fun CharacterFront(
             CommonStatBox("Arcane", character.arcane.toString(), showDivider = true)
             CommonStatBox("Evade", character.evade.toString(), showDivider = true)
         }
-        Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
         val passiveAbilities = character.abilities.filter { it.abilityType == "Passive" }
         val activeAbilities = character.abilities.filter { it.abilityType == "Active" }
         val arcaneAbilities = character.abilities.filter { it.abilityType == "Arcane" }
@@ -577,7 +578,8 @@ fun CharacterFront(
                 passive = true,
                 isUsed = abilityUsedStates?.get(ability.name) ?: false,
                 onUsedChange = if (abilityUsedStates != null) { used -> onAbilityUsedChange?.invoke(ability.name, used) } else null,
-                isEditable = abilityUsedStates != null
+                isEditable = abilityUsedStates != null,
+                descriptionStyle = abilityDescStyle
             )
         }
         if (activeAbilities.isNotEmpty()) {
@@ -590,7 +592,8 @@ fun CharacterFront(
                     showColon = false,
                     isUsed = abilityUsedStates?.get(ability.name) ?: false,
                     onUsedChange = if (abilityUsedStates != null) { used -> onAbilityUsedChange?.invoke(ability.name, used) } else null,
-                    isEditable = abilityUsedStates != null
+                    isEditable = abilityUsedStates != null,
+                    descriptionStyle = abilityDescStyle
                 )
             }
         }
@@ -604,13 +607,14 @@ fun CharacterFront(
                     showColon = false,
                     isUsed = abilityUsedStates?.get(ability.name) ?: false,
                     onUsedChange = if (abilityUsedStates != null) { used -> onAbilityUsedChange?.invoke(ability.name, used) } else null,
-                    isEditable = abilityUsedStates != null
+                    isEditable = abilityUsedStates != null,
+                    descriptionStyle = abilityDescStyle
                 )
             }
         }
         if (showSignatureLink) {
             character.signatureMove?.let { sigMove ->
-                Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
+                Spacer(modifier = Modifier.height(theme.verticalSpacing))
                 Row(
                     modifier = Modifier.fillMaxWidth().clickable { onFlip() }.onGloballyPositioned { onFlipPositioned(it) },
                     verticalAlignment = Alignment.CenterVertically
@@ -618,7 +622,7 @@ fun CharacterFront(
                     Text(text = buildAnnotatedString { append(if (theme.showExpandedStatsHeader) "Signature Move on a " else "Signature Move: "); withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { appendWithHighlight(if (theme.showExpandedStatsHeader) sigMove.upgradeFor else sigMove.name, searchQuery) }; append(".") }, style = MaterialTheme.typography.bodyMedium, fontStyle = FontStyle.Italic, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.secondary)
                     Icon(imageVector = Icons.Default.KeyboardArrowRight, contentDescription = "View signature move", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.secondary)
                 }
-                Spacer(modifier = Modifier.height(theme.verticalSpacing / 2))
+                Spacer(modifier = Modifier.height(theme.verticalSpacing))
             }
         }
         if (showHealthTracker) {
@@ -1039,7 +1043,7 @@ fun CharacterCardContent(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable { onFlip() }
-                                .padding(vertical = 4.dp, horizontal = 16.dp),
+                                .padding(top = 4.dp, bottom = 14.dp, start = 16.dp, end = 16.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
@@ -1202,7 +1206,7 @@ fun CampaignCardUI(card: CampaignCard, searchQuery: String, isExpanded: Boolean,
 @Composable
 fun AbilityTypeSeparator() {
     val theme = LocalAppThemeProperties.current
-    Box(modifier = Modifier.fillMaxWidth().padding(vertical = theme.verticalSpacing / 4), contentAlignment = Alignment.Center) {
+    Box(modifier = Modifier.fillMaxWidth().padding(vertical = theme.verticalSpacing / 2), contentAlignment = Alignment.Center) {
         HorizontalDivider(modifier = Modifier.fillMaxWidth(0.6f), thickness = 1.dp, color = MaterialTheme.colorScheme.primary.copy(alpha = if (theme.showExpandedStatsHeader) 0.3f else 0.1f))
     }
 }
