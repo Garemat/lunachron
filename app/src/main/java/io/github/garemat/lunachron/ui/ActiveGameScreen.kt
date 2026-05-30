@@ -41,8 +41,10 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -565,6 +567,9 @@ private fun CharacterPortraitCell(
         character.magicalDamageMitigation > 0
     }
 
+    val statTextMeasurer = rememberTextMeasurer()
+    val statTextStyle = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp)
+
     var showCombatProfile by remember { mutableStateOf(false) }
     val overlayAlpha by animateFloatAsState(
         targetValue = if (showCombatProfile) 1f else 0f,
@@ -701,7 +706,7 @@ private fun CharacterPortraitCell(
         ) {
             // Stat bundle pill — tappable if character has combat modifiers
             val healthDisplay = if (isDormant) character.health else playState.currentHealth
-            Box(
+            BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(MaterialTheme.shapes.small)
@@ -714,10 +719,13 @@ private fun CharacterPortraitCell(
                     .padding(horizontal = 5.dp, vertical = 3.dp),
                 contentAlignment = Alignment.Center
             ) {
+                val wideText = "♥ $healthDisplay  ⚔ ${character.melee}  ${character.meleeRange}\"  ✦ ${character.arcane}  ~ ${statSign(character.evade)}"
+                val compactText = "♥$healthDisplay ⚔${character.melee} ${character.meleeRange}\" ✦${character.arcane} ~${statSign(character.evade)}"
+                val availableWidthPx = with(LocalDensity.current) { maxWidth.roundToPx() }
+                val statText = if (statTextMeasurer.measure(wideText, style = statTextStyle, maxLines = 1).size.width <= availableWidthPx) wideText else compactText
                 Text(
-                    text = "♥ $healthDisplay  ⚔ ${character.melee}  ${character.meleeRange}\"  ✦ ${character.arcane}  💨 ${statSign(character.evade)}",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontSize = 10.sp,
+                    text = statText,
+                    style = statTextStyle,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     textAlign = TextAlign.Center,
