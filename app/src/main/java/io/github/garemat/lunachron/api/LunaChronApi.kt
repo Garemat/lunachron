@@ -3,6 +3,8 @@ package io.github.garemat.lunachron.api
 import android.content.Context
 import android.content.Context.MODE_PRIVATE
 import androidx.core.content.edit
+import java.time.Instant
+import java.time.format.DateTimeParseException
 import io.ktor.client.*
 import io.ktor.client.engine.android.Android
 import io.ktor.client.plugins.HttpTimeout
@@ -26,6 +28,7 @@ private const val PREFS_NAME = "lunachron_prefs"
 private const val KEY_SESSION_TOKEN = "api_session_token"
 private const val KEY_SESSION_EXPIRES = "api_session_expires"
 private const val KEY_BACKEND_DEVICE_ID = "api_backend_device_id"
+private const val KEY_ANDROID_DEVICE_ID = "persistent_device_id"
 
 // Resolved from BuildConfig at compile time:
 //   debug   → http://10.0.2.2:3000  (emulator) — change to your LAN IP for a physical device
@@ -136,6 +139,20 @@ class LunaChronApi(
     /** The backend's internal device UUID (devices.id), stored after first successful auth. */
     val savedBackendDeviceId: String? get() = prefs.getString(KEY_BACKEND_DEVICE_ID, null)
 
+    /**
+     * Returns true if the stored session token expires within [thresholdDays] days,
+     * or if no expiry date is stored. Callers should silently refresh via [login] when true.
+     */
+    fun isTokenExpiringSoon(thresholdDays: Long = 10): Boolean {
+        val raw = prefs.getString(KEY_SESSION_EXPIRES, null) ?: return true
+        return try {
+            val expiresAt = Instant.parse(raw)
+            expiresAt.isBefore(Instant.now().plusSeconds(thresholdDays * 86_400))
+        } catch (_: DateTimeParseException) {
+            true
+        }
+    }
+
     /** Attaches the saved session token as a Bearer header. */
     private fun HttpRequestBuilder.authorize() {
         val token = savedToken ?: return
@@ -193,7 +210,7 @@ class LunaChronApi(
         name: String,
         description: String?,
         settings: OnlineCampaignSettings
-    ): ApiResult<CreateCampaignResponse> = try {
+    ): ApiResult<CreateCampaignResponse> = withSession { try {
         val body = json.encodeToString(CreateCampaignRequest(name, description, settings))
         val response = http.post("$BASE_URL/campaigns") {
             authorize()
@@ -210,10 +227,10 @@ class LunaChronApi(
         }
     } catch (e: Exception) {
         ApiResult.Error("NETWORK_ERROR", e.message ?: "Network error")
-    }
+    } }
 
     /** Request to join a campaign via its 6-char join code. */
-    suspend fun joinCampaign(joinCode: String): ApiResult<JoinCampaignResponse> = try {
+    suspend fun joinCampaign(joinCode: String): ApiResult<JoinCampaignResponse> = withSession { try {
         val body = json.encodeToString(JoinCampaignRequest(joinCode))
         val response = http.post("$BASE_URL/campaigns/join") {
             authorize()
@@ -230,10 +247,10 @@ class LunaChronApi(
         }
     } catch (e: Exception) {
         ApiResult.Error("NETWORK_ERROR", e.message ?: "Network error")
-    }
+    } }
 
     /** Returns full detail for a single campaign, including its member list. */
-    suspend fun getCampaign(campaignId: String): ApiResult<OnlineCampaignDetail> = try {
+    suspend fun getCampaign(campaignId: String): ApiResult<OnlineCampaignDetail> = withSession { try {
         val response = http.get("$BASE_URL/campaigns/$campaignId") { authorize() }
         val text = response.bodyAsText()
         when (response.status.value) {
@@ -245,10 +262,10 @@ class LunaChronApi(
         }
     } catch (e: Exception) {
         ApiResult.Error("NETWORK_ERROR", e.message ?: "Network error")
-    }
+    } }
 
     /** Approve a pending member (host only). */
-    suspend fun approveMember(campaignId: String, memberId: String): ApiResult<Unit> = try {
+    suspend fun approveMember(campaignId: String, memberId: String): ApiResult<Unit> = withSession { try {
         val body = """{"memberId":"$memberId"}"""
         val response = http.post("$BASE_URL/campaigns/$campaignId/approve-member") {
             authorize()
@@ -265,10 +282,10 @@ class LunaChronApi(
         }
     } catch (e: Exception) {
         ApiResult.Error("NETWORK_ERROR", e.message ?: "Network error")
-    }
+    } }
 
     /** Reject a pending member (host only). */
-    suspend fun rejectMember(campaignId: String, memberId: String): ApiResult<Unit> = try {
+    suspend fun rejectMember(campaignId: String, memberId: String): ApiResult<Unit> = withSession { try {
         val body = """{"memberId":"$memberId"}"""
         val response = http.post("$BASE_URL/campaigns/$campaignId/reject-member") {
             authorize()
@@ -285,10 +302,10 @@ class LunaChronApi(
         }
     } catch (e: Exception) {
         ApiResult.Error("NETWORK_ERROR", e.message ?: "Network error")
-    }
+    } }
 
     /** Lock the campaign — auto-rejects pending members, prevents new joins. */
-    suspend fun lockCampaign(campaignId: String): ApiResult<Unit> = try {
+    suspend fun lockCampaign(campaignId: String): ApiResult<Unit> = withSession { try {
         val response = http.post("$BASE_URL/campaigns/$campaignId/lock") {
             authorize()
             contentType(ContentType.Application.Json)
@@ -304,10 +321,10 @@ class LunaChronApi(
         }
     } catch (e: Exception) {
         ApiResult.Error("NETWORK_ERROR", e.message ?: "Network error")
-    }
+    } }
 
     /** Re-open a locked campaign with a fresh join code. */
-    suspend fun unlockCampaign(campaignId: String): ApiResult<UnlockCampaignResponse> = try {
+    suspend fun unlockCampaign(campaignId: String): ApiResult<UnlockCampaignResponse> = withSession { try {
         val response = http.post("$BASE_URL/campaigns/$campaignId/unlock") {
             authorize()
             contentType(ContentType.Application.Json)
@@ -323,13 +340,13 @@ class LunaChronApi(
         }
     } catch (e: Exception) {
         ApiResult.Error("NETWORK_ERROR", e.message ?: "Network error")
-    }
+    } }
 
     /** Publish a round-robin schedule for a locked campaign. */
     suspend fun publishSchedule(
         campaignId: String,
         schedule: Map<String, Map<String, List<String>>>
-    ): ApiResult<Unit> = try {
+    ): ApiResult<Unit> = withSession { try {
         val body = buildString {
             append("""{"schedule":{""")
             schedule.entries.joinTo(this, ",") { (roundKey, games) ->
@@ -354,10 +371,10 @@ class LunaChronApi(
         }
     } catch (e: Exception) {
         ApiResult.Error("NETWORK_ERROR", e.message ?: "Network error")
-    }
+    } }
 
     /** Upload troupe data for a campaign. Pass [targetDeviceId] (host only) to upload for a local player. */
-    suspend fun uploadTroupe(campaignId: String, troupeData: String, targetDeviceId: String? = null): ApiResult<Unit> = try {
+    suspend fun uploadTroupe(campaignId: String, troupeData: String, targetDeviceId: String? = null): ApiResult<Unit> = withSession { try {
         val bodyMap = buildMap<String, String> {
             put("troupeData", troupeData)
             if (targetDeviceId != null) put("targetDeviceId", targetDeviceId)
@@ -378,10 +395,10 @@ class LunaChronApi(
         }
     } catch (e: Exception) {
         ApiResult.Error("NETWORK_ERROR", e.message ?: "Network error")
-    }
+    } }
 
     /** Set or clear ready state. Pass [targetDeviceId] (host only) to act on a local player. */
-    suspend fun setReady(campaignId: String, isReady: Boolean, targetDeviceId: String? = null): ApiResult<Unit> = try {
+    suspend fun setReady(campaignId: String, isReady: Boolean, targetDeviceId: String? = null): ApiResult<Unit> = withSession { try {
         val body = if (targetDeviceId != null)
             """{"isReady":$isReady,"targetDeviceId":"$targetDeviceId"}"""
         else
@@ -401,10 +418,10 @@ class LunaChronApi(
         }
     } catch (e: Exception) {
         ApiResult.Error("NETWORK_ERROR", e.message ?: "Network error")
-    }
+    } }
 
     /** Trigger server-side ranking recalculation (host only). */
-    suspend fun updateRankings(campaignId: String): ApiResult<Unit> = try {
+    suspend fun updateRankings(campaignId: String): ApiResult<Unit> = withSession { try {
         val response = http.post("$BASE_URL/campaigns/$campaignId/rankings") {
             authorize()
             contentType(ContentType.Application.Json)
@@ -420,10 +437,10 @@ class LunaChronApi(
         }
     } catch (e: Exception) {
         ApiResult.Error("NETWORK_ERROR", e.message ?: "Network error")
-    }
+    } }
 
     /** Advance to the next round (host only). */
-    suspend fun advanceRound(campaignId: String): ApiResult<Unit> = try {
+    suspend fun advanceRound(campaignId: String): ApiResult<Unit> = withSession { try {
         val response = http.post("$BASE_URL/campaigns/$campaignId/advance-round") {
             authorize()
             contentType(ContentType.Application.Json)
@@ -439,10 +456,10 @@ class LunaChronApi(
         }
     } catch (e: Exception) {
         ApiResult.Error("NETWORK_ERROR", e.message ?: "Network error")
-    }
+    } }
 
     /** Delete a campaign (host only). */
-    suspend fun deleteOnlineCampaign(campaignId: String): ApiResult<Unit> = try {
+    suspend fun deleteOnlineCampaign(campaignId: String): ApiResult<Unit> = withSession { try {
         val response = http.delete("$BASE_URL/campaigns/$campaignId") { authorize() }
         when (response.status.value) {
             204 -> ApiResult.Success(Unit)
@@ -454,7 +471,7 @@ class LunaChronApi(
         }
     } catch (e: Exception) {
         ApiResult.Error("NETWORK_ERROR", e.message ?: "Network error")
-    }
+    } }
 
     /** Submit a match result for a game in the current round. */
     suspend fun submitMatchResult(
@@ -463,7 +480,7 @@ class LunaChronApi(
         gameNumber: Int,
         playerStats: List<OnlinePlayerStat>,
         winnerId: String?
-    ): ApiResult<Unit> = try {
+    ): ApiResult<Unit> = withSession { try {
         val body = json.encodeToString(MatchResultRequest(roundNumber, gameNumber, playerStats, winnerId))
         val response = http.post("$BASE_URL/campaigns/$campaignId/match-result") {
             authorize()
@@ -480,10 +497,10 @@ class LunaChronApi(
         }
     } catch (e: Exception) {
         ApiResult.Error("NETWORK_ERROR", e.message ?: "Network error")
-    }
+    } }
 
     /** Agree or dispute a pending match result as the opponent. */
-    suspend fun verifyMatchResult(campaignId: String, resultId: String, agree: Boolean): ApiResult<Unit> = try {
+    suspend fun verifyMatchResult(campaignId: String, resultId: String, agree: Boolean): ApiResult<Unit> = withSession { try {
         val body = """{"resultId":"$resultId","agree":$agree}"""
         val response = http.post("$BASE_URL/campaigns/$campaignId/verify-result") {
             authorize()
@@ -500,10 +517,10 @@ class LunaChronApi(
         }
     } catch (e: Exception) {
         ApiResult.Error("NETWORK_ERROR", e.message ?: "Network error")
-    }
+    } }
 
     /** Add a named local (unattended) player to a campaign (host only). */
-    suspend fun addLocalMember(campaignId: String, name: String): ApiResult<AddLocalMemberResponse> = try {
+    suspend fun addLocalMember(campaignId: String, name: String): ApiResult<AddLocalMemberResponse> = withSession { try {
         val body = """{"name":${json.encodeToString(name)}}"""
         val response = http.post("$BASE_URL/campaigns/$campaignId/add-local-member") {
             authorize()
@@ -520,7 +537,7 @@ class LunaChronApi(
         }
     } catch (e: Exception) {
         ApiResult.Error("NETWORK_ERROR", e.message ?: "Network error")
-    }
+    } }
 
     /**
      * Confirm this player's troupe snapshot for [roundNumber] before their match.
@@ -533,7 +550,7 @@ class LunaChronApi(
         roundNumber: Int,
         troupeData: String,
         targetDeviceId: String? = null
-    ): ApiResult<Unit> = try {
+    ): ApiResult<Unit> = withSession { try {
         val body = buildString {
             append("""{"roundNumber":$roundNumber,"troupeData":""")
             append(json.encodeToString(troupeData))
@@ -555,7 +572,7 @@ class LunaChronApi(
         }
     } catch (e: Exception) {
         ApiResult.Error("NETWORK_ERROR", e.message ?: "Network error")
-    }
+    } }
 
     /** Submit SUPPORT/SABOTAGE machination choices (and optional attack) for the machinations phase. */
     suspend fun submitMachination(
@@ -563,7 +580,7 @@ class LunaChronApi(
         machinations: List<OnlineMachinationChoice>,
         attack: OnlineMachinationAttack? = null,
         targetDeviceId: String? = null
-    ): ApiResult<Unit> = try {
+    ): ApiResult<Unit> = withSession { try {
         val machinationsJson = json.encodeToString(machinations)
         val attackJson = if (attack != null) json.encodeToString(attack) else null
         val body = buildString {
@@ -587,10 +604,10 @@ class LunaChronApi(
         }
     } catch (e: Exception) {
         ApiResult.Error("NETWORK_ERROR", e.message ?: "Network error")
-    }
+    } }
 
     /** Returns all campaigns the device is an approved member of. */
-    suspend fun getMyCampaigns(): ApiResult<List<OnlineCampaignSummary>> = try {
+    suspend fun getMyCampaigns(): ApiResult<List<OnlineCampaignSummary>> = withSession { try {
         val response = http.get("$BASE_URL/campaigns/mine") { authorize() }
         val text = response.bodyAsText()
         when (response.status.value) {
@@ -602,9 +619,24 @@ class LunaChronApi(
         }
     } catch (e: Exception) {
         ApiResult.Error("NETWORK_ERROR", e.message ?: "Network error")
-    }
+    } }
 
     // ── Private helpers ───────────────────────────────────────────────────────
+
+    /**
+     * Runs [block] and, if the response carries AUTH_EXPIRED, silently re-logs in and
+     * retries once. Covers the case where the startup renewal failed (e.g. no network at
+     * launch) and the token has since fully expired mid-session.
+     */
+    private suspend fun <T> withSession(block: suspend () -> ApiResult<T>): ApiResult<T> {
+        val result = block()
+        if (result is ApiResult.Error && result.code == "AUTH_EXPIRED") {
+            val deviceId = prefs.getString(KEY_ANDROID_DEVICE_ID, null) ?: return result
+            if (login(deviceId) is ApiResult.Error) return result
+            return block()
+        }
+        return result
+    }
 
     private suspend fun handleAuthResponse(
         response: HttpResponse,

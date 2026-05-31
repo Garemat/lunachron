@@ -157,8 +157,10 @@ class CharacterViewModel(
         if (_state.value.autoFetchNews) fetchNews()
         checkForUpdatesOnStartup()
         nearbyManager.setPayloadListener { endpointId, message -> handleSessionMessage(endpointId, message) }
-        // Backfill backendDeviceId for users who registered before it was added to the auth response
-        if (_state.value.isRegistered && _state.value.backendDeviceId.isEmpty()) {
+        // Silently refresh token on startup: backfills backendDeviceId for old registrations
+        // and proactively renews tokens within 10 days of expiry.
+        if (_state.value.isRegistered &&
+            (_state.value.backendDeviceId.isEmpty() || apiClient.isTokenExpiringSoon())) {
             viewModelScope.launch {
                 val result = apiClient.login(persistentDeviceId)
                 if (result is ApiResult.Success && result.data.deviceId != null) {
