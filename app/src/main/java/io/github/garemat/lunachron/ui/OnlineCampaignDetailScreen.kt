@@ -2196,6 +2196,7 @@ private fun AdminPanelSheet(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AdjustPointsSection(
     campaignId: String,
@@ -2217,16 +2218,22 @@ private fun AdjustPointsSection(
             color = MaterialTheme.colorScheme.onSurfaceVariant)
 
         // Player picker
-        Box {
+        ExposedDropdownMenuBox(
+            expanded = dropdownOpen,
+            onExpandedChange = { dropdownOpen = it }
+        ) {
             OutlinedTextField(
                 value = selectedMember.username,
                 onValueChange = {},
                 readOnly = true,
                 label = { Text("Player") },
-                trailingIcon = { Icon(Icons.Default.ArrowDropDown, null) },
-                modifier = Modifier.fillMaxWidth().clickable { dropdownOpen = true }
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = dropdownOpen) },
+                modifier = Modifier.fillMaxWidth().menuAnchor()
             )
-            DropdownMenu(expanded = dropdownOpen, onDismissRequest = { dropdownOpen = false }) {
+            ExposedDropdownMenu(
+                expanded = dropdownOpen,
+                onDismissRequest = { dropdownOpen = false }
+            ) {
                 members.forEach { m ->
                     DropdownMenuItem(
                         text = { Text(m.username) },
