@@ -2196,6 +2196,7 @@ private fun AdminPanelSheet(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AdjustPointsSection(
     campaignId: String,
