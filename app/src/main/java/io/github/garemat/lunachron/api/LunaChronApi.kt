@@ -3,8 +3,9 @@ package io.github.garemat.lunachron.api
 import android.content.Context
 import android.content.Context.MODE_PRIVATE
 import androidx.core.content.edit
-import java.time.Instant
-import java.time.format.DateTimeParseException
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.TimeZone
 import io.ktor.client.*
 import io.ktor.client.engine.android.Android
 import io.ktor.client.plugins.HttpTimeout
@@ -146,9 +147,11 @@ class LunaChronApi(
     fun isTokenExpiringSoon(thresholdDays: Long = 10): Boolean {
         val raw = prefs.getString(KEY_SESSION_EXPIRES, null) ?: return true
         return try {
-            val expiresAt = Instant.parse(raw)
-            expiresAt.isBefore(Instant.now().plusSeconds(thresholdDays * 86_400))
-        } catch (_: DateTimeParseException) {
+            val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
+            sdf.timeZone = TimeZone.getTimeZone("UTC")
+            val expiresAt = sdf.parse(raw.take(19)) ?: return true
+            expiresAt.time < System.currentTimeMillis() + thresholdDays * 86_400_000L
+        } catch (_: Exception) {
             true
         }
     }
