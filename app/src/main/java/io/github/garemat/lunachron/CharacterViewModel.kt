@@ -516,6 +516,16 @@ class CharacterViewModel(
                     is ApiResult.Error -> _state.update { it.copy(isAdvancingRound = false, onlineCampaignError = r.message) }
                 }
             }
+            is CharacterEvent.AdjustPlayerPoints -> viewModelScope.launch {
+                _state.update { it.copy(isAdjustingPoints = true, onlineCampaignError = null) }
+                when (val r = apiClient.adjustPlayerPoints(event.campaignId, event.targetDeviceId, event.mpDelta, event.vpDelta, event.note)) {
+                    is ApiResult.Success -> {
+                        _state.update { it.copy(isAdjustingPoints = false) }
+                        onEvent(CharacterEvent.LoadOnlineCampaign(event.campaignId))
+                    }
+                    is ApiResult.Error -> _state.update { it.copy(isAdjustingPoints = false, onlineCampaignError = r.message) }
+                }
+            }
             is CharacterEvent.SubmitOnlineMatchResult -> viewModelScope.launch {
                 _state.update { it.copy(isSubmittingMatchResult = true, onlineCampaignError = null) }
                 when (val r = apiClient.submitMatchResult(event.campaignId, event.roundNumber, event.gameNumber, event.playerStats, event.winnerId)) {

@@ -151,7 +151,11 @@ data class OnlineCampaignMember(
     val victoryPoints: Int = 0,
     val matchPoints: Int = 0,
     val powerPoints: Int = 0,
-    val bonusMp: Int = 0
+    val bonusMp: Int = 0,
+    val inGameMp: Int = 0,
+    val vpAdjustment: Int = 0,
+    val mpAdjustment: Int = 0,
+    val lastAdjustmentNote: String? = null
 )
 
 /** Confirmed troupe snapshot for one player in a round. */
@@ -238,6 +242,8 @@ data class OnlinePlayerStat(
     val moonstones: Int = 0,
     /** VP adjustment from campaign cards (can be negative). */
     val campaignCardVp: Int = 0,
+    /** MP adjustment from campaign cards played during the game (can be negative). */
+    val campaignCardMp: Int = 0,
     /** Share codes of campaign cards used this game. */
     val campaignCardCodes: List<String> = emptyList()
 )
@@ -383,6 +389,9 @@ data class CharacterState(
 
     // Online machinations phase
     val isSubmittingMachination: Boolean = false,
+
+    // Online host point adjustment (Wizard Chamberlain)
+    val isAdjustingPoints: Boolean = false,
 
     // Online campaign deletion
     val isDeletingCampaign: Boolean = false,
