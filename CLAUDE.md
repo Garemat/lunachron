@@ -73,6 +73,11 @@ The app targets SDK 36, min SDK 24, Java 17.
 
 **Commit messages:** Never include the literal string `[skip ci]` anywhere in a commit message (including the body) — GitHub scans the full message and will suppress all workflow runs for that commit.
 
+**Pull requests:** After raising any PR in this repo, immediately enable auto-merge with squash:
+```bash
+gh pr merge <number> --repo garemat/lunachron --auto --squash
+```
+
 ## F-Droid Distribution
 
 The app is distributed via [F-Droid](https://f-droid.org). The fdroiddata metadata lives in a separate fork at `gitlab.com/Garemat/fdroiddata` (MR: `fdroid/fdroiddata!34869`).
