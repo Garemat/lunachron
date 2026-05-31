@@ -1253,6 +1253,9 @@ private fun RecordResultCard(
     // Campaign card VP modifiers
     var myCardVp by remember { mutableIntStateOf(0) }
     var opponentCardVp by remember { mutableIntStateOf(0) }
+    // Campaign card MP modifiers (in-game grants/deductions)
+    var myCardMp by remember { mutableIntStateOf(0) }
+    var opponentCardMp by remember { mutableIntStateOf(0) }
     // Campaign cards used (set of share codes)
     var myUsedCardCodes by remember { mutableStateOf(setOf<String>()) }
     var opponentUsedCardCodes by remember { mutableStateOf(setOf<String>()) }
@@ -1366,6 +1369,17 @@ private fun RecordResultCard(
                         VpModifierSide(opponentMember?.username ?: "Opponent", opponentCardVp, { opponentCardVp = it }, Modifier.weight(1f))
                     }
 
+                    // ── Campaign card MP modifier ─────────────────────────────
+                    Text("Campaign card MP modifier", style = MaterialTheme.typography.labelMedium)
+                    Text("Adjust MP for campaign cards that grant or deduct mission points during the game.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        VpModifierSide(myMember?.username ?: "You", myCardMp, { myCardMp = it }, Modifier.weight(1f))
+                        Spacer(Modifier.width(8.dp))
+                        VpModifierSide(opponentMember?.username ?: "Opponent", opponentCardMp, { opponentCardMp = it }, Modifier.weight(1f))
+                    }
+
                     HorizontalDivider()
 
                     // ── Winner preview (auto-calculated from VP) ──────────────
@@ -1396,9 +1410,9 @@ private fun RecordResultCard(
                             }
                             val playerStats = listOf(
                                 OnlinePlayerStat(myDeviceId, myMember?.username ?: "",
-                                    myStones, myCardVp, myUsedCardCodes.toList()),
+                                    myStones, myCardVp, myCardMp, myUsedCardCodes.toList()),
                                 OnlinePlayerStat(opponentMember?.deviceId ?: "", opponentMember?.username ?: "",
-                                    opponentStones, opponentCardVp, opponentUsedCardCodes.toList())
+                                    opponentStones, opponentCardVp, opponentCardMp, opponentUsedCardCodes.toList())
                             )
                             onEvent(CharacterEvent.SubmitOnlineMatchResult(campaignId, roundNumber, gameNumber, playerStats, winnerId))
                         },
@@ -2162,7 +2176,107 @@ private fun AdminPanelSheet(
                 }
             }
 
+            // ── Adjust Player Points (Wizard Chamberlain correction) ──────
+            val approvedMembers = campaign.members.filter { it.status == "APPROVED" }
+            if (approvedMembers.isNotEmpty()) {
+                item { HorizontalDivider() }
+                item {
+                    AdjustPointsSection(
+                        campaignId = campaign.id,
+                        members = approvedMembers,
+                        isAdjusting = state.isAdjustingPoints,
+                        onEvent = onEvent,
+                        theme = theme
+                    )
+                }
+            }
+
             item { Spacer(Modifier.height(8.dp)) }
+        }
+    }
+}
+
+@Composable
+private fun AdjustPointsSection(
+    campaignId: String,
+    members: List<OnlineCampaignMember>,
+    isAdjusting: Boolean,
+    onEvent: (CharacterEvent) -> Unit,
+    theme: io.github.garemat.lunachron.ui.theme.AppThemeProperties
+) {
+    var selectedMember by remember(members) { mutableStateOf(members.first()) }
+    var dropdownOpen   by remember { mutableStateOf(false) }
+    var mpDelta        by remember { mutableIntStateOf(0) }
+    var vpDelta        by remember { mutableIntStateOf(0) }
+    var note           by remember { mutableStateOf("") }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Adjust Player Points", style = MaterialTheme.typography.labelMedium)
+        Text("Correct a player's VP or MP totals (e.g. campaign card effect or scoring error).",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+        // Player picker
+        Box {
+            OutlinedTextField(
+                value = selectedMember.username,
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Player") },
+                trailingIcon = { Icon(Icons.Default.ArrowDropDown, null) },
+                modifier = Modifier.fillMaxWidth().clickable { dropdownOpen = true }
+            )
+            DropdownMenu(expanded = dropdownOpen, onDismissRequest = { dropdownOpen = false }) {
+                members.forEach { m ->
+                    DropdownMenuItem(
+                        text = { Text(m.username) },
+                        onClick = { selectedMember = m; dropdownOpen = false }
+                    )
+                }
+            }
+        }
+
+        // MP delta
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("MP adjustment", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+            IconButton(onClick = { mpDelta-- }) { Icon(Icons.Default.Remove, null) }
+            Text(if (mpDelta >= 0) "+$mpDelta" else "$mpDelta",
+                style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+            IconButton(onClick = { mpDelta++ }) { Icon(Icons.Default.Add, null) }
+        }
+
+        // VP delta
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("VP adjustment", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+            IconButton(onClick = { vpDelta-- }) { Icon(Icons.Default.Remove, null) }
+            Text(if (vpDelta >= 0) "+$vpDelta" else "$vpDelta",
+                style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+            IconButton(onClick = { vpDelta++ }) { Icon(Icons.Default.Add, null) }
+        }
+
+        // Optional note
+        OutlinedTextField(
+            value = note,
+            onValueChange = { note = it },
+            label = { Text("Note (optional)") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Button(
+            onClick = {
+                onEvent(CharacterEvent.AdjustPlayerPoints(campaignId, selectedMember.deviceId, mpDelta, vpDelta, note.trim()))
+                mpDelta = 0; vpDelta = 0; note = ""
+            },
+            enabled = !isAdjusting && (mpDelta != 0 || vpDelta != 0),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            if (isAdjusting) {
+                CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.onPrimary)
+            } else {
+                Text("Apply")
+            }
         }
     }
 }
@@ -2298,6 +2412,8 @@ private fun AdminLocalGameCard(
     var opponentStones    by remember { mutableIntStateOf(0) }
     var localCardVp       by remember { mutableIntStateOf(0) }
     var opponentCardVp    by remember { mutableIntStateOf(0) }
+    var localCardMp       by remember { mutableIntStateOf(0) }
+    var opponentCardMp    by remember { mutableIntStateOf(0) }
     var localUsedCards    by remember { mutableStateOf(setOf<String>()) }
     var opponentUsedCards by remember { mutableStateOf(setOf<String>()) }
 
@@ -2374,6 +2490,14 @@ private fun AdminLocalGameCard(
                 VpModifierSide(opponentMember?.username ?: "Opponent", opponentCardVp, { opponentCardVp = it }, Modifier.weight(1f))
             }
 
+            // MP modifiers
+            Text("Campaign card MP modifier", style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                VpModifierSide(localMember?.username ?: "Local", localCardMp,    { localCardMp = it },    Modifier.weight(1f))
+                VpModifierSide(opponentMember?.username ?: "Opponent", opponentCardMp, { opponentCardMp = it }, Modifier.weight(1f))
+            }
+
             // Winner preview
             HorizontalDivider()
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -2394,9 +2518,9 @@ private fun AdminLocalGameCard(
                 onClick = {
                     val stats = listOf(
                         OnlinePlayerStat(localPlayerId, localMember?.username ?: "",
-                            localStones, localCardVp, localUsedCards.toList()),
+                            localStones, localCardVp, localCardMp, localUsedCards.toList()),
                         OnlinePlayerStat(opponentId, opponentMember?.username ?: "",
-                            opponentStones, opponentCardVp, opponentUsedCards.toList())
+                            opponentStones, opponentCardVp, opponentCardMp, opponentUsedCards.toList())
                     )
                     onEvent(CharacterEvent.SubmitOnlineMatchResult(campaignId, roundNumber, gameNumber, stats, winnerId))
                 },

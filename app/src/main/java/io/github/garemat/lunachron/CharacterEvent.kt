@@ -143,6 +143,15 @@ sealed interface CharacterEvent {
     data class UpdateOnlineRankings(val campaignId: String) : CharacterEvent
     data class AdvanceOnlineRound(val campaignId: String) : CharacterEvent
 
+    // LunaChron API — host point adjustment (Wizard Chamberlain)
+    data class AdjustPlayerPoints(
+        val campaignId: String,
+        val targetDeviceId: String,
+        val mpDelta: Int,
+        val vpDelta: Int,
+        val note: String
+    ) : CharacterEvent
+
     // LunaChron API — match result recording
     data class SubmitOnlineMatchResult(
         val campaignId: String,

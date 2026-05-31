@@ -91,6 +91,22 @@ private data class MatchResultRequest(
 )
 
 @Serializable
+private data class AdjustPointsRequest(
+    val targetDeviceId: String,
+    val mpDelta: Int,
+    val vpDelta: Int,
+    val note: String
+)
+
+@Serializable
+data class AdjustPointsResponse(
+    val deviceId: String,
+    val vpAdjustment: Int,
+    val mpAdjustment: Int,
+    val powerPoints: Int
+)
+
+@Serializable
 private data class ApiErrorBody(
     val error: String = "Unknown error",
     val code: String = "UNKNOWN",
@@ -433,6 +449,32 @@ class LunaChronApi(
         val text = response.bodyAsText()
         when (response.status.value) {
             200 -> ApiResult.Success(Unit)
+            else -> {
+                val err = runCatching { json.decodeFromString<ApiErrorBody>(text) }.getOrDefault(ApiErrorBody())
+                ApiResult.Error(err.code, err.message)
+            }
+        }
+    } catch (e: Exception) {
+        ApiResult.Error("NETWORK_ERROR", e.message ?: "Network error")
+    } }
+
+    /** Apply a manual MP/VP delta to a member (host/Wizard Chamberlain only). */
+    suspend fun adjustPlayerPoints(
+        campaignId: String,
+        targetDeviceId: String,
+        mpDelta: Int,
+        vpDelta: Int,
+        note: String
+    ): ApiResult<AdjustPointsResponse> = withSession { try {
+        val body = json.encodeToString(AdjustPointsRequest(targetDeviceId, mpDelta, vpDelta, note))
+        val response = http.post("$BASE_URL/campaigns/$campaignId/adjust-points") {
+            authorize()
+            contentType(ContentType.Application.Json)
+            setBody(body)
+        }
+        val text = response.bodyAsText()
+        when (response.status.value) {
+            200 -> ApiResult.Success(json.decodeFromString<AdjustPointsResponse>(text))
             else -> {
                 val err = runCatching { json.decodeFromString<ApiErrorBody>(text) }.getOrDefault(ApiErrorBody())
                 ApiResult.Error(err.code, err.message)
