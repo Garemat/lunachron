@@ -3,12 +3,15 @@ name: Build and Test
 on:
   pull_request:
     branches: [ "main" ]
+  # Allows CI to run on bot-created PRs (GITHUB_TOKEN can't trigger pull_request events)
+  push:
+    branches: [ "chore/data-*" ]
+  workflow_dispatch:
 
 jobs:
   build:
     uses: garemat/lunachron/.github/workflows/validate.yml@main
     with:
       pr_body: ${{ github.event.pull_request.body }}
-      # Dependabot generates its own PR body and cannot fill in the checklist.
-      # All other actors must pass validation — a blank body will fail the grep.
-      skip_pr_validation: ${{ github.actor == 'dependabot[bot]' }}
+      # Skip checklist validation for bots and non-PR triggers (no PR body available)
+      skip_pr_validation: ${{ github.actor == 'dependabot[bot]' || github.actor == 'github-actions[bot]' || github.event_name != 'pull_request' }}
