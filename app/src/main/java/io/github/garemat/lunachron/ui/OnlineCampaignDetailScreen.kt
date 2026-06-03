@@ -691,8 +691,9 @@ private fun OnlineRankingCard(
                     maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("${member.victoryPoints} VP", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    if (member.matchPoints > 0) {
-                        Text("+${member.matchPoints} MP", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.tertiary)
+                    val totalMp = member.matchPoints + member.mpAdjustment + member.inGameMp
+                    if (totalMp != 0) {
+                        Text("${if (totalMp > 0) "+" else ""}$totalMp MP", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.tertiary)
                     }
                 }
             }
