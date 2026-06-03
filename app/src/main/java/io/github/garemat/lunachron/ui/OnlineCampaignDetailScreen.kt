@@ -1254,23 +1254,25 @@ private fun PreviousRoundMachinationsSection(
     data class PlayerResult(
         val username: String,
         val supporters: List<String>,
-        val saboteurs: List<String>,
         val drawCount: Int
     )
 
     val results = remember(machinations, members) {
         val supportersOf = mutableMapOf<String, MutableList<String>>()
-        val sabotagersOf = mutableMapOf<String, MutableList<String>>()
+        val sabotageCountOf = mutableMapOf<String, Int>()
         for (entry in machinations) {
             for (choice in entry.choices) {
-                val map = if (choice.type == "SUPPORT") supportersOf else sabotagersOf
-                map.getOrPut(choice.targetDeviceId) { mutableListOf() }.add(entry.username)
+                if (choice.type == "SUPPORT") {
+                    supportersOf.getOrPut(choice.targetDeviceId) { mutableListOf() }.add(entry.username)
+                } else {
+                    sabotageCountOf[choice.targetDeviceId] = (sabotageCountOf[choice.targetDeviceId] ?: 0) + 1
+                }
             }
         }
         members.map { m ->
             val sup = supportersOf[m.deviceId] ?: emptyList()
-            val sab = sabotagersOf[m.deviceId] ?: emptyList()
-            PlayerResult(m.username, sup, sab, (2 + sup.size - sab.size).coerceIn(1, 3))
+            val sabCount = sabotageCountOf[m.deviceId] ?: 0
+            PlayerResult(m.username, sup, (2 + sup.size - sabCount).coerceIn(1, 3))
         }.sortedByDescending { it.drawCount }
     }
 
@@ -1341,14 +1343,7 @@ private fun PreviousRoundMachinationsSection(
                                     color = MachinationSupportGreen
                                 )
                             }
-                            if (r.saboteurs.isNotEmpty()) {
-                                Text(
-                                    "Sabotaged by: ${r.saboteurs.joinToString(", ")}",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.error
-                                )
-                            }
-                            if (r.supporters.isEmpty() && r.saboteurs.isEmpty()) {
+                            if (r.supporters.isEmpty()) {
                                 Text(
                                     "No operations",
                                     style = MaterialTheme.typography.labelSmall,
