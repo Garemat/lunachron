@@ -186,7 +186,9 @@ data class OnlineCampaignDetail(
     // (use OnlineCampaignMember.troupeData instead).
     val roundTroupes: List<OnlineRoundTroupe> = emptyList(),
     // Previous round's confirmed troupes — no gate, used for new-character diff.
-    val previousRoundTroupes: List<OnlineRoundTroupe> = emptyList()
+    val previousRoundTroupes: List<OnlineRoundTroupe> = emptyList(),
+    // Previous round's machination submissions — visible to all once the round has advanced.
+    val previousRoundMachinations: List<OnlineMachinationEntry> = emptyList()
 )
 
 /** A single SUPPORT/SABOTAGE machination choice within a submitted entry. */

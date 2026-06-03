@@ -1226,10 +1226,147 @@ private fun OnlineResultsTab(
                 }
             }
         }
+
+        // Previous round machination results — collapsible, shows once round has advanced
+        if (campaign.previousRoundMachinations.isNotEmpty()) {
+            PreviousRoundMachinationsSection(
+                previousRound = currentRound - 1,
+                machinations = campaign.previousRoundMachinations,
+                members = campaign.members.filter { it.status == "APPROVED" }
+            )
+        }
     } // closes Column
 }
 
 // OnlineMachinationsTab is in MachinationsPhaseUI.kt
+
+private val MachinationSupportGreen = Color(0xFF2B9260)
+
+@Composable
+private fun PreviousRoundMachinationsSection(
+    previousRound: Int,
+    machinations: List<OnlineMachinationEntry>,
+    members: List<OnlineCampaignMember>
+) {
+    val theme = LocalAppThemeProperties.current
+    var expanded by remember { mutableStateOf(false) }
+
+    data class PlayerResult(
+        val username: String,
+        val supporters: List<String>,
+        val saboteurs: List<String>,
+        val drawCount: Int
+    )
+
+    val results = remember(machinations, members) {
+        val supportersOf = mutableMapOf<String, MutableList<String>>()
+        val sabotagersOf = mutableMapOf<String, MutableList<String>>()
+        for (entry in machinations) {
+            for (choice in entry.choices) {
+                val map = if (choice.type == "SUPPORT") supportersOf else sabotagersOf
+                map.getOrPut(choice.targetDeviceId) { mutableListOf() }.add(entry.username)
+            }
+        }
+        members.map { m ->
+            val sup = supportersOf[m.deviceId] ?: emptyList()
+            val sab = sabotagersOf[m.deviceId] ?: emptyList()
+            PlayerResult(m.username, sup, sab, (2 + sup.size - sab.size).coerceIn(1, 3))
+        }.sortedByDescending { it.drawCount }
+    }
+
+    Spacer(Modifier.height(8.dp))
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        shape = theme.cardShape,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = !expanded },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    Icons.Default.Star, null, Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    "Round $previousRound Machinations",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f)
+                )
+                Icon(
+                    if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    null, Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            if (expanded) {
+                Spacer(Modifier.height(10.dp))
+                results.forEachIndexed { i, r ->
+                    if (i > 0) HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.Top,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            shape = MaterialTheme.shapes.extraSmall
+                        ) {
+                            Text(
+                                "${r.drawCount}",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                r.username,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            if (r.supporters.isNotEmpty()) {
+                                Text(
+                                    "Supported by: ${r.supporters.joinToString(", ")}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MachinationSupportGreen
+                                )
+                            }
+                            if (r.saboteurs.isNotEmpty()) {
+                                Text(
+                                    "Sabotaged by: ${r.saboteurs.joinToString(", ")}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
+                            if (r.supporters.isEmpty() && r.saboteurs.isEmpty()) {
+                                Text(
+                                    "No operations",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                )
+                            }
+                        }
+                        Text(
+                            "${r.drawCount} card${if (r.drawCount != 1) "s" else ""}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
 
 /** Stone counter + winner selection — shown when no result has been submitted yet. */
 @Composable
