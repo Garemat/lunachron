@@ -925,6 +925,8 @@ class CharacterViewModel(
                         gameResults = gameResults.value,
                         sessionToken = prefs.getString("api_session_token", null),
                         backendDeviceId = prefs.getString("api_backend_device_id", null),
+                        persistentDeviceId = prefs.getString("persistent_device_id", null),
+                        sessionExpiresAt = prefs.getString("api_session_expires", null),
                         expiresAt = System.currentTimeMillis() + 15 * 60 * 1000L
                     )
                     DataMigration.encode(payload)
@@ -961,6 +963,10 @@ class CharacterViewModel(
                         prefs.edit {
                             putString("api_session_token", payload.sessionToken)
                             putString("api_backend_device_id", payload.backendDeviceId)
+                            if (!payload.persistentDeviceId.isNullOrBlank())
+                                putString("persistent_device_id", payload.persistentDeviceId)
+                            if (!payload.sessionExpiresAt.isNullOrBlank())
+                                putString("api_session_expires", payload.sessionExpiresAt)
                         }
                         _state.update { it.copy(isRegistered = true, backendDeviceId = payload.backendDeviceId ?: "") }
                     }
