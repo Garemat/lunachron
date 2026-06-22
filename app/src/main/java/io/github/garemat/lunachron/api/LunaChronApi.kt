@@ -222,6 +222,27 @@ class LunaChronApi(
         ApiResult.Error("NETWORK_ERROR", e.message ?: "Network error")
     }
 
+    /**
+     * Transfers this account to [newDeviceId] using the stored (possibly expired)
+     * session token as proof of identity. Called automatically when [login] returns
+     * DEVICE_NOT_FOUND — which happens when the persistent device ID changed between
+     * installs (e.g. GitHub APK → Play Store) and the old token has since expired.
+     *
+     * On success the backend updates the device ID hash and issues a fresh token,
+     * which [handleAuthResponse] persists via [saveToken].
+     */
+    suspend fun adoptDevice(newDeviceId: String): ApiResult<AuthResponse> = try {
+        val body = """{"newDeviceId":"$newDeviceId"}"""
+        val response = http.post("$BASE_URL/auth/adopt-device") {
+            authorize()
+            contentType(ContentType.Application.Json)
+            setBody(body)
+        }
+        handleAuthResponse(response, onDeviceExists = null)
+    } catch (e: Exception) {
+        ApiResult.Error("NETWORK_ERROR", e.message ?: "Network error")
+    }
+
     // ── Campaign endpoints ────────────────────────────────────────────────────
 
     /** Create a new campaign and return its ID and 6-char join code. */
@@ -697,8 +718,12 @@ class LunaChronApi(
         val result = block()
         if (result is ApiResult.Error && result.code == "AUTH_EXPIRED") {
             val deviceId = prefs.getString(KEY_ANDROID_DEVICE_ID, null) ?: return result
-            if (login(deviceId) is ApiResult.Error) return result
-            return block()
+            val loginResult = login(deviceId)
+            if (loginResult is ApiResult.Success) return block()
+            if (loginResult is ApiResult.Error && loginResult.code == "DEVICE_NOT_FOUND") {
+                if (adoptDevice(deviceId) is ApiResult.Success) return block()
+            }
+            return result
         }
         return result
     }

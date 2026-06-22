@@ -159,12 +159,21 @@ class CharacterViewModel(
         nearbyManager.setPayloadListener { endpointId, message -> handleSessionMessage(endpointId, message) }
         // Silently refresh token on startup: backfills backendDeviceId for old registrations
         // and proactively renews tokens within 10 days of expiry.
+        // If login returns DEVICE_NOT_FOUND, the persistent device ID changed between installs
+        // (e.g. GitHub → Play Store migration) — fall back to adopt-device, which accepts the
+        // stored (expired) token as proof of identity and re-keys the account to this device.
         if (_state.value.isRegistered &&
             (_state.value.backendDeviceId.isEmpty() || apiClient.isTokenExpiringSoon())) {
             viewModelScope.launch {
                 val result = apiClient.login(persistentDeviceId)
-                if (result is ApiResult.Success && result.data.deviceId != null) {
-                    _state.update { it.copy(backendDeviceId = result.data.deviceId) }
+                when {
+                    result is ApiResult.Success && result.data.deviceId != null ->
+                        _state.update { it.copy(backendDeviceId = result.data.deviceId) }
+                    result is ApiResult.Error && result.code == "DEVICE_NOT_FOUND" -> {
+                        val adopt = apiClient.adoptDevice(persistentDeviceId)
+                        if (adopt is ApiResult.Success && adopt.data.deviceId != null)
+                            _state.update { it.copy(backendDeviceId = adopt.data.deviceId) }
+                    }
                 }
             }
         }
@@ -935,6 +944,8 @@ class CharacterViewModel(
                         gameResults = gameResults.value,
                         sessionToken = prefs.getString("api_session_token", null),
                         backendDeviceId = prefs.getString("api_backend_device_id", null),
+                        persistentDeviceId = prefs.getString("persistent_device_id", null),
+                        sessionExpiresAt = prefs.getString("api_session_expires", null),
                         expiresAt = System.currentTimeMillis() + 15 * 60 * 1000L
                     )
                     DataMigration.encode(payload)
@@ -971,6 +982,10 @@ class CharacterViewModel(
                         prefs.edit {
                             putString("api_session_token", payload.sessionToken)
                             putString("api_backend_device_id", payload.backendDeviceId)
+                            if (!payload.persistentDeviceId.isNullOrBlank())
+                                putString("persistent_device_id", payload.persistentDeviceId)
+                            if (!payload.sessionExpiresAt.isNullOrBlank())
+                                putString("api_session_expires", payload.sessionExpiresAt)
                         }
                         _state.update { it.copy(isRegistered = true, backendDeviceId = payload.backendDeviceId ?: "") }
                     }

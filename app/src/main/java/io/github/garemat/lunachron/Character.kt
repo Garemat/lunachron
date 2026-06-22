@@ -338,5 +338,7 @@ data class MigrationPayload(
     val gameResults: List<GameResult>,
     val sessionToken: String? = null,
     val backendDeviceId: String? = null,
+    val persistentDeviceId: String? = null,
+    val sessionExpiresAt: String? = null,
     val expiresAt: Long = 0,
 )
