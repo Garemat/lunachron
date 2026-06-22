@@ -575,6 +575,16 @@ class CharacterViewModel(
                     is ApiResult.Error -> _state.update { it.copy(isVerifyingMatchResult = false, onlineCampaignError = r.message) }
                 }
             }
+            is CharacterEvent.OverrideMatchResult -> viewModelScope.launch {
+                _state.update { it.copy(isVerifyingMatchResult = true, onlineCampaignError = null) }
+                when (val r = apiClient.overrideMatchResult(event.campaignId, event.resultId)) {
+                    is ApiResult.Success -> {
+                        _state.update { it.copy(isVerifyingMatchResult = false) }
+                        onEvent(CharacterEvent.LoadOnlineCampaign(event.campaignId))
+                    }
+                    is ApiResult.Error -> _state.update { it.copy(isVerifyingMatchResult = false, onlineCampaignError = r.message) }
+                }
+            }
             is CharacterEvent.ConfirmRoundTroupe -> viewModelScope.launch {
                 _state.update { it.copy(isConfirmingRoundTroupe = true, onlineCampaignError = null) }
                 when (val r = apiClient.confirmRoundTroupe(event.campaignId, event.roundNumber, event.troupeData, event.targetDeviceId)) {
