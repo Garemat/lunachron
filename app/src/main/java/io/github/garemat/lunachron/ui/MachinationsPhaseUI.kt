@@ -78,10 +78,7 @@ internal fun OnlineMachinationsTab(
     val attacksEnabled = campaign.settings?.attacksEnabled == true
 
     val rankedMembers = remember(approvedMembers) {
-        approvedMembers.sortedWith(
-            compareByDescending<OnlineCampaignMember> { it.matchPoints }
-                .thenByDescending { it.victoryPoints }
-        )
+        approvedMembers.sortedByDescending { it.powerPoints }
     }
     val rankOf = remember(rankedMembers) {
         rankedMembers.mapIndexed { i, m -> m.deviceId to i + 1 }.toMap()
