@@ -585,6 +585,26 @@ class LunaChronApi(
         ApiResult.Error("NETWORK_ERROR", e.message ?: "Network error")
     } }
 
+    /** Host-only: force-verify a pending match result without opponent confirmation. */
+    suspend fun overrideMatchResult(campaignId: String, resultId: String): ApiResult<Unit> = withSession { try {
+        val body = """{"resultId":"$resultId"}"""
+        val response = http.post("$BASE_URL/campaigns/$campaignId/override-result") {
+            authorize()
+            contentType(ContentType.Application.Json)
+            setBody(body)
+        }
+        val text = response.bodyAsText()
+        when (response.status.value) {
+            200 -> ApiResult.Success(Unit)
+            else -> {
+                val err = runCatching { json.decodeFromString<ApiErrorBody>(text) }.getOrDefault(ApiErrorBody())
+                ApiResult.Error(err.code, err.message)
+            }
+        }
+    } catch (e: Exception) {
+        ApiResult.Error("NETWORK_ERROR", e.message ?: "Network error")
+    } }
+
     /** Add a named local (unattended) player to a campaign (host only). */
     suspend fun addLocalMember(campaignId: String, name: String): ApiResult<AddLocalMemberResponse> = withSession { try {
         val body = """{"name":${json.encodeToString(name)}}"""

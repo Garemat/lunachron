@@ -540,7 +540,9 @@ private fun ActiveCampaignHome(
                 onDecodeTroupe = onDecodeTroupe)
             ActiveTab.SCHEDULE    -> OnlineScheduleTabContent(
                 campaign = campaign,
-                showCurrentRoundScores = inMachinationsPhase
+                showCurrentRoundScores = inMachinationsPhase,
+                isHost = isHost,
+                onEvent = onEvent
             )
             ActiveTab.MACHINATIONS -> if (inMachinationsPhase) {
                 OnlineMachinationsTab(campaign = campaign, state = state, onEvent = onEvent, onDecodeTroupe = onDecodeTroupe)
@@ -837,7 +839,12 @@ private fun TroupeDetailSheet(
 // ── Schedule tab ──────────────────────────────────────────────────────────────
 
 @Composable
-private fun OnlineScheduleTabContent(campaign: OnlineCampaignDetail, showCurrentRoundScores: Boolean = false) {
+private fun OnlineScheduleTabContent(
+    campaign: OnlineCampaignDetail,
+    showCurrentRoundScores: Boolean = false,
+    isHost: Boolean = false,
+    onEvent: ((CharacterEvent) -> Unit)? = null
+) {
     val theme = LocalAppThemeProperties.current
     val schedule = campaign.schedule
     if (schedule == null) {
@@ -900,7 +907,7 @@ private fun OnlineScheduleTabContent(campaign: OnlineCampaignDetail, showCurrent
                                 val p1Name = campaign.members.find { it.deviceId == p1Id }?.username ?: "?"
                                 val p2Name = campaign.members.find { it.deviceId == p2Id }?.username ?: "?"
                                 val roundComplete = roundNum < campaign.currentRound ||
-                                    (roundNum == campaign.currentRound && showCurrentRoundScores)
+                                    (roundNum == campaign.currentRound && (showCurrentRoundScores || isHost))
                                 val result = if (roundComplete) campaign.matchResults.firstOrNull {
                                     it.roundNumber == roundNum && it.gameNumber == gameNum
                                 } else null
@@ -909,7 +916,10 @@ private fun OnlineScheduleTabContent(campaign: OnlineCampaignDetail, showCurrent
                                     p2Name = p2Name,
                                     result = result,
                                     p1Id = p1Id,
-                                    p2Id = p2Id
+                                    p2Id = p2Id,
+                                    isHost = isHost,
+                                    campaignId = campaign.id,
+                                    onEvent = onEvent
                                 )
                             }
                         }
@@ -926,7 +936,10 @@ private fun GameResultRow(
     p2Name: String,
     result: OnlineMatchResult?,
     p1Id: String?,
-    p2Id: String?
+    p2Id: String?,
+    isHost: Boolean = false,
+    campaignId: String? = null,
+    onEvent: ((CharacterEvent) -> Unit)? = null
 ) {
     if (result == null) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -1012,6 +1025,15 @@ private fun GameResultRow(
                     style = MaterialTheme.typography.labelSmall,
                     color = statusColor
                 )
+            }
+            if (isHost && result.verifyStatus == "PENDING" && campaignId != null && onEvent != null) {
+                TextButton(
+                    onClick = { onEvent(CharacterEvent.OverrideMatchResult(campaignId, result.id)) },
+                    modifier = Modifier.align(Alignment.End).height(28.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                ) {
+                    Text("Force verify", style = MaterialTheme.typography.labelSmall)
+                }
             }
         }
     }
