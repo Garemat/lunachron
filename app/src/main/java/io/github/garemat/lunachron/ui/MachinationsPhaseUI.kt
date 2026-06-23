@@ -205,6 +205,39 @@ internal fun OnlineMachinationsTab(
             }
         }
 
+        // Submission status — visible to all, shows who has/hasn't submitted yet
+        item {
+            val submittedIds = remember(campaign.machinations) {
+                campaign.machinations.map { it.deviceId }.toSet()
+            }
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                approvedMembers.forEach { m ->
+                    val done = m.deviceId in submittedIds
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        Icon(
+                            if (done) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+                            contentDescription = null,
+                            modifier = Modifier.size(11.dp),
+                            tint = if (done) SupportGreen
+                                   else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
+                        )
+                        Text(
+                            m.username,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (done) MaterialTheme.colorScheme.onSurface
+                                    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
+                        )
+                    }
+                }
+            }
+        }
+
         if (myDeviceId.isNotEmpty() && eligibleTargets.isNotEmpty()) {
             // Opponent exclusion notice
             if (myNextOpponentId != null) {
