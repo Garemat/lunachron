@@ -2795,6 +2795,30 @@ private fun MachinationsOverviewSection(
                 )
             }
         }
+
+        // Per-player submission detail
+        if (machinations.any { it.choices.isNotEmpty() }) {
+            val memberByDeviceId = members.associateBy { it.deviceId }
+            HorizontalDivider(thickness = 0.5.dp, modifier = Modifier.padding(top = 2.dp))
+            Text("Submissions", style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 2.dp))
+            for (entry in machinations.filter { it.choices.isNotEmpty() }) {
+                Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                    Text(entry.username, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                    entry.choices.forEach { choice ->
+                        val targetName = memberByDeviceId[choice.targetDeviceId]?.username ?: "?"
+                        val choiceColor = if (choice.type == "SUPPORT") Color(0xFF4CAF50)
+                                          else MaterialTheme.colorScheme.error
+                        Text(
+                            "  ${choice.type} → $targetName",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = choiceColor
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
