@@ -22,6 +22,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.garemat.lunachron.CampaignRound
@@ -2299,6 +2300,17 @@ private fun AdminPanelSheet(
                 }
             }
 
+            // Machinations overview — host-only tally of all submitted choices
+            if (campaign.phase == "MACHINATIONS") {
+                item { HorizontalDivider() }
+                item {
+                    MachinationsOverviewSection(
+                        members = campaign.members.filter { it.status == "APPROVED" },
+                        machinations = campaign.machinations
+                    )
+                }
+            }
+
             // Machinations phase — host submits on behalf of local players
             if (campaign.phase == "MACHINATIONS" && localMembers.isNotEmpty()) {
                 item { HorizontalDivider() }
@@ -2697,6 +2709,90 @@ private fun AdminLocalGameCard(
                     Spacer(Modifier.width(4.dp))
                     Text("Submit", style = MaterialTheme.typography.labelMedium)
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MachinationsOverviewSection(
+    members: List<OnlineCampaignMember>,
+    machinations: List<OnlineMachinationEntry>
+) {
+    data class Tally(val supports: Int = 0, val sabotages: Int = 0)
+
+    val submittedIds = machinations.map { it.deviceId }.toSet()
+    val tally = buildMap<String, Tally> {
+        for (entry in machinations) {
+            for (choice in entry.choices) {
+                val cur = getOrDefault(choice.targetDeviceId, Tally())
+                put(choice.targetDeviceId, if (choice.type == "SUPPORT")
+                    cur.copy(supports = cur.supports + 1)
+                else
+                    cur.copy(sabotages = cur.sabotages + 1))
+            }
+        }
+    }
+
+    val notSubmitted = members.filter { it.deviceId !in submittedIds }
+    val sorted = members.sortedByDescending {
+        (tally[it.deviceId]?.supports ?: 0) - (tally[it.deviceId]?.sabotages ?: 0)
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text("Machinations Overview", style = MaterialTheme.typography.labelMedium)
+
+        if (notSubmitted.isNotEmpty()) {
+            Text(
+                "Awaiting: ${notSubmitted.joinToString { it.username }}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
+
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("", modifier = Modifier.weight(1f))
+            Text("✓",  modifier = Modifier.width(20.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("+",  modifier = Modifier.width(28.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.End)
+            Text("−",  modifier = Modifier.width(28.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.End)
+            Text("Net", modifier = Modifier.width(36.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.End)
+        }
+
+        HorizontalDivider(thickness = 0.5.dp)
+
+        for (member in sorted) {
+            val t = tally.getOrDefault(member.deviceId, Tally())
+            val net = t.supports - t.sabotages
+            val netColor = when {
+                net > 0 -> Color(0xFF4CAF50)
+                net < 0 -> MaterialTheme.colorScheme.error
+                else    -> MaterialTheme.colorScheme.onSurface
+            }
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    member.username,
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Box(modifier = Modifier.width(20.dp), contentAlignment = Alignment.Center) {
+                    if (member.deviceId in submittedIds) {
+                        Icon(Icons.Default.CheckCircle, null,
+                            modifier = Modifier.size(14.dp),
+                            tint = Color(0xFF4CAF50))
+                    }
+                }
+                Text("${t.supports}", modifier = Modifier.width(28.dp), style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.End)
+                Text("${t.sabotages}", modifier = Modifier.width(28.dp), style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.End)
+                Text(
+                    if (net >= 0) "+$net" else "$net",
+                    modifier = Modifier.width(36.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Bold,
+                    color = netColor,
+                    textAlign = TextAlign.End
+                )
             }
         }
     }
