@@ -211,6 +211,7 @@ data class OnlineMachinationAttack(
 data class OnlineMachinationEntry(
     val deviceId: String,
     val username: String,
+    val roundNumber: Int = 0,
     val choices: List<OnlineMachinationChoice> = emptyList(),
     val attack: OnlineMachinationAttack? = null
 )

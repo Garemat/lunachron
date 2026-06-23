@@ -2311,6 +2311,13 @@ private fun AdminPanelSheet(
                 }
             }
 
+            // Historical machinations — all past rounds, full data including sabotages
+            val historicalEntries = campaign.previousRoundMachinations.filter { it.roundNumber > 0 }
+            if (historicalEntries.isNotEmpty()) {
+                item { HorizontalDivider() }
+                item { HistoricalMachinationsSection(campaign.previousRoundMachinations) }
+            }
+
             // Machinations phase — host submits on behalf of local players
             if (campaign.phase == "MACHINATIONS" && localMembers.isNotEmpty()) {
                 item { HorizontalDivider() }
@@ -2815,6 +2822,129 @@ private fun MachinationsOverviewSection(
                             style = MaterialTheme.typography.labelSmall,
                             color = choiceColor
                         )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HistoricalMachinationsSection(previousRoundMachinations: List<OnlineMachinationEntry>) {
+    val rounds = previousRoundMachinations
+        .filter { it.roundNumber > 0 }
+        .groupBy { it.roundNumber }
+    if (rounds.isEmpty()) return
+
+    val sortedRounds = rounds.keys.sortedDescending()
+    val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
+
+    Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
+        Text("Past Rounds", style = MaterialTheme.typography.labelMedium,
+            modifier = Modifier.padding(bottom = 4.dp))
+
+        sortedRounds.forEachIndexed { index, roundNum ->
+            val entries = rounds[roundNum] ?: return@forEachIndexed
+            var expanded by remember(roundNum) { mutableStateOf(false) }
+
+            if (index > 0) HorizontalDivider(thickness = 0.5.dp)
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = !expanded }
+                    .padding(vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Round $roundNum", style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.weight(1f))
+                Text("${entries.size} submitted",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = onSurfaceVariant)
+                Spacer(Modifier.width(4.dp))
+                Icon(
+                    if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = onSurfaceVariant
+                )
+            }
+
+            if (expanded) {
+                HistoricalRoundDetail(entries = entries)
+                Spacer(Modifier.height(4.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun HistoricalRoundDetail(entries: List<OnlineMachinationEntry>) {
+    data class Tally(val supports: Int = 0, val sabotages: Int = 0)
+
+    val nameById = entries.associate { it.deviceId to it.username }
+    val tally = buildMap<String, Tally> {
+        for (entry in entries) {
+            for (choice in entry.choices) {
+                val cur = getOrDefault(choice.targetDeviceId, Tally())
+                put(choice.targetDeviceId, if (choice.type == "SUPPORT")
+                    cur.copy(supports = cur.supports + 1)
+                else
+                    cur.copy(sabotages = cur.sabotages + 1))
+            }
+        }
+    }
+    val allIds = (entries.map { it.deviceId } + tally.keys).toSet()
+    val sorted = allIds.sortedByDescending {
+        (tally[it]?.supports ?: 0) - (tally[it]?.sabotages ?: 0)
+    }
+    val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
+
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp),
+        modifier = Modifier.padding(start = 8.dp, bottom = 4.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("", modifier = Modifier.weight(1f))
+            Text("+",  modifier = Modifier.width(28.dp), style = MaterialTheme.typography.labelSmall, color = onSurfaceVariant, textAlign = TextAlign.End)
+            Text("−",  modifier = Modifier.width(28.dp), style = MaterialTheme.typography.labelSmall, color = onSurfaceVariant, textAlign = TextAlign.End)
+            Text("Net", modifier = Modifier.width(36.dp), style = MaterialTheme.typography.labelSmall, color = onSurfaceVariant, textAlign = TextAlign.End)
+        }
+        HorizontalDivider(thickness = 0.5.dp)
+        for (deviceId in sorted) {
+            val name = nameById[deviceId] ?: "?"
+            val t = tally.getOrDefault(deviceId, Tally())
+            val net = t.supports - t.sabotages
+            val netColor = when {
+                net > 0 -> Color(0xFF4CAF50)
+                net < 0 -> MaterialTheme.colorScheme.error
+                else    -> MaterialTheme.colorScheme.onSurface
+            }
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(name, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("${t.supports}",  modifier = Modifier.width(28.dp), style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.End)
+                Text("${t.sabotages}", modifier = Modifier.width(28.dp), style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.End)
+                Text(
+                    if (net >= 0) "+$net" else "$net",
+                    modifier = Modifier.width(36.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Bold,
+                    color = netColor,
+                    textAlign = TextAlign.End
+                )
+            }
+        }
+        if (entries.any { it.choices.isNotEmpty() }) {
+            HorizontalDivider(thickness = 0.5.dp, modifier = Modifier.padding(top = 2.dp))
+            Text("Submissions", style = MaterialTheme.typography.labelSmall,
+                color = onSurfaceVariant, modifier = Modifier.padding(top = 2.dp))
+            for (entry in entries.filter { it.choices.isNotEmpty() }) {
+                Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                    Text(entry.username, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                    entry.choices.forEach { choice ->
+                        val targetName = nameById[choice.targetDeviceId] ?: "?"
+                        val choiceColor = if (choice.type == "SUPPORT") Color(0xFF4CAF50)
+                                          else MaterialTheme.colorScheme.error
+                        Text("  ${choice.type} → $targetName",
+                            style = MaterialTheme.typography.labelSmall, color = choiceColor)
                     }
                 }
             }
