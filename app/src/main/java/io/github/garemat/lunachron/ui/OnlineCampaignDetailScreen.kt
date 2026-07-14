@@ -1281,10 +1281,13 @@ private fun PreviousRoundMachinationsSection(
         val drawCount: Int
     )
 
-    val results = remember(machinations, members) {
+    val results = remember(machinations, members, previousRound) {
         val supportersOf = mutableMapOf<String, MutableList<String>>()
         val sabotageCountOf = mutableMapOf<String, Int>()
+        // Hosts receive every past round's submissions (tagged with roundNumber > 0);
+        // members receive only the previous round, where roundNumber defaults to 0.
         for (entry in machinations) {
+            if (entry.roundNumber > 0 && entry.roundNumber != previousRound) continue
             for (choice in entry.choices) {
                 if (choice.type == "SUPPORT") {
                     supportersOf.getOrPut(choice.targetDeviceId) { mutableListOf() }.add(entry.username)
