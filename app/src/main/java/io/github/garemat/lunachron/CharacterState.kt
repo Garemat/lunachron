@@ -211,6 +211,9 @@ data class OnlineMachinationAttack(
 data class OnlineMachinationEntry(
     val deviceId: String,
     val username: String,
+    // Only sent (as >0) for hosts, whose previousRoundMachinations spans every
+    // past round rather than just the previous one. Defaults to 0 for member
+    // responses, which the server already scopes to a single round.
     val roundNumber: Int = 0,
     val choices: List<OnlineMachinationChoice> = emptyList(),
     val attack: OnlineMachinationAttack? = null
